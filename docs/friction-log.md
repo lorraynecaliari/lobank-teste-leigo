@@ -122,6 +122,8 @@ Não é teste de usabilidade. Rodada feita pelo mesmo Claude que escreveu o rote
 | 16:10 | Pix de R$ 5 para `testepix@celcoin.com.br` com a nova espera de 10 s | Usuária: OK, contagem e comprovante. MCP: `PIXPAYMENTOUT` R$ 5, criado às 16:10:50 e liberado às 16:11:24 (cerca de 34 s) | Com 10 s entre as consultas, a confirmação apareceu na 3ª ou 4ª consulta. |
 | 16:18 | **Informação recebida pela usuária:** o Pix recebido não entra no saldo porque os eventos `pix-payment-in` e `pix-payment-out` não estão configurados | Conferido via MCP: `GET /baas/v2/webhook/subscription` → 404 `CBE217` "Não foram encontrados webhooks cadastrados". Cadastro documentado em `POST /baas/v2/webhook/subscription` `{entity, webhookUrl, auth}` | **Hipótese ainda não testada.** A própria página de webhooks diz que o webhook é só notificação e não deve servir de base para extrato. A skill não diz que o crédito depende de webhook cadastrado; se isso se confirmar, é uma lacuna da skill e da documentação. |
 | 16:22 | Cadastro de webhooks `pix-payment-in` e `pix-payment-out` para um endereço do webhook.site (escolha da usuária), com `auth` basic de teste fictício | 200 `SUCCESS` nos dois (`6af36eff…`, `6af36f00…`); a consulta lista os dois como `active: true` | **Os 2 Pix anteriores não foram creditados depois do cadastro:** o saldo da PF continua `5980` (6000 − 15 − 5). A consulta de inscrições devolve a senha do `auth` em texto puro. |
+| 16:24 | **Teste 6: Pix PJ → PF com webhooks cadastrados**, R$ 10 por QR Code gerado no app (pedido pela usuária), id `def015e5-…` | `CONFIRMED`; PJ `925` → `915`; webhook **`pix-payment-out` entregue** ao webhook.site (`ENVIADO`, HTTP 200); `RECEIVEPIX` existe (`transactionId 202611100000001020`) | Cerca de 2,5 min depois: saldo da PF **continua `5980`**; **nenhum evento `pix-payment-in` foi gerado** (404 `CBE238`). |
+| 16:27 | **Conclusão sobre a hipótese do webhook** | **Não confirmada.** Com os dois eventos cadastrados, a saída foi notificada, mas o recebimento não gerou evento nem crédito | A falta de webhook não explica o defeito: do lado de quem recebe, a Celcoin nem cria o `pix-payment-in`. Continua sendo o item 1 para a Celcoin. Os webhooks seguem cadastrados; para remover, use `DELETE /baas/v2/webhook/subscription/{id}`. |
 
 ### Rodada 0: fechamento (10/11/2026, 16:15)
 
@@ -147,7 +149,7 @@ Não é teste de usabilidade. Rodada feita pelo mesmo Claude que escreveu o rote
 
 #### Itens para levar à Celcoin (quando a usuária quiser)
 
-1. **Pix entre contas do mesmo tenant não é creditado no destino** (12:47 e 14:53). O `RECEIVEPIX` existe no módulo Pix (`transactionId 202611100000000666` e `202611100000000830`), mas a carteira de quem recebe não é lançada. Os valores somem da soma das duas contas.
+1. **Pix entre contas do mesmo tenant não é creditado no destino** (12:47, 14:53 e 16:24, esta última já com os webhooks `pix-payment-in` e `pix-payment-out` cadastrados). O `RECEIVEPIX` existe no módulo Pix (`transactionId 202611100000000666` e `202611100000000830`), mas a carteira de quem recebe não é lançada. Os valores somem da soma das duas contas.
 2. **Lista de chaves de conta sem chave devolve 404 `CBE180`** em vez de lista vazia (13:57). Não está na documentação nem na skill.
 3. **Busca da documentação pelo MCP:** não acha páginas de BaaS que existem, como criar chave (12:31), excluir chave (14:07) e criar proposta PF (12:09). O `fetch_celcoin_documentation` não aceita a URL `.md` (12:10).
 4. **Divergências na documentação:**
