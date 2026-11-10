@@ -71,6 +71,21 @@ Não é teste de usabilidade. Rodada feita pelo mesmo Claude que escreveu o rote
 
 **Achado:** só o navegador conseguiu ler a página de referência de criação de proposta PF. A ferramenta de documentação do MCP não alcança essa página porque ela não está no `llms.txt`, e o "truque do `.md`" da skill depende de um acesso HTTP que o agente pode não ter.
 
+### Rodada 0: escopo e decisões do app (P3), 10/11/2026
+
+- **Tipos de conta:** PF e PJ.
+- **Boards:** todos os 8 boards. Telas retiradas:
+  - por comentário: Procuração; Portabilidade de chave; Portabilidade criada.
+  - por decisão da usuária, por ser só EVP: Cadastrar chave Celular; Chave de telefone cadastrada; Verificação do código SMS; Reivindicação de chave; Chave vinculada a outro usuário.
+  - por decisão da usuária: as 3 telas de agendamento de Pix em Transferir; a tela de autenticação do telefone por SMS (a Celcoin não envia SMS e a skill proíbe código fixo); Splashscreen e Onboarding v.1 a v.4.
+  - itens retirados de dentro das telas: Pix Automático, Minha agenda Pix, Cartão de crédito, Solicitar crédito.
+  - total: 103 telas no Studio, cerca de 86 no app, mais 2 telas novas (login e validação de identidade/aguardando conta).
+- **Login:** CPF/CNPJ e senha. Nenhum board traz tela de login; ela será criada no mesmo visual e marcada como "não veio do Studio".
+- **Banco de dados:** decidido pelo agente, com aval da usuária: SQLite local.
+- **Documentoscopia:** o onboarding redireciona para a URL `celcoin.cadastro.io` que a Celcoin devolve (requisito da usuária).
+- **Branding divergente no Studio:** o bloco de branding do HTML das telas traz secundária `#F3F3FA` e raio `12px`, mas o branding efetivo do projeto devolvido pelo MCP é secundária `#49FADE` e raio `8px`. A primária `#7664FA` e a fonte Inter batem. `hasLogo: false`: as telas trazem o logo da Celcoin embutido em SVG.
+- **Tamanho:** cada tela tem cerca de 25 KB de HTML. Ler as 86 telas exatas não cabe numa sessão; a construção será feita em fases.
+
 ## Dados da rodada
 
 | Campo | Valor |
