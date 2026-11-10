@@ -229,7 +229,11 @@ Commits no branch `app-rodada-0`: `7bf26d0` (PJ), `d9746cc` (Copia e Cola e agê
 
 | 17:32 | **Teste C repetido depois da correção:** QR gerado na PF às 17:31 e pago pela MEI com Copia e Cola às 17:32 | **Pagamento ok:** `initiationType: STATIC_QRCODE`, `transactionIdentification: "***"`, `CONFIRMED`; MEI `9995` → `9988`; webhook `pix-payment-out` entregue; `RECEIVEPIX` existe (`202611100000001150`). **PF continua `5980`** | Primeiro Pix `STATIC_QRCODE` pelo app no sandbox real, aceito com `"***"` no `transactionIdentification`. O recebimento repete o defeito do item 1 para a Celcoin: **4ª vez** (12:46, 14:53, 16:24, 17:32), agora a partir de uma conta MEI e por QR Code. |
 
-**A testar no sandbox real (roteiro mandado à usuária):** cadastro PJ com dois sócios e uma documentoscopia por sócio; login por CNPJ; Pix Copia e Cola (`STATIC_QRCODE` com `transactionIdentification: "***"`, nunca enviado de verdade); Pix por agência e conta (`MANUAL`); atualização de dados (`PUT`).
+| 17:35 | **Teste D: Meus dados (PF)**, e-mail trocado e endereço completado (rua, número, complemento, bairro, UF) | MCP `account/fetch` às 17:36: e-mail `testelorrayne1@…`, endereço novo com complemento, `lastUpdate 2026-11-10T17:35:39` | `PUT /baas/v2/account/natural-person` verificado no sandbox real. O endereço veio incompleto no app porque a conta foi aberta antes de o app guardar o endereço inteiro (só CEP e cidade). Contas novas já guardam tudo. |
+
+**Testado no sandbox real até 17:36:** cadastro PJ MEI e login por CNPJ (A), Pix `MANUAL` (B), Pix `STATIC_QRCODE` (C), atualização de dados PF (D). **Ainda não testado:** cadastro PJ com sócios (uma documentoscopia por sócio), Meus dados de PJ (`PUT /business`), arquivos do extrato com dados reais.
+
+**Roteiro original mandado à usuária:** cadastro PJ com dois sócios e uma documentoscopia por sócio; login por CNPJ; Pix Copia e Cola (`STATIC_QRCODE` com `transactionIdentification: "***"`, nunca enviado de verdade); Pix por agência e conta (`MANUAL`); atualização de dados (`PUT`).
 
 ## Dados da rodada
 
