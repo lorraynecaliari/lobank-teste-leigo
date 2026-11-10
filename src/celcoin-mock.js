@@ -1,0 +1,116 @@
+// Simulação LOCAL da Celcoin, só para desenvolvimento e testes automatizados.
+// Ativada apenas com CELCOIN_MODE=mock. O app mostra uma faixa "MODO SIMULADO"
+// em todas as telas nesse modo, para que ninguém confunda com integração real.
+// O comportamento reproduz o que foi observado no sandbox em 10/11/2026.
+const crypto = require('crypto');
+
+const state = { proposals: new Map(), accounts: new Map(), keys: new Map(), payments: new Map(), movements: new Map(), nextAccount: 50000001 };
+const err = (status, errorCode, message) => Object.assign(new Error(message), { mockStatus: status, errorCode });
+const now = () => new Date().toISOString().slice(0, 19);
+
+function wrapError(e) {
+  const { CelcoinError } = require('./celcoin');
+  if (e.mockStatus) throw new CelcoinError(e.mockStatus, e.errorCode, e.message, { error: { errorCode: e.errorCode, message: e.message } });
+  throw e;
+}
+
+function approveDocumentscopy(proposalId) {
+  const p = state.proposals.get(proposalId);
+  if (!p) return false;
+  p.status = 'RESOURCE_CREATED';
+  const account = String(state.nextAccount++);
+  state.accounts.set(p.documentNumber, { branch: '0001', account, ...p.body });
+  state.movements.set(account, []);
+  return true;
+}
+
+async function handle(method, path, body) {
+  try {
+    const [p, qs] = path.split('?');
+    const q = new URLSearchParams(qs || '');
+
+    if (method === 'POST' && p === '/onboarding/v1/onboarding-proposal/natural-person') {
+      const proposalId = crypto.randomUUID();
+      const last = String(body.phoneNumber || '').slice(-1);
+      state.proposals.set(proposalId, {
+        proposalId, documentNumber: body.documentNumber, clientCode: body.clientCode, body,
+        status: last === '2' ? 'REPROVED' : 'PENDING_DOCUMENTSCOPY',
+        url: `https://celcoin.cadastro.io/mock-${proposalId.slice(0, 8)}`,
+      });
+      return { version: '1.0.0', status: 'PROCESSING', body: { proposalId, clientCode: body.clientCode, documentNumber: body.documentNumber } };
+    }
+    if (method === 'GET' && p === '/onboarding/v1/onboarding-proposal') {
+      const pr = state.proposals.get(q.get('proposalId'));
+      if (!pr) throw err(404, 'OBE049', 'Não foi encontrada nenhuma proposta referente aos dados informados.');
+      return { status: 'SUCCESS', body: { proposal: [{ proposalId: pr.proposalId, clientCode: pr.clientCode, status: pr.status,
+        documentscopys: [{ status: pr.status === 'RESOURCE_CREATED' ? 'APPROVED' : 'PENDING', url: pr.url }] }] } };
+    }
+    if (method === 'GET' && p === '/baas/v2/account/fetch') {
+      const a = state.accounts.get(q.get('documentNumber'));
+      if (!a) throw err(404, 'CBE078', 'Nenhuma conta foi encontrada.');
+      return { status: 'SUCCESS', body: { statusAccount: 'ATIVO', fullName: a.fullName, account: { branch: a.branch, account: a.account } } };
+    }
+    if (method === 'GET' && p === '/baas/v2/wallet/balance') {
+      const acc = q.get('Account');
+      const moves = state.movements.get(acc);
+      if (!moves) throw err(400, 'CBE039', 'Account invalido.');
+      const amount = moves.reduce((s, m) => s + (m.balanceType === 'CREDIT' ? m.amount : -m.amount), 0);
+      return { status: 'SUCCESS', body: { amount } };
+    }
+    if (method === 'GET' && p === '/baas-walletreports/v1/wallet/movement') {
+      const acc = q.get('Account');
+      return { status: 'SUCCESS', body: { account: acc, movements: (state.movements.get(acc) || []).slice().reverse() } };
+    }
+    if (method === 'GET' && p.startsWith('/baas/v2/pix/dict/entry/external/')) {
+      const key = q.get('key');
+      if (key === 'naoexiste@example.com') throw err(404, 'CBE180', 'Não encontramos a chave informada.');
+      return { status: 'SUCCESS', body: { keyType: key.includes('@') ? 'EMAIL' : 'EVP', key,
+        account: { participant: '13935893', branch: '0', account: '*********', accountType: '***' },
+        owner: { type: 'LEGAL_PERSON', documentNumber: '41878181000130', name: 'Pix Celcoin Teste 2 Avulso' },
+        endtoEndId: 'E13935893' + Date.now() + 'MOCK' } };
+    }
+    if (method === 'GET' && p.startsWith('/baas/v2/pix/dict/entry/')) {
+      const acc = p.split('/').pop();
+      return { status: 'SUCCESS', body: { listKeys: state.keys.get(acc) || [] } };
+    }
+    if (method === 'POST' && p === '/baas/v2/pix/dict/entry') {
+      if (body.key !== undefined) throw err(400, 'CBE178', 'Quando keyType igual a EVP o campo key não deve ser informado.');
+      const k = { keyType: 'EVP', key: crypto.randomUUID(), account: { participant: '13935893', branch: '0001', account: body.account, accountType: 'TRAN' } };
+      state.keys.set(body.account, [...(state.keys.get(body.account) || []), k]);
+      return { status: 'CONFIRMED', body: k };
+    }
+    if (method === 'POST' && p === '/baas/v2/pix/payment') {
+      const id = crypto.randomUUID();
+      state.payments.set(id, { ...body, id, status: 'PROCESSING', at: Date.now() });
+      return { status: 'PROCESSING', body: { id, clientCode: body.clientCode, endToEndId: body.endToEndId } };
+    }
+    if (method === 'GET' && p === '/baas/v2/pix/payment/status') {
+      const pay = state.payments.get(q.get('id'));
+      if (!pay) throw err(404, 'CBE106', 'Transação não encontrada.');
+      if (pay.status === 'PROCESSING' && Date.now() - pay.at > 1500) {
+        const acc = pay.debitParty.account;
+        const moves = state.movements.get(acc) || [];
+        const bal = moves.reduce((s, m) => s + (m.balanceType === 'CREDIT' ? m.amount : -m.amount), 0);
+        if (bal < pay.amount) { pay.status = 'ERROR'; pay.errorCode = 'CBE123'; }
+        else { pay.status = 'CONFIRMED'; moves.push({ id: pay.id, clientCode: pay.clientCode, description: 'pix', createDate: now(), amount: pay.amount, balanceType: 'DEBIT', movementType: 'PIXPAYMENTOUT' }); }
+      }
+      const out = { status: pay.status, body: { id: pay.id, amount: pay.amount, endToEndId: pay.endToEndId, creditParty: pay.creditParty } };
+      if (pay.errorCode) out.error = { errorCode: pay.errorCode, message: 'Transação não permitida.Conta com saldo insuficiente.' };
+      return out;
+    }
+    if (method === 'POST' && p === '/pix/v1/brcode/static') {
+      return { transactionId: Date.now(), emvqrcps: `00020126580014br.gov.bcb.pix0136${body.key}5204000053039865802BR5913MOCK LOBANK6009SAO PAULO62070503***6304ABCD`, transactionIdentification: '***' };
+    }
+    throw err(404, 'MOCK_ROUTE', `Rota não simulada: ${method} ${p}`);
+  } catch (e) { return wrapError(e); }
+}
+
+// Utilitários exclusivos do modo simulado (rotas /dev, desligadas fora do mock).
+function devCredit(account, amount) {
+  const moves = state.movements.get(account);
+  if (!moves) return false;
+  moves.push({ id: crypto.randomUUID(), clientCode: 'mock-credit', description: 'Crédito simulado', createDate: now(), amount, balanceType: 'CREDIT', movementType: 'ENTRYCREDIT' });
+  return true;
+}
+
+module.exports = { handle, approveDocumentscopy, devCredit, state };

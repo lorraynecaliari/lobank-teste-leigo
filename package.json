@@ -1,0 +1,23 @@
+{
+  "name": "lobank-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LoBank: app de conta digital (PF) sobre o BaaS da Celcoin, no sandbox. Fase 1.",
+  "main": "server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.3.0",
+    "better-sqlite3": "^11.7.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "qrcode": "^1.5.4"
+  }
+}
