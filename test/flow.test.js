@@ -163,3 +163,40 @@ test('telefone final 2: proposta reprovada', async () => {
   assert.equal(r.data.status, 'REPROVED');
   assert.equal(r.data.account, null);
 });
+
+test('cadastro PJ: valida, uma documentoscopia por sócio, conta por fetch-business', async () => {
+  cookie = '';
+  const addr = { postalCode: '06455030', street: 'Alameda Xingu', number: '350', neighborhood: 'Alphaville', city: 'Barueri', state: 'SP' };
+  const filler = { fullName: 'Ana Responsável Teste', cpf: '908.301.661-73', birthDate: '1985-03-10', motherName: 'Maria Teste', phone: '11987650011', email: 'ana@example.com', isPep: false, address: addr };
+  const partner = { fullName: 'Bruno Sócio Teste', cpf: '318.609.139-03', birthDate: '1980-07-01', motherName: 'Joana Teste', phone: '11987650021', email: 'bruno@example.com', share: '40', isPep: false, address: addr };
+  const base = { cnpj: '52.601.815/0001-20', companyKind: 'LTDA', businessName: 'Padaria Teste LTDA', tradingName: 'Padaria Teste', revenue: 'até R$ 81 mil',
+    businessEmail: 'contato@padaria.example.com', businessPhone: '11987650031', businessAddress: addr, fillerRole: 'socio', filler, partners: [partner],
+    password: 'senhaForte1', txPassword: '1234' };
+
+  let r = await call('POST', '/onboarding/pj', { ...base, cnpj: '11.111.111/1111-11' });
+  assert.equal(r.data.error, 'INVALID_CNPJ');
+  r = await call('POST', '/onboarding/pj', { ...base, partners: [{ ...partner, cpf: filler.cpf }] });
+  assert.equal(r.data.error, 'DUPLICATE_PARTNER');
+  r = await call('POST', '/onboarding/pj', { ...base, partners: [{ ...partner, motherName: '' }] });
+  assert.equal(r.data.error, 'INVALID_MOTHER');
+
+  r = await call('POST', '/onboarding/pj', base);
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  r = await call('GET', '/onboarding/status');
+  assert.equal(r.data.status, 'PENDING_DOCUMENTSCOPY');
+  assert.equal(r.data.documentscopies.length, 2);
+  assert.deepEqual(r.data.documentscopies.map((d) => d.name), ['Ana Responsável Teste', 'Bruno Sócio Teste']);
+
+  await call('POST', '/dev/approve-documentscopy');
+  r = await call('GET', '/onboarding/status');
+  assert.equal(r.data.status, 'RESOURCE_CREATED');
+  assert.ok(r.data.account && r.data.account.account);
+  r = await call('GET', '/me');
+  assert.equal(r.data.personType, 'PJ');
+  assert.equal(r.data.name, 'Padaria Teste');
+
+  // login por CNPJ
+  await call('POST', '/auth/logout');
+  r = await call('POST', '/auth/login', { document: '52601815000120', password: 'senhaForte1' });
+  assert.equal(r.status, 200);
+});

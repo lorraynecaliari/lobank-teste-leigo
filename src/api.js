@@ -59,6 +59,43 @@ router.get('/me', auth.requireUser, (req, res) => {
 
 router.get('/config', (req, res) => res.json({ mode: celcoin.MODE, queryIntervalMs: celcoin.MIN_QUERY_INTERVAL_MS }));
 
+// ---------------------------------------------------------------- validação comum
+function parseAddress(a) {
+  a = a || {};
+  const address = {
+    postalCode: v.onlyDigits(a.postalCode), street: String(a.street || '').trim(), number: String(a.number || '').trim(),
+    addressComplement: String(a.complement || '').trim() || undefined, neighborhood: String(a.neighborhood || '').trim(),
+    city: String(a.city || '').trim(), state: String(a.state || '').trim().toUpperCase(),
+  };
+  const ok = address.postalCode.length === 8 && address.street && address.number && address.neighborhood && address.city && address.state.length === 2;
+  return ok ? address : null;
+}
+function checkPasswords(b) {
+  const password = String(b.password || '');
+  const txPassword = String(b.txPassword || '');
+  if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) return { error: ['WEAK_PASSWORD', 'A senha precisa ter 8 caracteres ou mais, com letras e números.'] };
+  if (!/^\d{4}$/.test(txPassword)) return { error: ['INVALID_TX_PASSWORD', 'A senha de transferência precisa ter 4 números.'] };
+  return { password, txPassword };
+}
+// Pessoa física dentro da proposta PJ (responsável e sócios). Devolve [erro] ou { owner }.
+function parseOwner(o, label) {
+  o = o || {};
+  const cpf = v.onlyDigits(o.cpf);
+  if (!v.isValidCpf(cpf)) return { error: ['INVALID_CPF', `CPF inválido (${label}).`] };
+  const fullName = String(o.fullName || '').trim();
+  if (fullName.split(/\s+/).length < 2) return { error: ['INVALID_NAME', `Informe o nome completo (${label}).`] };
+  const motherName = String(o.motherName || '').trim();
+  if (motherName.length < 3) return { error: ['INVALID_MOTHER', `Informe o nome da mãe (${label}).`] };
+  const birthDate = v.isoToCelcoinDate(o.birthDate);
+  if (!birthDate) return { error: ['INVALID_BIRTH', `Data de nascimento inválida (${label}).`] };
+  const phone = v.toE164(o.phone);
+  if (!phone) return { error: ['INVALID_PHONE', `Telefone inválido (${label}).`] };
+  if (!v.isEmail(o.email)) return { error: ['INVALID_EMAIL', `E-mail inválido (${label}).`] };
+  const address = parseAddress(o.address);
+  if (!address) return { error: ['INVALID_ADDRESS', `Endereço incompleto (${label}).`] };
+  return { owner: { documentNumber: cpf, fullName, phoneNumber: phone, email: String(o.email).trim(), motherName, birthDate, address, isPoliticallyExposedPerson: o.isPep === true } };
+}
+
 // ---------------------------------------------------------------- onboarding PF
 router.post('/onboarding/pf', wrap(async (req, res) => {
   const b = req.body || {};
@@ -111,25 +148,83 @@ router.post('/onboarding/pf', wrap(async (req, res) => {
 }));
 
 // Acompanhamento por consulta direta (o histórico de eventos não serve ao onboarding).
+// ---------------------------------------------------------------- onboarding PJ
+// Studio: board "Onboarding - PJ" (sem Procuração, por comentário). A Celcoin pede dados que as telas do Studio
+// não coletam (endereço da empresa; nome da mãe, nascimento e endereço de cada sócio): o app acrescenta.
+const COMPANY_TYPES = { MEI: 'MEI', EI: 'PJ', SLU: 'PJ', LTDA: 'PJ', SS: 'PJ', SA: 'PJ' }; // a API só aceita PJ ou MEI
+router.post('/onboarding/pj', wrap(async (req, res) => {
+  const b = req.body || {};
+  const cnpj = v.onlyDigits(b.cnpj);
+  if (!v.isValidCnpj(cnpj)) return bad(res, 'INVALID_CNPJ', 'CNPJ inválido.');
+  if (db.prepare('SELECT 1 FROM users WHERE document = ?').get(cnpj)) return bad(res, 'ALREADY_REGISTERED', 'Já existe um cadastro com esse CNPJ. Faça login.', 409);
+  const kind = String(b.companyKind || '').toUpperCase().replace(/\./g, '');
+  if (!COMPANY_TYPES[kind]) return bad(res, 'INVALID_COMPANY_TYPE', 'Escolha o tipo de empresa.');
+  const businessName = String(b.businessName || '').trim();
+  const tradingName = String(b.tradingName || '').trim();
+  if (businessName.length < 3 || businessName.length > 150) return bad(res, 'INVALID_BUSINESS_NAME', 'Informe a razão social.');
+  if (tradingName.length < 2 || tradingName.length > 150) return bad(res, 'INVALID_TRADING_NAME', 'Informe o nome da empresa.');
+  if (!v.isEmail(b.businessEmail)) return bad(res, 'INVALID_EMAIL', 'E-mail da empresa inválido.');
+  const contactNumber = v.toE164(b.businessPhone);
+  if (!contactNumber) return bad(res, 'INVALID_PHONE', 'Telefone da empresa inválido. Use DDD + número.');
+  const businessAddress = parseAddress(b.businessAddress);
+  if (!businessAddress) return bad(res, 'INVALID_ADDRESS', 'Endereço da empresa incompleto.');
+  const role = b.fillerRole === 'representante' ? 'REPRESENTANTE' : 'SOCIO';
+  const me = parseOwner(b.filler, 'responsável');
+  if (me.error) return bad(res, ...me.error);
+  const extra = Array.isArray(b.partners) ? b.partners : [];
+  if (extra.length > 10) return bad(res, 'TOO_MANY_PARTNERS', 'No máximo 10 sócios.');
+  const owners = [{ ownerType: role, ...me.owner }];
+  for (let i = 0; i < extra.length; i++) {
+    const r = parseOwner(extra[i], `sócio ${i + 1}`);
+    if (r.error) return bad(res, ...r.error);
+    if (owners.some((o) => o.documentNumber === r.owner.documentNumber)) return bad(res, 'DUPLICATE_PARTNER', `CPF repetido (sócio ${i + 1}).`);
+    owners.push({ ownerType: role === 'REPRESENTANTE' && i === 0 ? 'SOCIO' : 'DEMAIS_SOCIOS', ...r.owner });
+  }
+  const pw = checkPasswords(b);
+  if (pw.error) return bad(res, ...pw.error);
+
+  const clientCode = celcoin.uid('lobank-pj');
+  const payload = {
+    clientCode, contactNumber, documentNumber: cnpj, businessEmail: String(b.businessEmail).trim(), businessName, tradingName,
+    companyType: COMPANY_TYPES[kind], owner: owners, businessAddress, onboardingType: 'BAAS',
+  };
+  const result = await celcoin.createLegalPersonProposal(payload);
+  const proposalId = result.body && result.body.proposalId;
+  const userId = db.transaction(() => {
+    const info = db.prepare(`INSERT INTO users (document, person_type, full_name, social_name, email, phone, password_hash, tx_password_hash, profile_json)
+      VALUES (?, 'PJ', ?, ?, ?, ?, ?, ?, ?)`).run(cnpj, businessName, tradingName, payload.businessEmail, contactNumber,
+      auth.hashSecret(pw.password), auth.hashSecret(pw.txPassword),
+      JSON.stringify({ companyKind: kind, revenue: b.revenue || null, fillerRole: role, postalCode: businessAddress.postalCode, city: businessAddress.city,
+        owners: owners.map((o, i) => ({ cpf: o.documentNumber, name: o.fullName, type: o.ownerType, share: i ? (extra[i - 1].share || null) : (b.filler.share || null) })) }));
+    db.prepare('INSERT INTO proposals (user_id, proposal_id, client_code, status) VALUES (?, ?, ?, ?)').run(info.lastInsertRowid, proposalId, clientCode, 'PENDING');
+    return info.lastInsertRowid;
+  })();
+  auth.createSession(res, userId);
+  res.json({ ok: true });
+}));
+
 router.get('/onboarding/status', auth.requireUser, wrap(async (req, res) => {
   const p = db.prepare('SELECT * FROM proposals WHERE user_id = ? ORDER BY id DESC LIMIT 1').get(req.user.id);
   if (!p) return bad(res, 'NO_PROPOSAL', 'Nenhuma proposta encontrada.', 404);
   let { status, documentscopy_url: url } = p;
+  let docs = url ? [{ url, status: null }] : [];
   if (!TERMINAL.has(status) || (status === 'RESOURCE_CREATED' && !req.account)) {
     if (p.proposal_id) {
       const data = await celcoin.getProposal(p.proposal_id);
       const prop = (data.body && data.body.proposal && data.body.proposal[0]) || {};
       status = prop.status || status;
-      const doc = (prop.documentscopys || []).find((d) => d.url);
-      url = (doc && doc.url) || url;
+      docs = (prop.documentscopys || []).filter((d) => d.url).map((d) => ({ documentNumber: d.documentNumber, status: d.status, url: d.url }));
+      url = (docs[0] && docs[0].url) || url;
       db.prepare("UPDATE proposals SET status = ?, documentscopy_url = ?, updated_at = datetime('now') WHERE id = ?").run(status, url, p.id);
     }
   }
   let account = req.account;
   if (status === 'RESOURCE_CREATED' && !account) {
     try {
-      const acc = await celcoin.fetchAccountPF(req.user.document);
-      const info = acc.body && acc.body.account; // objeto: o número fica em body.account.account
+      const pj = req.user.person_type === 'PJ';
+      const acc = pj ? await celcoin.fetchAccountPJ(req.user.document) : await celcoin.fetchAccountPF(req.user.document);
+      // PF: body.account.account; PJ: body.businessAccount.account
+      const info = acc.body && (pj ? acc.body.businessAccount : acc.body.account);
       if (info && info.account) {
         db.prepare('INSERT OR IGNORE INTO accounts (user_id, branch, account) VALUES (?, ?, ?)').run(req.user.id, info.branch, info.account);
         account = { branch: info.branch, account: info.account };
@@ -138,7 +233,11 @@ router.get('/onboarding/status', auth.requireUser, wrap(async (req, res) => {
       if (e.code !== 'CBE078') throw e; // CBE078 = "ainda não": a conta pode demorar a aparecer
     }
   }
-  res.json({ status, documentscopyUrl: status === 'PENDING_DOCUMENTSCOPY' ? url : null, account: account ? { branch: account.branch, account: account.account } : null });
+  // PJ: uma documentoscopia por sócio. Devolve cada link com o nome de quem precisa fazer.
+  const owners = (JSON.parse(req.user.profile_json || '{}').owners) || [];
+  const named = docs.map((d) => { const o = owners.find((x) => x.cpf === d.documentNumber); return { url: d.url, status: d.status, name: o ? o.name : (req.user.person_type === 'PF' ? req.user.full_name : null) }; });
+  const pending = status === 'PENDING_DOCUMENTSCOPY';
+  res.json({ status, documentscopyUrl: pending ? url : null, documentscopies: pending ? named : [], account: account ? { branch: account.branch, account: account.account } : null });
 }));
 
 // ---------------------------------------------------------------- conta

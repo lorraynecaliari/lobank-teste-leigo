@@ -131,6 +131,20 @@ const getProposal = (proposalId) =>
 const fetchAccountPF = (cpf) =>
   request('GET', `/baas/v2/account/fetch?documentNumber=${encodeURIComponent(cpf)}`);
 
+// PJ: o owner vai como LISTA (o schema da referência diz objeto, mas o exemplo e o sandbox aceitam lista).
+const createLegalPersonProposal = (payload) =>
+  request('POST', '/onboarding/v1/onboarding-proposal/legal-person', payload);
+
+// A consulta de conta PF recusa CNPJ (CBE370). Na PJ o número fica em body.businessAccount.account.
+const fetchAccountPJ = (cnpj) =>
+  request('GET', `/baas/v2/account/fetch-business?documentNumber=${encodeURIComponent(cnpj)}`);
+
+// Atualizar dados: nome, documento, nome da mãe e nascimento (PF) ou razão social e nome fantasia (PJ) não mudam.
+const updateAccountPF = (account, cpf, payload) =>
+  request('PUT', `/baas/v2/account/natural-person?Account=${encodeURIComponent(account)}&DocumentNumber=${encodeURIComponent(cpf)}`, payload);
+const updateAccountPJ = (account, cnpj, payload) =>
+  request('PUT', `/baas/v2/account/business?Account=${encodeURIComponent(account)}&DocumentNumber=${encodeURIComponent(cnpj)}`, payload);
+
 // ---- Saldo e extrato ---------------------------------------------------------
 const getBalance = (account) =>
   request('GET', `/baas/v2/wallet/balance?Account=${encodeURIComponent(account)}`);
@@ -163,12 +177,26 @@ const pixPayment = (payload) => request('POST', '/baas/v2/pix/payment', payload)
 
 const pixPaymentStatus = (id) => request('GET', `/baas/v2/pix/payment/status?id=${encodeURIComponent(id)}`);
 
+// Copia e Cola: decodifica o EMV. Não movimenta nada, mas é POST: não entra no intervalo de consultas.
+const decodeEmv = (emv) => request('POST', '/pix/v1/emv/full', { emv });
+
+// Lista de instituições do Pix (ISPB). Resposta grande (~900 itens): guardada por 24 h em memória.
+let participantsCache = { at: 0, list: null };
+async function listParticipants() {
+  if (participantsCache.list && Date.now() - participantsCache.at < 24 * 3600e3) return participantsCache.list;
+  const data = await request('GET', '/pix/v1/participants');
+  const list = (Array.isArray(data) ? data : data.body || []).map((p) => ({ ispb: p.ispb, name: p.name, shortName: p.shortName, type: p.type }));
+  participantsCache = { at: Date.now(), list };
+  return list;
+}
+
 // ---- Pix in (QR Code estático) -------------------------------------------------
 const createStaticQr = (payload) => request('POST', '/pix/v1/brcode/static', payload);
 
 module.exports = {
   MODE, BASE_URL, CelcoinError, uid, MIN_QUERY_INTERVAL_MS,
-  createNaturalPersonProposal, getProposal, fetchAccountPF,
+  createNaturalPersonProposal, createLegalPersonProposal, getProposal, fetchAccountPF, fetchAccountPJ, updateAccountPF, updateAccountPJ,
+  decodeEmv, listParticipants,
   getBalance, getMovements, listKeys, createEvpKey, deleteKey,
   lookupKey, pixPayment, pixPaymentStatus, createStaticQr,
 };

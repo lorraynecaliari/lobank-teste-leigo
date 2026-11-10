@@ -14,6 +14,31 @@ function wrapError(e) {
   throw e;
 }
 
+// Leitura TLV do EMV (BR Code), só para o modo simulado. No sandbox quem decodifica é a Celcoin.
+function tlv(str) {
+  const out = {}; let i = 0;
+  while (i + 4 <= str.length) { const id = str.slice(i, i + 2); const len = Number(str.slice(i + 2, i + 4)); out[id] = str.slice(i + 4, i + 4 + len); i += 4 + len; }
+  return out;
+}
+function decodeEmvMock(emv) {
+  const s = String(emv || '').trim();
+  if (!/^000201/.test(s)) {
+    // No sandbox o código real vem dentro de description (code 999 por fora); o cliente já trata isso.
+    throw err(400, 'PCE002', 'Código Pix inválido.');
+  }
+  const t = tlv(s); const mai = tlv(t['26'] || ''); const add = tlv(t['62'] || '');
+  const dynamic = !!mai['25'];
+  const amount = t['54'] ? Number(t['54']) : null;
+  return { version: '1.0.0', status: 200, body: {
+    type: dynamic ? 'DYNAMIC' : 'STATIC',
+    merchantAccountInformation: { url: mai['25'] || null, merchantCategoryCode: t['52'] || '0000', merchantName: null, merchantCity: t['60'] || null, postalCode: t['61'] ? tlv(t['61'])['05'] || null : null },
+    key: mai['01'] || null,
+    amount: { original: amount, final: amount, canModifyFinalAmount: amount == null },
+    transactionIdentification: add['05'] || '***',
+    payload: dynamic ? { merchantName: t['59'] || null } : null,
+  } };
+}
+
 function approveDocumentscopy(proposalId) {
   const p = state.proposals.get(proposalId);
   if (!p) return false;
@@ -39,11 +64,45 @@ async function handle(method, path, body) {
       });
       return { version: '1.0.0', status: 'PROCESSING', body: { proposalId, clientCode: body.clientCode, documentNumber: body.documentNumber } };
     }
+    if (method === 'POST' && p === '/onboarding/v1/onboarding-proposal/legal-person') {
+      if (!Array.isArray(body.owner) || !body.owner.length) throw err(400, 'OBE020', 'owner é obrigatório.');
+      const proposalId = crypto.randomUUID();
+      const last = String(body.contactNumber || '').slice(-1);
+      state.proposals.set(proposalId, {
+        proposalId, documentNumber: body.documentNumber, clientCode: body.clientCode, body, type: 'PJ',
+        status: last === '2' ? 'REPROVED' : 'PENDING_DOCUMENTSCOPY',
+        // Igual ao sandbox: uma documentoscopia por sócio (CPF), não pela empresa.
+        docs: body.owner.map((o, i) => ({ documentNumber: o.documentNumber, url: `https://celcoin.cadastro.io/mock-${proposalId.slice(0, 6)}-${i}` })),
+      });
+      return { version: '1.0.0', status: 'PROCESSING', body: { proposalId, clientCode: body.clientCode, documentNumber: body.documentNumber } };
+    }
     if (method === 'GET' && p === '/onboarding/v1/onboarding-proposal') {
       const pr = state.proposals.get(q.get('proposalId'));
       if (!pr) throw err(404, 'OBE049', 'Não foi encontrada nenhuma proposta referente aos dados informados.');
-      return { status: 'SUCCESS', body: { proposal: [{ proposalId: pr.proposalId, clientCode: pr.clientCode, status: pr.status,
-        documentscopys: [{ status: pr.status === 'RESOURCE_CREATED' ? 'APPROVED' : 'PENDING', url: pr.url }] }] } };
+      const st = pr.status === 'RESOURCE_CREATED' ? 'APPROVED' : 'PENDING';
+      const docs = pr.docs || [{ documentNumber: pr.documentNumber, url: pr.url }];
+      return { status: 'SUCCESS', body: { proposal: [{ proposalId: pr.proposalId, clientCode: pr.clientCode, status: pr.status, proposalType: pr.type || 'PF',
+        documentscopys: docs.map((d) => ({ documentNumber: d.documentNumber, status: st, url: d.url })) }] } };
+    }
+    if (method === 'GET' && p === '/baas/v2/account/fetch-business') {
+      const a = state.accounts.get(q.get('documentNumber'));
+      if (!a) throw err(404, 'CBE078', 'Nenhuma conta foi encontrada.');
+      return { status: 'SUCCESS', body: { businessAccount: { branch: a.branch, account: a.account, statusAccount: 'ATIVO' }, businessName: a.businessName, tradingName: a.tradingName } };
+    }
+    if (method === 'GET' && p === '/baas/v2/account/fetch' && String(q.get('documentNumber')).length > 11) {
+      throw err(400, 'CBE370', 'DocumentNumber possui tamanho maximo de 11 caracteres');
+    }
+    if (method === 'PUT' && (p === '/baas/v2/account/natural-person' || p === '/baas/v2/account/business')) {
+      const found = [...state.accounts.values()].find((a) => a.account === q.get('Account'));
+      if (!found) throw err(400, 'CBE039', 'Account invalido.');
+      Object.assign(found, body);
+      return { version: '1.0.0', status: '200' };
+    }
+    if (method === 'GET' && p === '/pix/v1/participants') {
+      return require('./fixtures/participants.json');
+    }
+    if (method === 'POST' && p === '/pix/v1/emv/full') {
+      return decodeEmvMock(body.emv);
     }
     if (method === 'GET' && p === '/baas/v2/account/fetch') {
       const a = state.accounts.get(q.get('documentNumber'));
@@ -91,6 +150,12 @@ async function handle(method, path, body) {
       return { version: '1.0.0', status: 'SUCCESS' };
     }
     if (method === 'POST' && p === '/baas/v2/pix/payment') {
+      // Regras por initiationType, como a skill descreve.
+      const t = body.initiationType;
+      if (t === 'MANUAL' && (body.creditParty.key || body.endToEndId || body.transactionIdentification)) throw err(400, 'CBE300', 'MANUAL não aceita key, endToEndId nem transactionIdentification.');
+      if (t === 'DICT' && (!body.creditParty.key || !body.endToEndId || body.transactionIdentification)) throw err(400, 'CBE301', 'DICT exige key e endToEndId e não aceita transactionIdentification.');
+      if ((t === 'STATIC_QRCODE' || t === 'DYNAMIC_QRCODE') && (!body.creditParty.key || !body.endToEndId || !body.transactionIdentification)) throw err(400, 'CBE302', 'QR Code exige key, endToEndId e transactionIdentification.');
+      if (t === 'MANUAL' && (!body.creditParty.bank || !body.creditParty.account || !body.creditParty.branch || !body.creditParty.taxId)) throw err(400, 'CBE303', 'Dados da conta de destino incompletos.');
       const id = crypto.randomUUID();
       state.payments.set(id, { ...body, id, status: 'PROCESSING', at: Date.now() });
       return { status: 'PROCESSING', body: { id, clientCode: body.clientCode, endToEndId: body.endToEndId } };

@@ -1,0 +1,62 @@
+[
+ {
+  "type": "DRCT",
+  "name": "CAIXA ECONOMICA FEDERAL",
+  "shortName": "CAIXA ECONOMICA FEDERAL",
+  "ispb": "00360305"
+ },
+ {
+  "type": "DRCT",
+  "name": "BANCO DO BRASIL S.A.",
+  "shortName": "BCO DO BRASIL S.A.",
+  "ispb": "00000000"
+ },
+ {
+  "type": "DRCT",
+  "name": "BANCO INTER S.A.",
+  "shortName": "BANCO INTER",
+  "ispb": "00416968"
+ },
+ {
+  "type": "DRCT",
+  "name": "MERCADO PAGO INSTITUIÇÃO DE PAGAMENTO LTDA.",
+  "shortName": "MERCADO PAGO IP LTDA.",
+  "ispb": "10573521"
+ },
+ {
+  "type": "DRCT",
+  "name": "PAGSEGURO INTERNET INSTITUIÇÃO DE PAGAMENTO S.A.",
+  "shortName": "PAGSEGURO INTERNET IP S.A.",
+  "ispb": "08561701"
+ },
+ {
+  "type": "DRCT",
+  "name": "CELCOIN INSTITUICAO DE PAGAMENTO S.A.",
+  "shortName": "CELCOIN IP S.A.",
+  "ispb": "13935893"
+ },
+ {
+  "type": "DRCT",
+  "name": "NU PAGAMENTOS S.A. - INSTITUIÇÃO DE PAGAMENTO",
+  "shortName": "NU PAGAMENTOS - IP",
+  "ispb": "18236120"
+ },
+ {
+  "type": "DRCT",
+  "name": "BANCO BRADESCO S.A.",
+  "shortName": "BCO BRADESCO S.A.",
+  "ispb": "60746948"
+ },
+ {
+  "type": "DRCT",
+  "name": "BANCO SANTANDER (BRASIL) S.A.",
+  "shortName": "BCO SANTANDER (BRASIL) S.A.",
+  "ispb": "90400888"
+ },
+ {
+  "type": "DRCT",
+  "name": "ITAÚ UNIBANCO S.A.",
+  "shortName": "ITAÚ UNIBANCO S.A.",
+  "ispb": "60701190"
+ }
+]

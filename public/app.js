@@ -192,13 +192,16 @@
 
   // ============================================================ CADASTRO PF
   // Studio: board "Onboarding - PF". Telas retiradas por decisão: Splash, Onboarding v.1-4, Telefone|Autenticação (SMS).
-  const TOTAL = 10;
+  const TOTAL = 10, TOTAL_PJ = 12;
   function wizardFrame(step, inner, actions, studio) {
+    const pj = state.onboarding && state.onboarding.kind === 'PJ';
+    const total = pj ? TOTAL_PJ : TOTAL;
+    if (step === 'last') step = total;
     return frame(`
       <header class="topbar">
         <button type="button" class="back-btn" aria-label="Voltar" data-back>${I.back}</button>
-        <div class="crumb"><div class="crumb-row"><span class="crumb-title">Cadastro de Conta Pessoal</span><span class="crumb-step">${step}/${TOTAL}</span></div>
-          <div class="progress-track"><div class="progress-fill" style="width:${step * 10}%"></div></div></div>
+        <div class="crumb"><div class="crumb-row"><span class="crumb-title">${pj ? 'Cadastro de Conta Empresarial' : 'Cadastro de Conta Pessoal'}</span><span class="crumb-step">${step}/${total}</span></div>
+          <div class="progress-track"><div class="progress-fill" style="width:${Math.round((step / total) * 100)}%"></div></div></div>
       </header>
       <div class="content">${inner}</div>
       <div class="actions">${actions || '<button type="button" class="btn btn-primary" data-next disabled>Avançar</button><button type="button" class="btn btn-ghost" data-back>Voltar</button>'}</div>`, { studio });
@@ -220,16 +223,15 @@
         <p class="subtext">Escolha o tipo de conta para começar a ter acesso todas vantagens, leva só uns minutinhos.</p>
         <div class="options">
           <button type="button" class="option is-selected" data-v="PF"><span class="option-avatar">${I.person}</span><span class="option-label">Conta pessoal</span><span class="option-radio"></span></button>
-          <button type="button" class="option" data-v="PJ"><span class="option-avatar">${I.briefcase}</span><span class="option-label">Conta empresarial<span class="option-sub">Disponível na próxima fase</span></span><span class="option-radio"></span></button>
+          <button type="button" class="option" data-v="PJ"><span class="option-avatar">${I.briefcase}</span><span class="option-label">Conta empresarial</span><span class="option-radio"></span></button>
         </div>
       </div>
       <div class="actions"><button type="button" class="btn btn-primary" id="go">Criar conta</button><button type="button" class="btn btn-ghost" id="bk">Voltar</button></div>`, { studio: 'b5afc529 Tipo de conta' });
     let sel = 'PF';
     $$('.option').forEach((o) => { o.onclick = () => { $$('.option').forEach((x) => x.classList.remove('is-selected')); o.classList.add('is-selected'); sel = o.dataset.v; }; });
     $('#go').onclick = () => {
-      if (sel === 'PJ') return toast('A conta empresarial entra na Fase 2 do app.');
-      state.onboarding = { address: {} };
-      go('/cadastro/termos');
+      state.onboarding = { address: {}, kind: sel };
+      go(sel === 'PJ' ? '/cadastro-pj/termos' : '/cadastro/termos');
     };
     $('#bk').onclick = () => go('/login');
   });
@@ -467,7 +469,7 @@
   // Studio: "Criar senha" / "Confirmar senha" / "Criar senha transferência" (modelo comum)
   route('/cadastro/senha', (root) => {
     if (!ob().address.number) return go('/cadastro/endereco');
-    root.innerHTML = wizardFrame(10, `<h1 class="headline">Crie sua <strong>senha de acesso</strong></h1>
+    root.innerHTML = wizardFrame('last', `<h1 class="headline">Crie sua <strong>senha de acesso</strong></h1>
       <div class="field-group"><div class="field"><div class="field-box"><input id="f" type="password" autocomplete="new-password" placeholder="Sua senha"/></div>
       <p class="field-helper" id="rules">Use 8 caracteres ou mais, com letras e números.</p></div></div>`, null, '152226d7 Criar senha (modelo comum)');
     const f = $('#f');
@@ -477,7 +479,7 @@
 
   route('/cadastro/senha/confirmar', (root) => {
     if (!state.pwd) return go('/cadastro/senha');
-    root.innerHTML = wizardFrame(10, `<h1 class="headline"><strong>Confirme</strong> sua senha</h1>
+    root.innerHTML = wizardFrame('last', `<h1 class="headline"><strong>Confirme</strong> sua senha</h1>
       <div class="field-group"><div class="field"><div class="field-box"><input id="f" type="password" autocomplete="new-password" placeholder="Repita a senha"/></div>
       <p class="field-error" id="er">As senhas não conferem.</p></div></div>`, null, 'abe9e59d Confirmar senha (modelo comum)');
     const f = $('#f'), er = $('#er');
@@ -487,7 +489,7 @@
 
   route('/cadastro/senha-transferencia', (root) => {
     if (!state.pwd) return go('/cadastro/senha');
-    root.innerHTML = wizardFrame(10, `<h1 class="headline">Crie sua <strong>senha de transferência</strong></h1>
+    root.innerHTML = wizardFrame('last', `<h1 class="headline">Crie sua <strong>senha de transferência</strong></h1>
       <p class="subtext">Ela será pedida sempre que você fizer um Pix. Use 4 números.</p>
       <div class="field-group"><div class="field"><div class="field-box"><input id="f" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••"/></div>
       <p class="field-error" id="er"></p></div></div>`,
@@ -497,9 +499,16 @@
       setLoading(next, true); er.classList.remove('is-visible');
       const o = ob();
       try {
-        await api('/onboarding/pf', { method: 'POST', allow401: true, body: {
-          cpf: o.cpf, fullName: o.fullName, socialName: o.socialName, birthDate: o.birthDate, motherName: o.motherName, income: o.income, assets: o.assets,
-          profession: o.profession, isPep: o.isPep, email: o.email, phone: o.phone, address: o.address, password: state.pwd, txPassword: f.value } });
+        if (o.kind === 'PJ') {
+          await api('/onboarding/pj', { method: 'POST', allow401: true, body: {
+            cnpj: o.cnpj, companyKind: o.companyKind, businessName: o.businessName, tradingName: o.tradingName, revenue: o.revenue,
+            businessEmail: o.businessEmail, businessPhone: o.businessPhone, businessAddress: o.businessAddress, fillerRole: o.fillerRole,
+            filler: { ...o.filler, address: o.address }, partners: o.partners || [], password: state.pwd, txPassword: f.value } });
+        } else {
+          await api('/onboarding/pf', { method: 'POST', allow401: true, body: {
+            cpf: o.cpf, fullName: o.fullName, socialName: o.socialName, birthDate: o.birthDate, motherName: o.motherName, income: o.income, assets: o.assets,
+            profession: o.profession, isPep: o.isPep, email: o.email, phone: o.phone, address: o.address, password: state.pwd, txPassword: f.value } });
+        }
         state.pwd = null; state.onboarding = null;
         await loadMe();
         go('/cadastro/sucesso');
@@ -527,7 +536,9 @@
       const map = {
         LOADING: { badge: 'wait', icon: I.spinner, title: 'Consultando sua proposta…', desc: '' },
         PENDING: { badge: 'wait', icon: I.spinner, title: 'Analisando seus dados', desc: 'Isso costuma levar poucos segundos.' },
-        PENDING_DOCUMENTSCOPY: { badge: 'wait', icon: I.shield, title: 'Valide sua identidade', desc: 'Toque no botão abaixo para enviar a foto do documento e uma selfie no ambiente seguro da Celcoin. Depois, volte para esta tela.' },
+        PENDING_DOCUMENTSCOPY: { badge: 'wait', icon: I.shield, title: 'Valide sua identidade', desc: (s.documentscopies || []).length > 1
+          ? 'Cada sócio precisa enviar a foto do documento e uma selfie no ambiente seguro da Celcoin. Toque no nome de cada um abaixo. Depois, volte para esta tela.'
+          : 'Toque no botão abaixo para enviar a foto do documento e uma selfie no ambiente seguro da Celcoin. Depois, volte para esta tela.' },
         APPROVED: { badge: 'wait', icon: I.spinner, title: 'Identidade aprovada', desc: 'Estamos abrindo a sua conta. Pode levar alguns minutos; não feche esta tela.' },
         RESOURCE_CREATED: { badge: 'wait', icon: I.spinner, title: 'Conta criada', desc: 'Buscando os dados da sua conta…' },
         REPROVED: { badge: 'err', icon: I.err, title: 'Não foi possível abrir sua conta', desc: 'A análise cadastral não aprovou a abertura. Entre em contato com o suporte do LoBank.' },
@@ -538,8 +549,11 @@
       root.innerHTML = frame(`<header class="hdr"><button class="hdr__icon" id="out" aria-label="Sair">${I.chevLeft}</button></header>
         <div class="scroll"><div class="result"><span class="result__badge result__badge--${m.badge}" style="width:72px;height:72px">${m.icon}</span>
         <h1 class="result__title">${m.title}</h1><p class="result__desc">${m.desc}</p>
-        ${s.status === 'APPROVED' || s.status === 'PENDING_DOCUMENTSCOPY' ? '<p class="result__desc" style="font-size:12px">Status Celcoin: ' + esc(s.status) + '</p>' : ''}</div></div>
-        <div class="actions">${s.documentscopyUrl ? `<a class="btn btn-primary" id="doc" href="${esc(s.documentscopyUrl)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Enviar documento e selfie</a>` : ''}
+        ${s.status === 'APPROVED' || s.status === 'PENDING_DOCUMENTSCOPY' ? '<p class="result__desc" style="font-size:12px">Status Celcoin: ' + esc(s.status) + '</p>' : ''}</div>
+        ${(s.documentscopies || []).length > 1 ? `<div class="card" style="margin:0 24px">${s.documentscopies.map((d, i) => `<a class="row" href="${esc(d.url)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none"><span class="row__icon">${I.shield}</span><div class="row__info"><span class="row__label">${esc(d.name || 'Sócio ' + (i + 1))}</span><span class="row__caption">${d.status === 'APPROVED' ? 'Validação aprovada' : 'Enviar documento e selfie'}</span></div><span class="row__chevron">${I.chevRight}</span></a>`).join('')}</div>
+          <p class="result__desc" style="font-size:13px;margin:12px 24px 0;text-align:center">Se um sócio não está com você, abra o link dele e envie para ele.</p>` : ''}
+        </div>
+        <div class="actions">${s.documentscopyUrl && !((s.documentscopies || []).length > 1) ? `<a class="btn btn-primary" id="doc" href="${esc(s.documentscopyUrl)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Enviar documento e selfie</a>` : ''}
         ${state.mode === 'mock' && s.status === 'PENDING_DOCUMENTSCOPY' ? '<button class="btn btn-outline" id="mockok">Simular documentoscopia aprovada</button>' : ''}
         ${['REPROVED', 'RESOURCE_ERROR'].includes(s.status) ? '' : tries >= MAX
           ? '<p class="result__desc" style="font-size:13px;text-align:center">Paramos de consultar sozinhos. Quando terminar a validação, toque abaixo.</p><button class="btn btn-ghost" id="again">Consultar de novo</button>'
@@ -573,7 +587,7 @@
       <div class="home-header"><div class="status-bar"></div>
         <div class="menu-top"><span>${LOGO('#FFFFFF', 108)}</span>
           <div class="menu-right"><button type="button" class="icon-btn" aria-label="Ajuda" id="help">${I.help}</button>
-            <button type="button" class="user-pill" id="menu" aria-label="Menu da conta"><span class="user-pill-text"><strong>Olá, ${esc(state.me.name)}</strong><span>Conta PF</span></span>${I.caret}</button></div></div>
+            <button type="button" class="user-pill" id="menu" aria-label="Menu da conta"><span class="user-pill-text"><strong>Olá, ${esc(state.me.name)}</strong><span>Conta ${state.me.personType === 'PJ' ? 'PJ' : 'PF'}</span></span>${I.caret}</button></div></div>
         <div class="account-card"><div class="account-card-row"><div><p class="account-card-label">Saldo em conta</p><p class="account-card-value" id="bal">${state.hideBalance ? 'R$ ••••' : '…'}</p>
           <p class="account-card-meta">Ag ${esc(state.me.account.branch)} · Conta ${esc(state.me.account.account)}</p></div>
           <button type="button" class="icon-btn" aria-label="Mostrar ou esconder saldo" id="eye">${I.eye}</button></div></div>
@@ -966,6 +980,11 @@
     go(state.me ? (state.me.account ? '/home' : '/validacao') : '/login');
   });
 
+  // Telas da Fase 2 ficam em fase2.js e usam estes utilitários.
+  window.LoBank = { $, $$, esc, money, onlyDigits, fmtCpf, fmtCnpj, fmtDoc, fmtPhone, fmtCep, maskDoc, initials, parseMoney, fmtDateTime, isValidCpf,
+    api, I, state, route, route_prefix, go, back, render, frame, toast, sheet, copy, loadMe, setLoading, later, countdown, queryWaitSec,
+    wizardFrame, wire, ob, textStep, detail, MOV, LOGO };
+
   window.addEventListener('hashchange', render);
-  fetch('/api/config').then((r) => r.json()).then((c) => { state.mode = c.mode; state.queryIntervalMs = c.queryIntervalMs; }).catch(() => {}).finally(render);
+  window.addEventListener('DOMContentLoaded', () => fetch('/api/config').then((r) => r.json()).then((c) => { state.mode = c.mode; state.queryIntervalMs = c.queryIntervalMs; }).catch(() => {}).finally(render));
 })();
