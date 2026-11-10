@@ -51,6 +51,14 @@ Não é teste de usabilidade. Rodada feita pelo mesmo Claude que escreveu o rote
 | 12:38 | Mesma consulta de status (cerca de 45 s) | 200 `CONFIRMED` | Já mostra a conta real do recebedor (sem máscara). |
 | 12:38 | Histórico de eventos de novo | 1 evento `pix-payment-out` `CONFIRMED`, `oldBalance 5000`, `currentBalance 4990`, status de entrega `PENDENTE`, `webhookUrl: null` | **Confere com a skill** (`OnlyPending`, fuso de Brasília). Não há webhook cadastrado; o evento fica pendente de entrega. |
 | 12:40 | Como receber um Pix no sandbox: `docs/pix-cash-in-receber.md` e buscas no MCP ("simular recebimento pix sandbox", "pix cash-in sandbox teste") | Nenhuma forma documentada de simular um Pix recebido | A página lista os tipos de recebimento (agência e conta, chave, QR Code), mas não há massa de teste nem endpoint de simulação. A skill também não cobre cash-in. |
+| 12:40 | Decisão da usuária: criar uma 2ª conta, desta vez **PJ**, e enviar um Pix dela para a chave EVP da conta 41174129 | — | |
+| 12:41 | Leitura de `reference/criar-uma-proposta-pessoa-jurídica.md` | OK | **Divergência na documentação:** o schema define `owner` como objeto, mas o exemplo envia `owner` como lista. Vou enviar como lista, igual ao exemplo. Telefone de controle do KYC na PJ: `contactNumber` (pela skill). |
+| 12:41 | Teste 6: `POST /onboarding/v1/onboarding-proposal/legal-person`, `contactNumber` final `1`, `owner` como lista (aprovado pela usuária) | 200 `PROCESSING`, `proposalId` `9f71b1fd-…-9d877f1b0f02` | O formato em lista foi aceito. |
+| 12:41 | Consulta da proposta (15 s) | `PENDING_DOCUMENTSCOPY` cerca de 9 s após a criação | Uma documentoscopia, **do sócio** (CPF `808…206`), e não da empresa. Link `celcoin.cadastro.io/…` enviado à usuária. |
+| ~12:42 | Documentoscopia do sócio feita pela usuária | Documentoscopia `APPROVED` às 12:43:09 | |
+| 12:43 | Consulta da proposta | `APPROVED` às 12:43:10 e `RESOURCE_CREATED` às 12:43:20 | Cerca de 11 s entre a documentoscopia aprovada e a conta criada. Na PJ o estado `APPROVED` apareceu de passagem; não ficou parado nele. |
+| 12:44 | `GET /baas/v2/account/fetch?documentNumber=<CNPJ>` | 400 `CBE370` "DocumentNumber possui tamanho maximo de 11 caracteres" | A consulta de conta da skill só serve para PF. |
+| 12:44 | `GET /baas/v2/account/fetch-business?documentNumber=<CNPJ>` | 200, `ATIVO`, conta `0001 / 41174137` | Rota PJ descoberta por tentativa; **não está na skill**. Na PJ o número fica em `body.businessAccount.account`, e não em `body.account.account` como na PF. |
 
 **Achado:** só o navegador conseguiu ler a página de referência de criação de proposta PF. A ferramenta de documentação do MCP não alcança essa página porque ela não está no `llms.txt`, e o "truque do `.md`" da skill depende de um acesso HTTP que o agente pode não ter.
 
