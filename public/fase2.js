@@ -335,3 +335,152 @@
     };
   }
 })();
+
+/* ---------------------------------------------------------------- Pix Copia e Cola e agência e conta */
+(function () {
+  'use strict';
+  const L = window.LoBank;
+  const { $, $$, esc, money, onlyDigits, fmtCpf, fmtCnpj, fmtDoc, isValidCpf, api, I, state, route, go, back, frame, toast, setLoading, loadMe, LOGO } = L;
+  const header = () => `<header class="hdr hdr--wl"><button class="hdr__icon" id="bk" aria-label="Voltar">${I.chevLeft}</button><span class="logo">${LOGO('#7664FA', 104)}</span><span class="hdr__icon"></span></header>`;
+  async function needAccount() {
+    if (!(await loadMe())) { go('/login'); return false; }
+    if (!state.me.account) { go('/validacao'); return false; }
+    return true;
+  }
+
+  // ============================================================ PIX COPIA E COLA (novo: não há tela no Studio)
+  // Montada com o modelo da tela "Transferir | Chave Pix | Informar chave". Depois segue pelo fluxo de valor,
+  // revisão e resultado já existentes. O valor fica travado quando o código traz valor fixo.
+  route('/pix/copia-e-cola', async (root) => {
+    if (!(await needAccount())) return;
+    root.innerHTML = frame(`${header()}
+      <div class="scroll"><section class="intro"><h1 class="intro__title intro__title--sm">Pagar com Pix Copia e Cola</h1><p class="intro__desc">Cole o código que você recebeu. Ele começa com 000201.</p></section>
+        <section class="keyfield"><span class="keyfield__label">Código Pix</span>
+          <div class="keyfield__input keyfield__input--area" id="box"><textarea id="emv" rows="5" autocomplete="off" spellcheck="false" placeholder="00020126...">${esc((state.emv && state.emv.code) || '')}</textarea></div>
+          <p class="keyfield__err hidden" id="er"></p>
+          <button type="button" class="link-inline" id="paste">${I.copy} Colar da área de transferência</button>
+        </section>
+        <p class="studio-note">Tela criada para o app: não existe no Studio.</p></div>
+      <footer class="footbar"><button class="btn btn-primary btn--lg" id="next" disabled>Continuar</button></footer>`, { studio: 'novo:pix-copia-e-cola (modelo 5196768b Informar chave)' });
+    $('#bk').onclick = () => go('/pix');
+    const emv = $('#emv'), next = $('#next'), er = $('#er'), box = $('#box');
+    const check = () => { const v = emv.value.replace(/\s+/g, ''); next.disabled = v.length < 50; er.classList.add('hidden'); box.classList.remove('is-error'); };
+    emv.oninput = check;
+    check();
+    $('#paste').onclick = async () => {
+      try { emv.value = (await navigator.clipboard.readText()).trim(); check(); }
+      catch (_) { toast('Não deu para ler a área de transferência. Cole no campo com Ctrl+V.'); emv.focus(); }
+    };
+    next.onclick = async () => {
+      setLoading(next, true);
+      try {
+        const code = emv.value.replace(/\s+/g, '');
+        const r = await api('/pix/emv', { method: 'POST', body: { emv: code } });
+        state.emv = { code };
+        state.pix = { key: r.key, lookup: r, via: 'emv', amount: r.amount || null };
+        go(r.amountLocked ? '/pix/transferir/revisao' : '/pix/transferir/valor');
+      } catch (e) {
+        box.classList.add('is-error'); er.textContent = e.message; er.classList.remove('hidden');
+        setLoading(next, false); next.disabled = false;
+      }
+    };
+  });
+
+  // ============================================================ TRANSFERIR POR AGÊNCIA E CONTA
+  // Studio: board "Transferir": Selecionar banco → Dados da conta destino (Outra conta / Minha conta) → Tipo de conta
+  // do destinatário → Valor → Confirmação. Retirados: aba Favoritos (sem dados reais nesta fase).
+  // O Pix sai como initiationType MANUAL; o banco vai pelo ISPB (lista /pix/v1/participants da Celcoin).
+  const tr = () => (state.transfer = state.transfer || {});
+  let participants = null;
+
+  // Studio: "Transferir | Agência e conta | Selecionar banco" (modelo comum)
+  route('/transferir/conta', async (root) => {
+    if (!(await needAccount())) return;
+    root.innerHTML = frame(`${header()}
+      <div class="scroll"><section class="intro"><h1 class="intro__title intro__title--sm">Para qual <strong>banco</strong>?</h1><p class="intro__desc">Busque pelo nome do banco ou da instituição.</p></section>
+        <section class="keyfield"><div class="keyfield__input" id="box"><input id="q" autocomplete="off" placeholder="Ex.: Itaú, Nubank, Celcoin"/></div></section>
+        <section class="body-sec" id="list"><div class="empty">${I.spinner}</div></section></div>`, { studio: '14c51fac Selecionar banco (modelo comum)' });
+    $('#bk').onclick = () => go('/pix');
+    try { if (!participants) participants = (await api('/pix/participants')).participants; }
+    catch (e) { $('#list').innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+    const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+    const FIRST = ['13935893', '00000000', '00360305', '60701190', '60746948', '90400888', '18236120', '00416968']; // Celcoin e grandes bancos primeiro
+    const paint = () => {
+      const q = norm($('#q').value.trim());
+      let list = participants.filter((p) => !q || norm(p.name).includes(q) || norm(p.fullName).includes(q) || p.ispb.includes(q));
+      if (!q) list = FIRST.map((i) => participants.find((p) => p.ispb === i)).filter(Boolean);
+      $('#list').innerHTML = (q ? '' : '<div class="day">Mais usados</div>') + (list.slice(0, 40).map((p) => `<button class="mov" data-i="${esc(p.ispb)}"><span class="row__icon row__icon--soft">${I.coin}</span>
+        <span class="mov__info"><span class="mov__title">${esc(p.name)}</span><span class="mov__sub">ISPB ${esc(p.ispb)}</span></span></button>`).join('') || '<div class="empty">Nenhum banco encontrado.</div>')
+        + (list.length > 40 ? '<div class="empty">Continue digitando para refinar a busca.</div>' : '');
+      $$('[data-i]', root).forEach((b) => { b.onclick = () => { const p = participants.find((x) => x.ispb === b.dataset.i); state.transfer = { bank: p }; go('/transferir/conta/dados'); }; });
+    };
+    $('#q').oninput = paint;
+    paint();
+  });
+
+  // Studio: "Dados da conta destino | Novo | Outra conta" (lido) e "| Minha conta" (modelo comum)
+  route('/transferir/conta/dados', async (root) => {
+    if (!tr().bank) return go('/transferir/conta');
+    if (!(await needAccount())) return;
+    const t = tr();
+    t.target = t.target || 'other';
+    const mine = t.target === 'mine';
+    if (mine) { t.name = state.me.fullName; t.taxId = state.me.document; }
+    const f = (id, ph, val, attrs) => `<div class="field"><div class="field-box"><input id="${id}" placeholder="${ph}" value="${esc(val || '')}" ${attrs || ''}/></div><p class="field-error" id="${id}-er"></p></div>`;
+    root.innerHTML = frame(`<header class="hdr"><button class="hdr__icon" id="bk" aria-label="Voltar">${I.chevLeft}</button></header>
+      <div class="scroll"><section class="intro" style="padding-top:0"><h1 class="intro__title intro__title--sm">Transferência via Pix</h1><p class="intro__desc">${esc(t.bank.name)}</p></section>
+        <section class="body-sec"><div class="group"><span class="group__title">Para que conta você quer transferir?</span>
+          <div class="seg"><button type="button" class="seg__btn ${mine ? '' : 'is-active'}" data-t="other">Outra conta</button><button type="button" class="seg__btn ${mine ? 'is-active' : ''}" data-t="mine">Minha conta</button></div>
+          ${mine ? '<p class="row__caption" style="margin-top:8px">Sua conta em outro banco, no mesmo CPF/CNPJ.</p>' : ''}</div>
+          <div class="field-group">${f('nm', 'Nome do titular da conta', t.name, `maxlength="120" ${mine ? 'readonly' : ''}`)}
+            ${f('doc', 'CPF/CNPJ do titular da conta', fmtDoc(t.taxId || ''), `inputmode="numeric" maxlength="18" ${mine ? 'readonly' : ''}`)}
+            <div class="row2">${f('ag', 'Agência', t.branch, 'inputmode="numeric" maxlength="4"')}${f('ac', 'Conta', t.account, 'inputmode="numeric" maxlength="20"')}</div>
+            <p class="field-helper" style="margin-top:-8px">Agência sem dígito. Conta com o dígito, sem traço.</p>
+            <div class="field"><div class="field-box"><input id="ds" placeholder="Descrição da sua transação" maxlength="140" value="${esc(t.message || '')}"/></div><p class="field-helper">Opcional</p></div>
+          </div></section></div>
+      <footer class="footbar"><button class="btn btn-primary btn--lg" id="next" disabled>Continuar</button></footer>`, { studio: '59759b3d Dados da conta destino Outra conta + 21e4f9bf Minha conta (sem aba Favoritos)' });
+    $('#bk').onclick = back;
+    $$('[data-t]', root).forEach((b) => { b.onclick = () => { t.target = b.dataset.t; if (t.target === 'other') { t.name = ''; t.taxId = ''; } L.render(); }; });
+    const next = $('#next');
+    const validDoc = (d) => (d.length === 11 ? isValidCpf(d) : d.length === 14 ? L.isValidCnpj(d) : false);
+    const check = () => {
+      const d = onlyDigits($('#doc').value);
+      const docEr = $('#doc-er');
+      const bad = (d.length === 11 || d.length === 14) && !validDoc(d);
+      docEr.textContent = bad ? 'CPF ou CNPJ inválido.' : ''; docEr.classList.toggle('is-visible', bad);
+      next.disabled = !($('#nm').value.trim().length >= 3 && validDoc(d) && onlyDigits($('#ag').value).length >= 1 && onlyDigits($('#ac').value).length >= 2);
+    };
+    $('#doc').oninput = () => { $('#doc').value = fmtDoc($('#doc').value); check(); };
+    $('#ag').oninput = () => { $('#ag').value = onlyDigits($('#ag').value).slice(0, 4); check(); };
+    $('#ac').oninput = () => { $('#ac').value = onlyDigits($('#ac').value).slice(0, 20); check(); };
+    $('#nm').oninput = check;
+    check();
+    next.onclick = () => {
+      Object.assign(t, { name: $('#nm').value.trim(), taxId: onlyDigits($('#doc').value), branch: onlyDigits($('#ag').value), account: onlyDigits($('#ac').value), message: $('#ds').value.trim() });
+      go('/transferir/conta/tipo');
+    };
+  });
+
+  // Studio: "Transferir | Tipo de conta do destinatário" (modelo comum). Códigos do Pix: CACC, SVGS, TRAN, SLRY.
+  route('/transferir/conta/tipo', (root) => {
+    const t = tr();
+    if (!t.account) return go('/transferir/conta');
+    const opts = [['CACC', 'Conta corrente'], ['SVGS', 'Poupança'], ['TRAN', 'Conta de pagamento', 'Contas digitais, como as de instituições de pagamento'], ['SLRY', 'Conta salário']];
+    root.innerHTML = frame(`<header class="hdr"><button class="hdr__icon" id="bk" aria-label="Voltar">${I.chevLeft}</button></header>
+      <div class="scroll"><section class="intro" style="padding-top:0"><h1 class="intro__title intro__title--sm">Qual o <strong>tipo de conta</strong> do destinatário?</h1></section>
+        <section class="body-sec"><div class="option-list">${opts.map(([v, l, sub]) => `<button type="button" class="option-row ${t.accountType === v ? 'is-selected' : ''}" data-v="${v}" style="height:auto;min-height:56px"><span class="option-row-label">${l}${sub ? `<span class="option-sub">${sub}</span>` : ''}</span><span class="option-row-radio"></span></button>`).join('')}</div>
+        ${t.bank.ispb === '13935893' ? '<div class="info-box" style="margin-top:16px"><span class="info-box-bar"></span><span class="info-box-text">Contas na Celcoin são conta de pagamento.</span></div>' : ''}</section></div>
+      <footer class="footbar"><button class="btn btn-primary btn--lg" id="next" ${t.accountType ? '' : 'disabled'}>Continuar</button></footer>`, { studio: '6570ae3c Tipo de conta do destinatário (modelo comum)' });
+    $('#bk').onclick = back;
+    const next = $('#next');
+    $$('.option-row', root).forEach((r) => { r.onclick = () => { $$('.option-row', root).forEach((x) => x.classList.remove('is-selected')); r.classList.add('is-selected'); t.accountType = r.dataset.v; next.disabled = false; }; });
+    next.onclick = async () => {
+      setLoading(next, true);
+      try {
+        const r = await api('/pix/manual', { method: 'POST', body: { ispb: t.bank.ispb, branch: t.branch, account: t.account, accountType: t.accountType, taxId: t.taxId, name: t.name } });
+        state.pix = { key: '', lookup: r, via: 'manual', message: t.message || '' };
+        go('/pix/transferir/valor');
+      } catch (e) { toast(e.message); setLoading(next, false); next.disabled = false; }
+    };
+  });
+})();

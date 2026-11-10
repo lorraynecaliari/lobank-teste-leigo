@@ -627,7 +627,9 @@
     if (!state.me.account) return go('/validacao');
     root.innerHTML = frame(`<header class="hdr"><button class="hdr__icon" id="bk" aria-label="Voltar">${I.chevLeft}</button></header>
       <div class="scroll"><section class="intro" style="gap:16px;padding-bottom:16px"><h1 class="intro__title">Área Pix</h1><div id="kc" class="keycard"><span class="keycard__count">Carregando chaves…</span></div></section>
-        <section class="pix-section"><h2 class="pix-section__title">Enviar</h2><div class="pix-options"><button class="pix-option" data-go="/pix/transferir"><span class="pix-option__chip">${I.pix}</span><span class="pix-option__label">Transferir</span></button></div></section>
+        <section class="pix-section"><h2 class="pix-section__title">Enviar</h2><div class="pix-options"><button class="pix-option" data-go="/pix/transferir"><span class="pix-option__chip">${I.pix}</span><span class="pix-option__label">Transferir</span></button>
+          <button class="pix-option" data-go="/pix/copia-e-cola"><span class="pix-option__chip">${I.copy}</span><span class="pix-option__label">Pix Copia<br>e Cola</span></button>
+          <button class="pix-option" data-go="/transferir/conta"><span class="pix-option__chip">${I.coin}</span><span class="pix-option__label">Agência<br>e conta</span></button></div></section>
         <section class="pix-section"><h2 class="pix-section__title">Receber</h2><div class="pix-options"><button class="pix-option" data-go="/receber"><span class="pix-option__chip">${I.receive}</span><span class="pix-option__label">Cobrar<br>com Pix</span></button></div></section>
         <section class="pix-section"><h2 class="pix-section__title">Configurações Pix</h2><div class="pix-options"><button class="pix-option" data-go="/pix/chaves"><span class="pix-option__chip">${I.key}</span><span class="pix-option__label">Minhas<br>chaves</span></button></div></section>
         <div style="height:64px"></div></div>`, { studio: '08689cca Área Pix | Home (itens retirados)' });
@@ -726,7 +728,9 @@
 
   function recipientCard(l) {
     return `<div class="contact"><span class="avatar">${esc(initials(l.name))}</span><div class="contact__info"><span class="contact__name">${esc(l.name || 'Destinatário')}</span>
-      <div class="contact__desc"><span>${l.document ? (l.personType === 'LEGAL_PERSON' ? 'CNPJ: ' : 'CPF: ') + maskDoc(l.document) : ''}</span><span>Chave: ${esc(l.key)}</span>${l.participant ? `<span>Instituição (ISPB): ${esc(l.participant)}</span>` : ''}</div></div></div>`;
+      <div class="contact__desc"><span>${l.document ? (l.personType === 'LEGAL_PERSON' ? 'CNPJ: ' : 'CPF: ') + maskDoc(l.document) : ''}</span>${l.bankName
+        ? `<span>${esc(l.bankName)}</span><span>Ag. ${esc(l.branch)} · Conta ${esc(l.account)}${l.accountTypeLabel ? ' · ' + esc(l.accountTypeLabel) : ''}</span>`
+        : `<span>Chave: ${esc(l.key)}</span>${l.participant ? `<span>Instituição (ISPB): ${esc(l.participant)}</span>` : ''}`}</div></div></div>`;
   }
 
   // Studio: "Transferir | Chave Pix | Valor da transferência" (modelo comum)
@@ -752,17 +756,17 @@
     root.innerHTML = frame(`<header class="hdr hdr--wl"><button class="hdr__icon" id="bk" aria-label="Voltar">${I.chevLeft}</button><span class="logo">${LOGO('#7664FA', 104)}</span><span class="hdr__icon"></span></header>
       <div class="scroll"><section class="intro"><h1 class="intro__title">Ok, <strong>ficou tudo certo</strong>?</h1><p class="intro__desc">Saldo disponível <strong id="bal">${p.balance != null ? money(p.balance) : '…'}</strong></p></section>
         <section class="body-sec">
-          <div><div class="amount__label">Você está transferindo</div><div class="amount__row"><span class="amount__value">${money(p.amount)}</span><button class="amount__edit" id="edit" aria-label="Editar valor">${I.edit}</button></div></div>
+          <div><div class="amount__label">Você está transferindo</div><div class="amount__row"><span class="amount__value">${money(p.amount)}</span>${p.lookup.amountLocked ? '' : `<button class="amount__edit" id="edit" aria-label="Editar valor">${I.edit}</button>`}</div>${p.lookup.amountLocked ? '<p class="row__caption" style="margin-top:4px">Valor definido no código Pix</p>' : ''}</div>
           <div class="group"><span class="group__title">Para</span><div class="card">${recipientCard(p.lookup)}</div></div>
           <div class="group"><span class="group__title">Pagamento</span><div class="card">
             <div class="row"><span class="row__icon row__icon--soft">${I.calendar}</span><div class="row__info"><span class="row__label">Pagar hoje</span></div></div><span class="divider"></span>
             <button class="row" id="msg"><span class="row__icon row__icon--soft">${I.chat}</span><div class="row__info"><span class="row__label" id="msgl">${p.message ? esc(p.message) : 'Escrever mensagem'}</span></div><span class="row__chevron">${I.chevRight}</span></button><span class="divider"></span>
-            <div class="row"><span class="row__icon row__icon--soft">${I.pix}</span><div class="row__info"><span class="row__caption">Forma de transferência</span><span class="row__label">Pix</span></div></div><span class="divider"></span>
+            <div class="row"><span class="row__icon row__icon--soft">${I.pix}</span><div class="row__info"><span class="row__caption">Forma de transferência</span><span class="row__label">${p.via === 'emv' ? 'Pix Copia e Cola' : p.via === 'manual' ? 'Pix por agência e conta' : 'Pix'}</span></div></div><span class="divider"></span>
             <div class="row"><span class="row__icon row__icon--soft">${I.coin}</span><div class="row__info"><span class="row__caption">Transferir com</span><span class="row__label">Saldo em conta</span></div></div>
           </div></div></section></div>
       <footer class="footbar"><button class="btn btn-primary btn--lg" id="go">Transferir</button></footer>`, { studio: '733b240c Revisão e saldo (adaptada)' });
     $('#bk').onclick = back;
-    $('#edit').onclick = () => go('/pix/transferir/valor');
+    if ($('#edit')) $('#edit').onclick = () => go('/pix/transferir/valor');
     $('#msg').onclick = () => {
       const s = sheet(`<h2 class="sheet-title">Mensagem</h2><div class="field"><div class="field-box"><input id="m" maxlength="140" placeholder="Opcional" value="${esc(p.message || '')}"/></div></div>
         <div class="sheet-actions"><button class="btn btn-primary" data-ok>Salvar</button><button class="btn btn-ghost" data-x>Cancelar</button></div>`);
@@ -788,7 +792,7 @@
           if (e.data && e.data.error === 'INSUFFICIENT_BALANCE') { s.close(); p.balance = e.data.balance; return go('/pix/transferir/saldo-insuficiente'); }
           if (e.data && e.data.error === 'INVALID_TX_PASSWORD') { tpe.textContent = e.message; tpe.classList.add('is-visible'); setLoading(ok, false); ok.disabled = false; return; }
           s.close();
-          if (e.data && e.data.error === 'LOOKUP_EXPIRED') { toast(e.message); return go('/pix/transferir'); }
+          if (e.data && e.data.error === 'LOOKUP_EXPIRED') { toast(e.message); return go(p.via === 'emv' ? '/pix/copia-e-cola' : p.via === 'manual' ? '/transferir/conta' : '/pix/transferir'); }
           errorModal(e.message);
         }
       };
@@ -863,8 +867,11 @@
           <div class="receipt__row"><span>Valor</span><span>${money(t.amount)}</span></div>
           <div class="receipt__row"><span>Para</span><span>${esc(c.name || '')}</span></div>
           ${c.document ? `<div class="receipt__row"><span>Documento</span><span>${maskDoc(c.document)}</span></div>` : ''}
-          <div class="receipt__row"><span>Chave</span><span>${esc(c.key || '')}</span></div>
+          ${c.via === 'MANUAL'
+            ? `<div class="receipt__row"><span>Banco</span><span>${esc(c.bankName || '')}</span></div><div class="receipt__row"><span>Agência e conta</span><span>${esc(c.branch || '')} / ${esc(c.account || '')}</span></div>`
+            : `<div class="receipt__row"><span>Chave</span><span>${esc(c.key || '')}</span></div>`}
           ${c.participant ? `<div class="receipt__row"><span>Instituição (ISPB)</span><span>${esc(c.participant)}</span></div>` : ''}
+          <div class="receipt__row"><span>Forma</span><span>${c.via === 'MANUAL' ? 'Pix por agência e conta' : c.via === 'QRCODE' ? 'Pix Copia e Cola' : 'Pix por chave'}</span></div>
           <span class="divider"></span>
           <div class="receipt__row"><span>De</span><span>${esc(state.me ? state.me.fullName : '')}</span></div>
           ${t.message ? `<div class="receipt__row"><span>Mensagem</span><span>${esc(t.message)}</span></div>` : ''}
@@ -872,7 +879,7 @@
         </div></div></section></div>
       <footer class="footbar"><button class="btn btn-primary btn--lg" id="share">Copiar comprovante</button></footer>`, { studio: '2ea377b0 Visualizar comprovante (modelo comum)' });
     $('#bk').onclick = back;
-    $('#share').onclick = () => copy(`Comprovante Pix LoBank\nValor: ${money(t.amount)}\nPara: ${c.name || ''}\nChave: ${c.key || ''}\nID: ${t.endToEndId || ''}\nSituação: ${t.status}`);
+    $('#share').onclick = () => copy(`Comprovante Pix LoBank\nValor: ${money(t.amount)}\nPara: ${c.name || ''}\n${c.via === 'MANUAL' ? `Banco: ${c.bankName || ''} · Ag. ${c.branch || ''} · Conta ${c.account || ''}` : `Chave: ${c.key || ''}`}\nID: ${t.endToEndId || ''}\nSituação: ${t.status}`);
   });
 
   // ============================================================ RECEBER (board Receber, fluxo "Único")

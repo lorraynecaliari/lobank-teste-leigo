@@ -17,6 +17,8 @@ const FRIENDLY = {
   CBE180: 'Não encontramos essa chave Pix. Confira e tente de novo.',
   CPD0013: 'Essa chave está restrita por suspeita de fraude e não pode receber Pix.',
   CBE190: 'Essa chave não está vinculada à sua conta.',
+  PCE002: 'Esse código Pix não é válido. Confira se copiou o código inteiro.',
+  CBE220: 'Não é possível transferir para a sua própria conta.',
   CBE123: 'Saldo insuficiente para essa transferência.',
   CBE039: 'Conta inválida.',
   CBE468: 'Esta operação não está liberada para o ambiente de testes da sua empresa.',
@@ -52,6 +54,7 @@ router.get('/me', auth.requireUser, (req, res) => {
     name: req.user.social_name || req.user.full_name.split(' ')[0],
     fullName: req.user.full_name,
     personType: req.user.person_type,
+    document: req.user.document,
     account: req.account ? { branch: req.account.branch, account: req.account.account } : null,
     proposalStatus: proposal ? proposal.status : null,
   });
@@ -334,6 +337,65 @@ router.post('/pix/lookup', auth.requireUser, auth.requireAccount, wrap(async (re
   });
 }));
 
+// ---------------------------------------------------------------- Pix Copia e Cola
+// Decodifica na Celcoin, resolve a chave no DICT a partir da conta pagadora e guarda tudo para o pagamento.
+router.post('/pix/emv', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
+  const emv = String(req.body.emv || '').replace(/\s+/g, '').trim();
+  if (!/^000201/.test(emv) || emv.length < 50) return bad(res, 'INVALID_EMV', 'Esse não parece um código Pix Copia e Cola. Ele começa com 000201.');
+  const dec = (await celcoin.decodeEmv(emv)).body || {};
+  if (!dec.key) return bad(res, 'EMV_NO_KEY', 'Não encontramos a chave Pix dentro desse código.', 422);
+  const amt = dec.amount || {};
+  const amount = Number(amt.final || amt.original) || null;
+  const qr = { type: String(dec.type || 'STATIC').toUpperCase(), txid: dec.transactionIdentification || '***', amount, canModify: amount == null || amt.canModifyFinalAmount === true };
+  const data = await celcoin.lookupKey(req.account.account, dec.key);
+  const body = data.body || {};
+  const e2e = body.endtoEndId || body.endToEndId || body.endtoendid || body.endtoendId;
+  if (!e2e) return bad(res, 'LOOKUP_FAILED', 'Não foi possível preparar o pagamento desse código.', 502);
+  const own = db.prepare('SELECT 1 FROM accounts WHERE user_id = ? AND account = ?').get(req.user.id, body.account && body.account.account);
+  if (own) return bad(res, 'OWN_ACCOUNT', 'Esse código é de uma cobrança da sua própria conta.', 422);
+  const id = crypto.randomUUID();
+  db.prepare('INSERT INTO pix_lookups (id, user_id, key, data_json, expires_at) VALUES (?, ?, ?, ?, ?)')
+    .run(id, req.user.id, dec.key, JSON.stringify({ ...body, endToEndId: e2e, qr }), Date.now() + 1000 * 60 * 30);
+  res.json({
+    lookupId: id, key: dec.key, keyType: body.keyType, qrType: qr.type, amount: qr.amount, amountLocked: !qr.canModify,
+    name: body.owner && (body.owner.tradeName || body.owner.name), document: body.owner && body.owner.documentNumber,
+    personType: body.owner && body.owner.type, participant: body.account && body.account.participant,
+    city: dec.merchantAccountInformation && dec.merchantAccountInformation.merchantCity,
+  });
+}));
+
+// ---------------------------------------------------------------- Pix por agência e conta
+router.get('/pix/participants', auth.requireUser, wrap(async (req, res) => {
+  const list = await celcoin.listParticipants();
+  res.json({ participants: list.map((p) => ({ ispb: p.ispb, name: p.shortName || p.name, fullName: p.name })) });
+}));
+
+const ACCOUNT_TYPES = { CACC: 'Conta corrente', SVGS: 'Poupança', TRAN: 'Conta de pagamento', SLRY: 'Conta salário' };
+router.post('/pix/manual', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
+  const b = req.body || {};
+  const bank = v.onlyDigits(b.ispb);
+  if (bank.length !== 8) return bad(res, 'INVALID_BANK', 'Escolha o banco.');
+  const list = await celcoin.listParticipants();
+  const inst = list.find((p) => p.ispb === bank);
+  if (!inst) return bad(res, 'INVALID_BANK', 'Banco não encontrado na lista do Pix.');
+  const branch = v.onlyDigits(b.branch);
+  const account = v.onlyDigits(b.account);
+  if (!branch || branch.length > 4) return bad(res, 'INVALID_BRANCH', 'Agência inválida (até 4 números, sem dígito).');
+  if (!account || account.length > 20) return bad(res, 'INVALID_ACCOUNT', 'Conta inválida.');
+  const accountType = String(b.accountType || '').toUpperCase();
+  if (!ACCOUNT_TYPES[accountType]) return bad(res, 'INVALID_ACCOUNT_TYPE', 'Escolha o tipo de conta.');
+  const taxId = v.onlyDigits(b.taxId);
+  if (!(v.isValidCpf(taxId) || v.isValidCnpj(taxId))) return bad(res, 'INVALID_DOCUMENT', 'CPF ou CNPJ do destinatário inválido.');
+  const name = String(b.name || '').trim();
+  if (name.length < 3) return bad(res, 'INVALID_NAME', 'Informe o nome do destinatário.');
+  if (bank === '13935893' && account === String(req.account.account)) return bad(res, 'OWN_ACCOUNT', 'Essa é a sua própria conta.', 422);
+  const id = crypto.randomUUID();
+  const manual = { bank, bankName: inst.shortName || inst.name, branch, account, accountType, taxId, name };
+  db.prepare('INSERT INTO pix_lookups (id, user_id, key, data_json, expires_at) VALUES (?, ?, ?, ?, ?)')
+    .run(id, req.user.id, `${bank}/${branch}/${account}`, JSON.stringify({ manual }), Date.now() + 1000 * 60 * 30);
+  res.json({ lookupId: id, name, document: taxId, personType: taxId.length === 14 ? 'LEGAL_PERSON' : 'NATURAL_PERSON', bankName: manual.bankName, branch, account, accountType, accountTypeLabel: ACCOUNT_TYPES[accountType] });
+}));
+
 router.post('/pix/transfer', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
   const lookup = db.prepare('SELECT * FROM pix_lookups WHERE id = ? AND user_id = ?').get(String(req.body.lookupId || ''), req.user.id);
   if (!lookup || lookup.expires_at < Date.now()) return bad(res, 'LOOKUP_EXPIRED', 'A consulta da chave expirou. Informe a chave de novo.', 410);
@@ -347,19 +409,36 @@ router.post('/pix/transfer', auth.requireUser, auth.requireAccount, wrap(async (
   if (balance < amount) return res.status(422).json({ error: 'INSUFFICIENT_BALANCE', message: FRIENDLY.CBE123, balance });
 
   const d = JSON.parse(lookup.data_json);
+  // Copia e Cola com valor travado: paga exatamente o valor do código.
+  if (d.qr && d.qr.amount && !d.qr.canModify && Math.abs(d.qr.amount - amount) > 0.001) {
+    return bad(res, 'AMOUNT_LOCKED', `Esse código Pix é de ${d.qr.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} e o valor não pode ser alterado.`);
+  }
   const clientCode = celcoin.uid('lobank-pix');
-  const counterpart = { name: d.owner && (d.owner.tradeName || d.owner.name), document: d.owner && d.owner.documentNumber, key: lookup.key, participant: d.account && d.account.participant };
+  const counterpart = d.manual
+    ? { name: d.manual.name, document: d.manual.taxId, bankName: d.manual.bankName, branch: d.manual.branch, account: d.manual.account, participant: d.manual.bank, via: 'MANUAL' }
+    : { name: d.owner && (d.owner.tradeName || d.owner.name), document: d.owner && d.owner.documentNumber, key: lookup.key, participant: d.account && d.account.participant, via: d.qr ? 'QRCODE' : 'DICT' };
   const info = db.prepare("INSERT INTO transactions (user_id, kind, client_code, end_to_end_id, amount, status, counterpart_json, message) VALUES (?, 'PIX_OUT', ?, ?, ?, 'PROCESSING', ?, ?)")
-    .run(req.user.id, clientCode, d.endToEndId, amount, JSON.stringify(counterpart), message || null);
+    .run(req.user.id, clientCode, d.endToEndId || null, amount, JSON.stringify(counterpart), message || null);
   db.prepare('DELETE FROM pix_lookups WHERE id = ?').run(lookup.id); // endToEndId não se reaproveita
 
-  const payload = {
-    amount, clientCode, endToEndId: d.endToEndId, initiationType: 'DICT', paymentType: 'IMMEDIATE', urgency: 'HIGH', transactionType: 'TRANSFER',
-    debitParty: { account: req.account.account, branch: req.account.branch, taxId: req.user.document, name: req.user.full_name, accountType: 'TRAN', bank: '13935893' },
-    // Campos do DICT replicados exatamente como vieram, inclusive mascarados.
-    creditParty: { bank: d.account.participant, key: lookup.key, account: d.account.account, branch: d.account.branch, taxId: d.owner.documentNumber, name: d.owner.name, accountType: d.account.accountType },
-    remittanceInformation: message,
-  };
+  const debitParty = { account: req.account.account, branch: req.account.branch, taxId: req.user.document, name: req.user.full_name, accountType: 'TRAN', bank: '13935893' };
+  let payload;
+  if (d.manual) {
+    // Agência e conta: sem DICT, sem key, endToEndId nem transactionIdentification. bank = ISPB.
+    const m = d.manual;
+    payload = { amount, clientCode, initiationType: 'MANUAL', paymentType: 'IMMEDIATE', urgency: 'HIGH', transactionType: 'TRANSFER', debitParty,
+      creditParty: { bank: m.bank, account: m.account, branch: m.branch, taxId: m.taxId, name: m.name, accountType: m.accountType }, remittanceInformation: message };
+  } else {
+    payload = {
+      amount, clientCode, endToEndId: d.endToEndId, paymentType: 'IMMEDIATE', urgency: 'HIGH', transactionType: 'TRANSFER', debitParty,
+      // Tipo derivado do decode do QR (estático ou dinâmico), não da presença de transactionIdentification.
+      initiationType: d.qr ? (d.qr.type === 'DYNAMIC' ? 'DYNAMIC_QRCODE' : 'STATIC_QRCODE') : 'DICT',
+      ...(d.qr ? { transactionIdentification: d.qr.txid } : {}),
+      // Campos do DICT replicados exatamente como vieram, inclusive mascarados.
+      creditParty: { bank: d.account.participant, key: lookup.key, account: d.account.account, branch: d.account.branch, taxId: d.owner.documentNumber, name: d.owner.name, accountType: d.account.accountType },
+      remittanceInformation: message,
+    };
+  }
   try {
     const r = await celcoin.pixPayment(payload);
     db.prepare("UPDATE transactions SET celcoin_id = ?, updated_at = datetime('now') WHERE id = ?").run(r.body && r.body.id, info.lastInsertRowid);
@@ -381,6 +460,8 @@ router.get('/pix/transfer/:id', auth.requireUser, wrap(async (req, res) => {
   if (t.status === 'PROCESSING' && t.celcoin_id) {
     try {
       const s = await celcoin.pixPaymentStatus(t.celcoin_id);
+      const e2e = s.body && (s.body.endToEndId || s.body.endtoEndId);
+      if (e2e && !t.end_to_end_id) { db.prepare('UPDATE transactions SET end_to_end_id = ? WHERE id = ?').run(e2e, t.id); t.end_to_end_id = e2e; }
       if (s.status && s.status !== t.status) {
         db.prepare("UPDATE transactions SET status = ?, error_code = ?, updated_at = datetime('now') WHERE id = ?").run(s.status, s.error ? s.error.errorCode : null, t.id);
         t.status = s.status;

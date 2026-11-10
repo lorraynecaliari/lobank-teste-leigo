@@ -157,7 +157,9 @@ async function handle(method, path, body) {
       if ((t === 'STATIC_QRCODE' || t === 'DYNAMIC_QRCODE') && (!body.creditParty.key || !body.endToEndId || !body.transactionIdentification)) throw err(400, 'CBE302', 'QR Code exige key, endToEndId e transactionIdentification.');
       if (t === 'MANUAL' && (!body.creditParty.bank || !body.creditParty.account || !body.creditParty.branch || !body.creditParty.taxId)) throw err(400, 'CBE303', 'Dados da conta de destino incompletos.');
       const id = crypto.randomUUID();
-      state.payments.set(id, { ...body, id, status: 'PROCESSING', at: Date.now() });
+      // No MANUAL a Celcoin gera o endToEndId; aparece na consulta de status.
+      const e2e = body.endToEndId || `E13935893${Date.now()}MANUAL`;
+      state.payments.set(id, { ...body, endToEndId: e2e, id, status: 'PROCESSING', at: Date.now() });
       return { status: 'PROCESSING', body: { id, clientCode: body.clientCode, endToEndId: body.endToEndId } };
     }
     if (method === 'GET' && p === '/baas/v2/pix/payment/status') {

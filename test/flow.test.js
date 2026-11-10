@@ -200,3 +200,46 @@ test('cadastro PJ: valida, uma documentoscopia por sócio, conta por fetch-busin
   r = await call('POST', '/auth/login', { document: '52601815000120', password: 'senhaForte1' });
   assert.equal(r.status, 200);
 });
+
+test('Pix Copia e Cola e Pix por agência e conta (MANUAL)', async () => {
+  cookie = '';
+  let r = await call('POST', '/onboarding/pf', { ...person('11987650041'), cpf: '908.301.661-73', email: 'cc@example.com' });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  await call('POST', '/dev/approve-documentscopy');
+  await call('GET', '/onboarding/status');
+  await call('POST', '/dev/credit', { amount: 500 });
+
+  // código inválido
+  r = await call('POST', '/pix/emv', { emv: 'isso não é um pix' });
+  assert.equal(r.data.error, 'INVALID_EMV');
+  // QR estático com valor fixo de R$ 10
+  const emv = '00020126580014br.gov.bcb.pix0136af83d12a-d4ca-4cdf-974b-37d25ad2477f520400005303986540510.005802BR5916Lorrayne Caliari6007Barueri61080645503062070503***630486EE';
+  r = await call('POST', '/pix/emv', { emv });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.amount, 10);
+  assert.equal(r.data.amountLocked, true);
+  assert.equal(r.data.qrType, 'STATIC');
+  const lookupId = r.data.lookupId;
+  r = await call('POST', '/pix/transfer', { lookupId, amount: 15, txPassword: '1234' });
+  assert.equal(r.data.error, 'AMOUNT_LOCKED');
+  r = await call('POST', '/pix/transfer', { lookupId, amount: 10, txPassword: '1234' });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+
+  // agência e conta
+  r = await call('GET', '/pix/participants');
+  assert.ok(r.data.participants.some((p) => p.ispb === '60701190'));
+  r = await call('POST', '/pix/manual', { ispb: '60701190', branch: '1234', account: '123456', accountType: 'CACC', taxId: '318.609.139-03', name: 'Bruno Destino' });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.bankName, 'ITAÚ UNIBANCO S.A.');
+  r = await call('POST', '/pix/transfer', { lookupId: r.data.lookupId, amount: 20, txPassword: '1234' });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  const txId = r.data.txId;
+  await new Promise((ok) => setTimeout(ok, 1700));
+  r = await call('GET', '/pix/transfer/' + txId);
+  assert.equal(r.data.status, 'CONFIRMED');
+  assert.equal(r.data.counterpart.via, 'MANUAL');
+  assert.match(r.data.endToEndId, /^E13935893/);
+
+  r = await call('POST', '/pix/manual', { ispb: '60701190', branch: '1234', account: '123456', accountType: 'XXXX', taxId: '318.609.139-03', name: 'Bruno' });
+  assert.equal(r.data.error, 'INVALID_ACCOUNT_TYPE');
+});
