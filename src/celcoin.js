@@ -55,7 +55,39 @@ function extractError(data) {
   return { code, message };
 }
 
-async function request(method, path, body, attempt = 1) {
+// Intervalo mínimo entre consultas iguais à Celcoin (padrão 10 s). Dentro do intervalo,
+// a mesma consulta devolve a última resposta sem chamar a API. Qualquer mutação (POST,
+// PUT, PATCH, DELETE) limpa as respostas guardadas, para a releitura após escrever ser real.
+// A consulta de chave no DICT fica fora: cada uma gera um endToEndId novo.
+const MIN_QUERY_INTERVAL_MS = Math.max(0, Number(process.env.CELCOIN_MIN_QUERY_INTERVAL_MS ?? 10000));
+const queryCache = new Map(); // path -> { at, data } | { at, error }
+const isThrottled = (method, path) => method === 'GET' && !path.startsWith('/baas/v2/pix/dict/entry/external/');
+
+async function request(method, path, body) {
+  if (isThrottled(method, path) && MIN_QUERY_INTERVAL_MS > 0) {
+    const hit = queryCache.get(path);
+    if (hit && Date.now() - hit.at < MIN_QUERY_INTERVAL_MS) {
+      if (hit.error) throw hit.error;
+      return hit.data;
+    }
+    try {
+      const data = await rawRequest(method, path, body);
+      queryCache.set(path, { at: Date.now(), data });
+      return data;
+    } catch (e) {
+      // Guarda só respostas de negócio (4xx); falha de rede ou 5xx pode tentar de novo.
+      if (e instanceof CelcoinError && e.status >= 400 && e.status < 500) queryCache.set(path, { at: Date.now(), error: e });
+      throw e;
+    }
+  }
+  try {
+    return await rawRequest(method, path, body);
+  } finally {
+    if (method !== 'GET') queryCache.clear();
+  }
+}
+
+async function rawRequest(method, path, body, attempt = 1) {
   if (MODE === 'mock') return require('./celcoin-mock').handle(method, path, body);
   const token = await getToken();
   const headers = { Authorization: `Bearer ${token}`, accept: 'application/json' };
@@ -71,17 +103,17 @@ async function request(method, path, body, attempt = 1) {
     // Falha de transporte: só repete leituras. Mutação com falha é ambígua.
     if (method === 'GET' && attempt < 3) {
       await new Promise((r) => setTimeout(r, 300 * attempt + Math.random() * 200));
-      return request(method, path, body, attempt + 1);
+      return rawRequest(method, path, body, attempt + 1);
     }
     throw new CelcoinError(502, 'TRANSPORT', 'Não foi possível falar com a Celcoin agora.');
   }
   if (res.status === 401 && attempt === 1) {
     tokenCache = { value: null, expiresAt: 0 };
-    return request(method, path, body, attempt + 1);
+    return rawRequest(method, path, body, attempt + 1);
   }
   if ([429, 502, 503, 504].includes(res.status) && method === 'GET' && attempt < 3) {
     await new Promise((r) => setTimeout(r, 400 * attempt + Math.random() * 200));
-    return request(method, path, body, attempt + 1);
+    return rawRequest(method, path, body, attempt + 1);
   }
   const text = await res.text();
   let data = {};
@@ -141,7 +173,7 @@ const pixPaymentStatus = (id) => request('GET', `/baas/v2/pix/payment/status?id=
 const createStaticQr = (payload) => request('POST', '/pix/v1/brcode/static', payload);
 
 module.exports = {
-  MODE, BASE_URL, CelcoinError, uid,
+  MODE, BASE_URL, CelcoinError, uid, MIN_QUERY_INTERVAL_MS,
   createNaturalPersonProposal, getProposal, fetchAccountPF,
   getBalance, getMovements, listKeys, createEvpKey, deleteKey,
   lookupKey, pixPayment, pixPaymentStatus, createStaticQr,

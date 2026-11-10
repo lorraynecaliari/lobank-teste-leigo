@@ -72,6 +72,19 @@
   const state = { me: null, mode: 'sandbox', hideBalance: false, onboarding: null, pix: null, receive: null };
   const timers = new Set();
   const later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); return t; };
+  // Intervalo entre consultas à Celcoin: nunca menos de 10 s (o servidor também segura).
+  const queryWaitSec = () => Math.max(10, Math.ceil((state.queryIntervalMs || 0) / 1000));
+  // Contagem regressiva visível: atualiza o elemento a cada segundo e chama onDone no zero.
+  const countdown = (sel, secs, fmt, onDone) => {
+    const step = (left) => {
+      const el = document.querySelector(sel);
+      if (!el) return; // saiu da tela: para
+      el.textContent = fmt(left);
+      if (left <= 0) return onDone();
+      later(() => step(left - 1), 1000);
+    };
+    step(secs);
+  };
   const clearTimers = () => { timers.forEach(clearTimeout); timers.clear(); };
 
   // ------------------------------------------------------------ roteador
@@ -508,7 +521,7 @@
   route('/validacao', async (root) => {
     if (!(await loadMe())) return go('/login');
     if (state.me.account) return go('/home');
-    let delay = 4000;
+    const WAIT = queryWaitSec();
     const paint = (s) => {
       const map = {
         LOADING: { badge: 'wait', icon: I.spinner, title: 'Consultando sua proposta…', desc: '' },
@@ -527,23 +540,22 @@
         ${s.status === 'APPROVED' || s.status === 'PENDING_DOCUMENTSCOPY' ? '<p class="result__desc" style="font-size:12px">Status Celcoin: ' + esc(s.status) + '</p>' : ''}</div></div>
         <div class="actions">${s.documentscopyUrl ? `<a class="btn btn-primary" id="doc" href="${esc(s.documentscopyUrl)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Enviar documento e selfie</a>` : ''}
         ${state.mode === 'mock' && s.status === 'PENDING_DOCUMENTSCOPY' ? '<button class="btn btn-outline" id="mockok">Simular documentoscopia aprovada</button>' : ''}
-        <button class="btn btn-ghost" id="refresh">Atualizar</button></div>
+        ${['REPROVED', 'RESOURCE_ERROR'].includes(s.status) ? '' : '<p class="result__timer" id="timer" aria-live="polite"></p>'}</div>
         <p class="studio-note">Tela criada para o app: não existe no Studio.</p>`, { studio: 'novo:validacao' });
       $('#out').onclick = async () => { await api('/auth/logout', { method: 'POST', allow401: true }); go('/login'); };
-      $('#refresh').onclick = () => tick(true);
-      if ($('#mockok')) $('#mockok').onclick = async () => { await api('/dev/approve-documentscopy', { method: 'POST' }); tick(true); };
+      if ($('#mockok')) $('#mockok').onclick = async () => { await api('/dev/approve-documentscopy', { method: 'POST' }); toast('Aprovada. A próxima consulta vai mostrar.'); };
     };
-    const tick = async (manual) => {
+    const tick = async () => {
       let s;
       try { s = await api('/onboarding/status'); } catch (e) { if (e.status === 401) return; s = { status: 'ERROR' }; }
       if (s.account) { await loadMe(); toast('Conta aberta!'); return go('/home'); }
       paint(s);
       if (['REPROVED', 'RESOURCE_ERROR'].includes(s.status)) return;
-      if (!manual) delay = Math.min(delay * 1.5, 30000); // recuo progressivo; para por condição real
-      later(() => tick(false), delay);
+      // Próxima consulta só depois de 10 s, com o tempo na tela.
+      countdown('#timer', WAIT, (n) => (n > 0 ? `Próxima consulta em ${n} s` : 'Consultando…'), tick);
     };
     paint({ status: 'LOADING' });
-    tick(true);
+    tick();
   });
 
   // ============================================================ HOME (Wallet | Home)
@@ -783,30 +795,41 @@
     $('#home').onclick = () => go('/home');
   });
 
-  // Studio: "Transferir | Chave Pix | Sucesso" (modelo de resultado). 200 PROCESSING não é sucesso: a tela
-  // mostra "em processamento" e consulta o desfecho com recuo progressivo, trocando o estado quando ele chega.
+  // Studio: "Transferir | Chave Pix | Sucesso" (modelo de resultado). 200 PROCESSING não é sucesso.
+  // Espera 10 s com o tempo na tela, consulta uma vez e, se ainda estiver em processamento,
+  // espera mais 10 s. Para depois de 6 consultas (~1 min) e deixa a pessoa consultar de novo.
   route_prefix('/pix/transferencia/', async (root, id) => {
-    let delay = 1500, tries = 0;
+    const WAIT = queryWaitSec(), MAX = 6;
+    let tries = 0, last = null;
     const paint = (t) => {
-      const st = t.status;
-      const view = st === 'CONFIRMED'
-        ? { b: 'ok', i: I.ok, title: 'Pix enviado!', desc: `${money(t.amount)} para ${esc(t.counterpart.name || '')}` }
+      const st = t ? t.status : 'WAITING';
+      const who = t ? `${money(t.amount)} para ${esc(t.counterpart.name || '')}` : '';
+      const view = st === 'CONFIRMED' ? { b: 'ok', i: I.ok, title: 'Pix enviado!', desc: who }
         : st === 'ERROR' ? { b: 'err', i: I.err, title: 'Pix não concluído', desc: esc(t.errorMessage || 'A transferência foi recusada.') }
           : st === 'UNKNOWN' ? { b: 'wait', i: I.spinner, title: 'Confirmando com a Celcoin', desc: 'A conexão caiu no envio. Não tente de novo: estamos confirmando se o Pix foi feito.' }
-            : { b: 'wait', i: I.spinner, title: 'Pix em processamento', desc: `${money(t.amount)} para ${esc(t.counterpart.name || '')}. Isso costuma levar poucos segundos.` };
+            : { b: 'wait', i: I.spinner, title: 'Pix em processamento', desc: who || 'Aguardando a confirmação da Celcoin.' };
+      const waiting = st === 'WAITING' || st === 'PROCESSING' || st === 'UNKNOWN';
+      const stopped = waiting && tries >= MAX;
       root.innerHTML = frame(`<div class="scroll"><div class="result" style="margin-top:96px"><span class="result__badge result__badge--${view.b}" style="width:72px;height:72px">${view.i}</span>
-        <h1 class="result__title">${view.title}</h1><p class="result__desc">${view.desc}</p>${st === 'PROCESSING' && tries > 12 ? '<p class="result__desc" style="font-size:13px">Está demorando mais que o normal. Você pode sair: o status aparece no extrato.</p>' : ''}</div></div>
-        <div class="actions">${st === 'CONFIRMED' ? '<button class="btn btn-primary" id="rc">Visualizar comprovante</button>' : ''}<button class="btn ${st === 'CONFIRMED' ? 'btn-ghost' : 'btn-primary'}" id="home">Voltar ao início</button></div>`, { studio: 'caca6a53 Sucesso (modelo de resultado, com estado em processamento)' });
+        <h1 class="result__title">${view.title}</h1><p class="result__desc">${view.desc}</p>
+        ${waiting && !stopped ? '<p class="result__timer" id="timer" aria-live="polite"></p>' : ''}
+        ${stopped ? '<p class="result__desc" style="font-size:13px">A Celcoin ainda não confirmou. Você pode consultar de novo ou sair: o status aparece no extrato.</p>' : ''}</div></div>
+        <div class="actions">${st === 'CONFIRMED' ? '<button class="btn btn-primary" id="rc">Visualizar comprovante</button>' : ''}
+          ${stopped ? '<button class="btn btn-primary" id="again">Consultar de novo</button>' : ''}
+          <button class="btn ${st === 'CONFIRMED' || stopped ? 'btn-ghost' : 'btn-primary'}" id="home">Voltar ao início</button></div>`, { studio: 'caca6a53 Sucesso (modelo de resultado, com estado em processamento)' });
       $('#home').onclick = () => go('/home');
       if ($('#rc')) $('#rc').onclick = () => go('/comprovante/' + id);
+      if ($('#again')) $('#again').onclick = () => { tries = 0; wait(); };
+      if (waiting && !stopped) countdown('#timer', WAIT, (n) => (n > 0 ? `Consultando a Celcoin em ${n} s` : 'Consultando…'), query);
     };
-    const tick = async () => {
-      const t = await api('/pix/transfer/' + encodeURIComponent(id));
+    const wait = () => paint(last);
+    const query = async () => {
       tries++;
-      paint(t);
-      if (t.status === 'PROCESSING' || t.status === 'UNKNOWN') { later(tick, delay); delay = Math.min(delay * 1.6, 20000); }
+      try { last = await api('/pix/transfer/' + encodeURIComponent(id)); }
+      catch (e) { if (e.status === 401) return; toast(e.message); }
+      paint(last);
     };
-    await tick();
+    paint(null);
   });
 
   // Studio: "Transferir | Chave Pix | Sucesso | Visualizar comprovante" e "Extrato | Comprovante de pagamento" (modelo comum)
@@ -938,5 +961,5 @@
   });
 
   window.addEventListener('hashchange', render);
-  fetch('/api/config').then((r) => r.json()).then((c) => { state.mode = c.mode; }).catch(() => {}).finally(render);
+  fetch('/api/config').then((r) => r.json()).then((c) => { state.mode = c.mode; state.queryIntervalMs = c.queryIntervalMs; }).catch(() => {}).finally(render);
 })();

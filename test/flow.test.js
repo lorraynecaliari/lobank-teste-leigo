@@ -2,6 +2,8 @@
 // Roda com: npm test
 process.env.CELCOIN_MODE = 'mock';
 process.env.DATABASE_FILE = ':memory:';
+// O intervalo de 10 s entre consultas tem teste próprio (throttle.test.js); aqui o fluxo roda sem espera.
+process.env.CELCOIN_MIN_QUERY_INTERVAL_MS = '0';
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
