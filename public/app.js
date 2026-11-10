@@ -601,7 +601,7 @@
       <div class="home-body">
         <div class="section"><h2 class="section-title">Ações rápidas</h2>
           <div class="shortcuts">
-            <button class="shortcut" data-go="/pix/transferir"><span class="shortcut-icon">${I.pix}</span><p class="shortcut-label">Fazer<br>Pix</p></button>
+            <button class="shortcut" id="dopix"><span class="shortcut-icon">${I.pix}</span><p class="shortcut-label">Fazer<br>Pix</p></button>
             <button class="shortcut" data-go="/receber"><span class="shortcut-icon">${I.receive}</span><p class="shortcut-label">Cobrar<br>com Pix</p></button>
             <button class="shortcut" data-go="/pix/chaves"><span class="shortcut-icon">${I.key}</span><p class="shortcut-label">Minhas<br>chaves</p></button>
             <button class="shortcut" data-go="/extrato"><span class="shortcut-icon">${I.list}</span><p class="shortcut-label">Extrato</p></button>
@@ -609,6 +609,17 @@
         <button type="button" class="btn-neutral" data-go="/pix">Área Pix ${I.chevRight}</button>
       </div></div>`, { studio: '82e58028 Home' });
     $$('[data-go]').forEach((b) => { b.onclick = () => go(b.dataset.go); });
+    // "Fazer Pix": escolhe a forma (chave, Copia e Cola ou agência e conta), sem precisar ir à Área Pix.
+    $('#dopix').onclick = () => {
+      const opt = (to, icon, label, sub) => `<button class="row" data-to="${to}" style="padding:12px 0"><span class="row__icon row__icon--soft">${icon}</span><div class="row__info"><span class="row__label">${label}</span><span class="row__caption">${sub}</span></div><span class="row__chevron">${I.chevRight}</span></button>`;
+      const s = sheet(`<h2 class="sheet-title">Como você quer fazer o Pix?</h2><div class="card" style="margin-top:8px">
+        ${opt('/pix/transferir', I.pix, 'Com chave Pix', 'CPF, CNPJ, celular, e-mail ou aleatória')}<span class="divider"></span>
+        ${opt('/pix/copia-e-cola', I.copy, 'Pix Copia e Cola', 'Cole o código que você recebeu')}<span class="divider"></span>
+        ${opt('/transferir/conta', I.coin, 'Agência e conta', 'Para quem não tem chave Pix')}</div>
+        <div class="sheet-actions"><button class="btn btn-ghost" data-x>Cancelar</button></div>`);
+      $('[data-x]', s.el).onclick = s.close;
+      $$('[data-to]', s.el).forEach((b) => { b.onclick = () => { s.close(); go(b.dataset.to); }; });
+    };
     const loadBal = async () => {
       if (state.hideBalance) return;
       try { const b = await api('/balance'); $('#bal').textContent = money(b.amount); } catch (e) { $('#bal').textContent = 'Indisponível'; }
