@@ -68,7 +68,9 @@ Board do Studio: **Pagamento de Contas** (14 telas), criado em 10/11/2026 às 18
 
 Na massa de teste, o vencimento vem sempre como hoje ou ontem, o que confere com a skill.
 
-## 5. Roteiro de testes no sandbox real (depois de construído)
+## 5. Roteiro de testes no sandbox real
+
+Construído às 19:10 (commit `dd1afe3` em `app-rodada-0`). Códigos de 44 números (leitor USB ou bluetooth) também são aceitos.
 
 Use a conta **LTDA** (saldo R$ 8.500) e anote o horário de cada um.
 
