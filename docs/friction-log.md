@@ -2,6 +2,18 @@
 
 Nunca registre segredos aqui (Client ID, Secret, tokens). Se um segredo vazar, anote que vazou e onde, sem copiar o valor.
 
+## Rodada 0: verificação técnica (10/11/2026)
+
+Não é teste de usabilidade. Rodada feita pelo mesmo Claude que escreveu o roteiro, com a skill original e todo o contexto, para conferir se o sandbox e a skill se comportam como documentado. Código no branch `app-rodada-0`.
+
+| Hora | Passo | Resultado | Observação |
+|------|-------|-----------|------------|
+| 12:09 | Busca na documentação: "Criar uma nova proposta pessoa física" | Não encontrada | O índice só devolve a página-resumo `reference/propostas.md`, que aponta para links sem versão `.md` no índice. Confirma a ressalva da skill sobre busca vazia. |
+| 12:10 | `fetch_celcoin_documentation` com URL `.md` da página de referência | Erro "Documento não encontrado" | A ferramenta só aceita IDs do índice, então o "truque do `.md`" da skill não funciona por ela. Fora do MCP, o domínio da documentação está bloqueado nesta sessão. Limitação operacional. |
+| 12:11 | `GET /onboarding/v1/onboarding-proposal` sem datas | 400 `OBE051` | Sem `proposalId`, data inicial e final são obrigatórias. |
+| 12:11 | Mesmo GET com `dateFrom`/`dateTo` (30 dias) | 404 `OBE049` | Nenhuma proposta nos últimos 30 dias neste sandbox. |
+| 12:12 | Mesmo GET com janela de 1 ano | 400 `OBE052` | Janela máxima de 30 dias. Não está na skill. |
+
 ## Dados da rodada
 
 | Campo | Valor |
