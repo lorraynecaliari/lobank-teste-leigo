@@ -110,6 +110,7 @@ Não é teste de usabilidade. Rodada feita pelo mesmo Claude que escreveu o rote
 | 13:55 | Crédito de R$ 6.000 via MCP (`wallet/entry`), pedido pela usuária | `CONFIRMED`; saldo conferido `6000` | O app não tem botão de crédito; feito por fora. |
 | 13:56 | Extrato no app | Erro da Celcoin: janela maior que 7 dias | App usava janela de 30 dias. Corrigido para 7 dias (commit `a06259b`). A conferência via MCP com 7 dias devolveu o crédito de R$ 6.000. |
 | 13:57 | Minhas chaves Pix no app (conta ainda sem chave) | Tela de erro "Não encontramos essa chave Pix" | **Comportamento da API:** `GET /baas/v2/pix/dict/entry/{conta}` devolve **404 `CBE180`** quando a conta não tem chave, em vez de lista vazia. Isso não está na skill. **Erro do agente:** o mock devolvia lista vazia, então o teste não pegou. App e mock corrigidos (commit `cb21597`). |
+| 14:07 | Pedido da usuária: excluir chave Pix no app | Implementado `DELETE /baas/v2/pix/dict/entry/{chave}` com corpo `{account}` (commit `1bd985f`) | **Documentação:** a busca do MCP não acha a página "Excluir Chaves Pix de uma Conta" (nem por "excluir chave"), e a skill não cita a exclusão. Achei pelo navegador, em `docs/excluir-chaves-pix-de-uma-conta.md`. Ainda não testado no sandbox real: depende da usuária excluir pelo app. |
 
 ## Dados da rodada
 
