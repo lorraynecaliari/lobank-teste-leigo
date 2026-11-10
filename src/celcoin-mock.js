@@ -71,7 +71,10 @@ async function handle(method, path, body) {
     }
     if (method === 'GET' && p.startsWith('/baas/v2/pix/dict/entry/')) {
       const acc = p.split('/').pop();
-      return { status: 'SUCCESS', body: { listKeys: state.keys.get(acc) || [] } };
+      const list = state.keys.get(acc) || [];
+      // Igual ao sandbox real: conta sem chave devolve 404 CBE180.
+      if (!list.length) throw err(404, 'CBE180', 'Não encontramos a chave informada.');
+      return { status: 'SUCCESS', body: { listKeys: list } };
     }
     if (method === 'POST' && p === '/baas/v2/pix/dict/entry') {
       if (body.key !== undefined) throw err(400, 'CBE178', 'Quando keyType igual a EVP o campo key não deve ser informado.');

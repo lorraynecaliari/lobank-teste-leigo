@@ -68,6 +68,11 @@ test('fluxo completo: cadastro, documentoscopia, conta, chave, saldo, Pix, QR e 
   r = await call('POST', '/pix/qrcode', { amount: 10 });
   assert.equal(r.data.error, 'NO_KEY');
 
+  // Conta sem chave: sandbox devolve 404 CBE180; o app mostra lista vazia.
+  r = await call('GET', '/pix/keys');
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.deepEqual(r.data.keys, []);
+
   r = await call('POST', '/pix/keys/evp');
   assert.equal(r.status, 200, JSON.stringify(r.data));
   assert.equal(r.data.type, 'EVP');

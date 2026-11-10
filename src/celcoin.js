@@ -113,7 +113,15 @@ const getMovements = (account, dateFrom, dateTo) =>
   request('GET', `/baas-walletreports/v1/wallet/movement?Account=${encodeURIComponent(account)}&DateFrom=${dateFrom}&DateTo=${dateTo}`);
 
 // ---- Chaves Pix --------------------------------------------------------------
-const listKeys = (account) => request('GET', `/baas/v2/pix/dict/entry/${encodeURIComponent(account)}`);
+// Conta sem nenhuma chave: a Celcoin responde 404 CBE180 em vez de lista vazia.
+const listKeys = async (account) => {
+  try {
+    return await request('GET', `/baas/v2/pix/dict/entry/${encodeURIComponent(account)}`);
+  } catch (e) {
+    if (e instanceof CelcoinError && e.code === 'CBE180') return { status: 'SUCCESS', body: { listKeys: [] } };
+    throw e;
+  }
+};
 // Com keyType EVP o campo key NÃO deve ser enviado (CBE178), apesar do exemplo da documentação.
 const createEvpKey = (account) => request('POST', '/baas/v2/pix/dict/entry', { account, keyType: 'EVP' });
 
