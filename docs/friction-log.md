@@ -192,7 +192,28 @@ Vale só como linha de base, porque quem testou foi o agente com contexto comple
 
 #### Próximo passo
 
-Fase 2 do app, começando por cadastro e login de PJ e pela tela "Pagar com Pix Copia e Cola". Depois, a rodada com o usuário leigo.
+Fase 2 do app, começando por cadastro e login de PJ e pela tela "Pagar com Pix Copia e Cola". Depois, a rodada com o usuário leigo. **Atualização 16:55:** Fase 2 construída, ver abaixo.
+
+### Rodada 0: Fase 2 construída (10/11/2026, 16:28–16:55)
+
+Commits no branch `app-rodada-0`: `7bf26d0` (PJ), `d9746cc` (Copia e Cola e agência e conta), `1be8f23` (receber, extrato completo, Minha conta). Tudo testado **só no modo simulado**: 12 testes automáticos passando e passagem pelas telas (cerca de 50 capturas). **Nada da Fase 2 rodou ainda no sandbox real.**
+
+| Hora | Passo | Resultado | Observação |
+|------|-------|-----------|------------|
+| 16:29 | Comentários do Studio desde 15:03 UTC | Nenhum novo | Seguem valendo os 6 do gabarito do P3. |
+| 16:30 | Busca no MCP por "pagamento copia e cola emv", "atualizar dados da conta", "QR Code dinâmico cobrança imediata" | Não acha as referências de BaaS | A skill cobre o decode (`/pix/v1/emv/full`), o `participants` e a tabela de `initiationType`. A atualização de conta foi achada pelo navegador, em `docs/atualizar-dados-da-conta.md`. |
+| 16:31 | `POST /pix/v1/emv/full` com o código do Teste 6 | 200, `type: STATIC`, `transactionIdentification: "***"`, valor final 10, `canModifyFinalAmount: false` | Leitura sem efeito, feita pelo MCP para conhecer o formato. |
+| 16:31 | `GET /pix/v1/participants` | 200, **887 instituições**, cerca de 250 KB | Grande demais para consultar a cada tela. O app guarda a lista por 24 h. Celcoin: ISPB `13935893`. |
+| 16:33 | `GET /onboarding-proposal` com `dateFrom` = `dateTo` (mesmo dia) | 404 `OBE049` | Com janela de 3 dias voltaram as 4 propostas do dia. **A janela precisa ter mais de um dia**; isso não está na skill. |
+| 16:34 | Leitura da referência da proposta PJ | `companyType` só aceita **PJ ou MEI**; `ownerType` aceita `REPRESENTANTE`, `SOCIO` e `DEMAIS_SOCIOS` | O Studio oferece 6 tipos de empresa (MEI, EI, SLU, LTDA, SS, S.A). O app mostra os 6 e envia MEI ou PJ. |
+| 16:36 | Telas do Studio PJ × campos da API | **O Studio não coleta dados que a Celcoin exige:** endereço da empresa, e-mail e telefone da empresa, endereço do responsável e nome da mãe, nascimento, telefone, e-mail e endereço de cada sócio | O app acrescentou 3 telas novas e campos no modal de sócio, no mesmo visual. O modal do Studio pede só nome, CPF, participação e PPE. A participação (%) fica só no app: a API não tem esse campo. |
+| 16:36 | Modal "Adicionar sócio": opção **Pessoa jurídica** | Indisponível no app | `owner` só aceita CPF. Item para validar com a Celcoin se um sócio PJ é aceito de outro jeito. |
+| 16:40 | Receber: "Recebimento único" do Studio promete **validade e uso único** | O app usa QR **estático** nos dois modos e ajustou o texto | O QR dinâmico precisa de outra API e não foi achado no índice da documentação. |
+| 16:45 | "Baixar extrato": PDF, XLS, OFX e e-mail | PDF pela impressão do navegador; XLS virou **CSV**; OFX montado no app; e-mail indisponível | Montados com o que está na tela. A Celcoin não oferece arquivo de extrato pronto nas rotas usadas. |
+| 16:50 | "Minha conta" | Só Minhas chaves, Minhas senhas, Meus dados e Sair | Mesma decisão dos atalhos da Home ("mostrar só os que funcionam"). Saíram Gestão de usuário, Limites, Tarifas, DDA, Dúvidas e Cancelar conta. |
+| 16:50 | "Meus dados" | Altera telefone, e-mail e endereço (e nome social na PF) via `PUT /baas/v2/account/natural-person` ou `/business` | A Celcoin não deixa mudar nome, documento, mãe e nascimento (PF), nem razão social, nome fantasia e sócios (PJ). |
+
+**A testar no sandbox real (roteiro mandado à usuária):** cadastro PJ com dois sócios e uma documentoscopia por sócio; login por CNPJ; Pix Copia e Cola (`STATIC_QRCODE` com `transactionIdentification: "***"`, nunca enviado de verdade); Pix por agência e conta (`MANUAL`); atualização de dados (`PUT`).
 
 ## Dados da rodada
 
