@@ -27,7 +27,23 @@ Não é teste de usabilidade. Rodada feita pelo mesmo Claude que escreveu o rote
 | 12:23 | `GET /baas/v2/account/fetch-all` com janela de 29 dias | 400 `CBE079` | Janela máxima de 7 dias. Rota e limite não estão na skill. |
 | 12:24 | `fetch-all` em 4 janelas de 7 dias (13/10 a 10/11) | 404 `CBE078` em todas | Nenhuma conta criada neste sandbox nas últimas 4 semanas. A saída da skill ("siga com uma conta já existente") não está disponível aqui. |
 
-**Bloqueio:** sem conta, nada depois do onboarding fecha (saldo, chave Pix, Pix, extrato), porque todas essas rotas exigem a conta pagadora.
+**Bloqueio (resolvido às 12:29):** sem conta, nada depois do onboarding fecha (saldo, chave Pix, Pix, extrato), porque todas essas rotas exigem a conta pagadora.
+
+| Hora | Passo | Resultado | Observação |
+|------|-------|-----------|------------|
+| ~12:28 | Documentoscopia humana no link `celcoin.cadastro.io` (feita pela usuária: documento e selfie) | Documentoscopia `APPROVED` às 12:29:09 | Passo humano obrigatório. **Requisito do app:** o onboarding precisa redirecionar o usuário para a URL de documentoscopia que a Celcoin devolve na consulta da proposta. |
+| 12:29 | Consulta da proposta | `RESOURCE_CREATED` às 12:29:16, 7 s depois da documentoscopia aprovada | **Diverge da skill:** ela fala em cerca de 11 minutos e em propostas paradas em `APPROVED`. Hoje a conta saiu em segundos. |
+| 12:29 | `GET /baas/v2/account/fetch?documentNumber=…` | 200, `statusAccount: ATIVO`, agência `0001`, conta `41174129` | `body.account` é objeto (`body.account.account`), como a skill diz. `birthDate` volta em `DD-MM-YYYY`. |
+| 12:30 | `GET /baas/v2/wallet/balance?Account=41174129` | `amount: 0` | |
+| 12:30 | Teste 3: `POST /baas/v2/wallet/entry/41174129`, R$ 5.000, `type: CREDIT` (valor definido pela usuária) | 200 `CONFIRMED`, id `e6c2f403-…` | **Confere com a skill.** A rota não aparece na busca da documentação. |
+| 12:30 | Saldo de novo | `amount: 5000` | Crédito conferido por leitura, não só pela resposta. Saldo de sandbox: saques debitam e Pix recebido credita (observação da usuária). |
+| 12:31 | Busca no MCP por "cadastrar chave pix", "chave aleatória EVP", "gerenciamento de chaves pix baas" | Nada sobre criar chave no BaaS | Os resultados trazem só Pix avulso, Pix Automático e QR Code. A página existe (`/reference/criar-chaves-pix`, menu "Gerenciamento de Chaves"), mas não está no índice. **A skill também não tem essa receita.** |
+| 12:33 | Leitura de `/reference/criar-chaves-pix.md` pelo navegador | HTTP 429 com verificação anti-robô ("prove you're not a robot") | Depois de várias leituras seguidas, o site passou a exigir verificação humana. Não pode ser contornada pelo agente. |
+| 12:34 | Nova tentativa, cerca de 1 min depois | OK | O bloqueio era temporário (limite de requisições). Endpoint: `POST /baas/v2/pix/dict/entry` com `account` e `keyType` obrigatórios. **Contradição na própria página:** o exemplo manda `"key": ""` para EVP, mas o erro documentado `CBE178` diz que, com `keyType` EVP, o campo `key` não deve ser informado. Vou omitir `key`. |
+| 12:35 | Teste 4: `POST /baas/v2/pix/dict/entry` `{account: 41174129, keyType: EVP}` (aprovado pela usuária) | 200 `CONFIRMED`, chave `66ca96c5-7b3d-43d3-b07c-a1753cc364d2` | Criada sem OTP, **confirmando o comentário do Studio** ("EVP dispensa OTP"). `accountType: TRAN`, participante `13935893`. |
+| 12:35 | `GET /baas/v2/pix/dict/entry/41174129` | 1 chave EVP listada | Criação conferida por leitura. |
+| 12:36 | DICT externo: `GET /baas/v2/pix/dict/entry/external/41174129?key=testepix@celcoin.com.br` | 200, "Pix Celcoin Teste 2 Avulso", participante `13935893`, conta e tipo mascarados, `endtoEndId` gerado | Funcionou **sem** `ownerTaxId`. O campo vem grafado `endtoEndId`, como a skill avisa. |
+| 12:37 | Leitura de `reference/realizar-transferência-pix.md` e `docs/realizar-um-pix-cash-out-por-chaves-pix.md` pelo navegador | OK | **Divergência na documentação:** a referência marca como obrigatórios `debitParty.{account, taxId, name, branch, accountType, bank}` e `creditParty.{bank, account, branch, taxId, name, accountType, key}`; o tutorial manda só `debitParty.account` e `creditParty.{bank, key, name}`. Valores aceitos (só no tutorial): `paymentType` IMMEDIATE/FRAUD/SCHEDULED, `urgency` HIGH/NORMAL, `transactionType` TRANSFER. O `endToEndId` vale 12 horas. |
 
 **Achado:** só o navegador conseguiu ler a página de referência de criação de proposta PF. A ferramenta de documentação do MCP não alcança essa página porque ela não está no `llms.txt`, e o "truque do `.md`" da skill depende de um acesso HTTP que o agente pode não ter.
 
