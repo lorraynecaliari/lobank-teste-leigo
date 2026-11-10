@@ -243,3 +243,29 @@ test('Pix Copia e Cola e Pix por agência e conta (MANUAL)', async () => {
   r = await call('POST', '/pix/manual', { ispb: '60701190', branch: '1234', account: '123456', accountType: 'XXXX', taxId: '318.609.139-03', name: 'Bruno' });
   assert.equal(r.data.error, 'INVALID_ACCOUNT_TYPE');
 });
+
+test('Minha conta: atualizar dados na Celcoin e trocar senhas', async () => {
+  cookie = '';
+  await call('POST', '/auth/login', { document: '90830166173', password: 'senhaForte1' });
+  let r = await call('GET', '/me/details');
+  assert.equal(r.status, 200);
+  assert.equal(r.data.personType, 'PF');
+  const address = { postalCode: '06455030', street: 'Alameda Xingu', number: '99', neighborhood: 'Alphaville', city: 'Barueri', state: 'SP' };
+  r = await call('PUT', '/me', { email: 'novo@example.com', phone: '11912345678', address });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  r = await call('GET', '/me/details');
+  assert.equal(r.data.email, 'novo@example.com');
+  assert.equal(r.data.address.number, '99');
+  r = await call('PUT', '/me', { email: 'x', phone: '11912345678', address });
+  assert.equal(r.data.error, 'INVALID_EMAIL');
+
+  r = await call('POST', '/me/passwords', { kind: 'tx', current: 'errada', next: '9999' });
+  assert.equal(r.status, 401);
+  r = await call('POST', '/me/passwords', { kind: 'tx', current: 'senhaForte1', next: '9999' });
+  assert.equal(r.status, 200);
+  r = await call('POST', '/me/passwords', { kind: 'login', current: 'senhaForte1', next: 'outraSenha2' });
+  assert.equal(r.status, 200);
+  await call('POST', '/auth/logout');
+  r = await call('POST', '/auth/login', { document: '90830166173', password: 'outraSenha2' });
+  assert.equal(r.status, 200);
+});

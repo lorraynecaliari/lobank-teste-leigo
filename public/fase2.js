@@ -484,3 +484,266 @@
     };
   });
 })();
+
+/* ---------------------------------------------------------------- Receber, Extrato/Relatórios e Minha conta */
+(function () {
+  'use strict';
+  const L = window.LoBank;
+  const { $, $$, esc, money, onlyDigits, fmtPhone, fmtCep, fmtDoc, maskDoc, fmtDateTime, api, I, state, route, go, back, frame, toast, sheet, setLoading, loadMe, copy, detail, MOV, LOGO } = L;
+  const header = (to) => `<header class="hdr hdr--wl"><button class="hdr__icon" id="bk" aria-label="Voltar" ${to ? `data-to="${to}"` : ''}>${I.chevLeft}</button><span class="logo">${LOGO('#7664FA', 104)}</span><span class="hdr__icon"></span></header>`;
+  const wireBack = (root) => { const b = $('#bk', root); if (b) b.onclick = () => (b.dataset.to ? go(b.dataset.to) : back()); };
+  async function needAccount() {
+    if (!(await loadMe())) { go('/login'); return false; }
+    if (!state.me.account) { go('/validacao'); return false; }
+    return true;
+  }
+
+  // ============================================================ RECEBER | HOME (Único / Múltiplos)
+  // Studio: "Receber | Home | Único" e "| Múltiplos" (lido). Os dois usam QR Code ESTÁTICO: o dinâmico (com validade e uso
+  // único) precisa de outra API da Celcoin e fica para depois. O texto do "Único" foi ajustado para não prometer validade.
+  route('/receber', async (root) => {
+    if (!(await needAccount())) return;
+    const cur = (state.receive && state.receive.mode) || 'single';
+    root.innerHTML = frame(`${header('/home')}
+      <div class="scroll"><section class="intro"><h1 class="intro__title">Como você quer <strong>receber</strong> esse pagamento?</h1></section>
+        <section class="body-sec"><div class="card"><div class="row"><span class="row__icon row__icon--soft">${I.key}</span><div class="row__info"><span class="row__caption">Chave Pix para esse recebimento</span><span class="row__label" id="key">Carregando…</span></div></div></div>
+        <div class="option-list">
+          <button type="button" class="option-row ${cur === 'single' ? 'is-selected' : ''}" data-v="single" style="height:auto;min-height:56px;padding:12px 8px"><span class="option-row-label">Recebimento único<span class="option-sub">Para uma cobrança, com valor definido.</span></span><span class="option-row-radio"></span></button>
+          <button type="button" class="option-row ${cur === 'multi' ? 'is-selected' : ''}" data-v="multi" style="height:auto;min-height:56px;padding:12px 8px"><span class="option-row-label">Vários recebimentos<span class="option-sub">Esse QR Code não expira e pode ser usado diversas vezes. Não é necessário definir um valor.</span></span><span class="option-row-radio"></span></button>
+        </div></section></div>
+      <footer class="footbar"><button class="btn btn-primary btn--lg" id="next" disabled>Continuar</button></footer>`, { studio: 'c3a90386 Home Único + ec14cb1b Home Múltiplos (texto do Único ajustado)' });
+    wireBack(root);
+    let mode = cur;
+    $$('.option-row', root).forEach((r) => { r.onclick = () => { $$('.option-row', root).forEach((x) => x.classList.remove('is-selected')); r.classList.add('is-selected'); mode = r.dataset.v; }; });
+    const next = $('#next');
+    next.onclick = () => { state.receive = { mode }; go('/receber/valor'); };
+    try {
+      const { keys } = await api('/pix/keys');
+      const evp = keys.find((k) => k.type === 'EVP');
+      if (evp) { $('#key').textContent = evp.key; next.disabled = false; }
+      else { $('#key').innerHTML = 'Você ainda não tem chave. <button class="link-inline" id="mk" style="padding:0">Cadastrar agora</button>'; $('#mk').onclick = () => go('/pix/chaves'); }
+    } catch (e) { $('#key').textContent = e.message; }
+  });
+
+  // ============================================================ EXTRATO COMPLETO (Relatórios + Wallet | Extrato)
+  // Studio: "Relatórios | Extrato completo", "Filtrar relatório" (+ estados), "Modal | Baixar Extrato";
+  // "Extrato | Filtrar | Modal | Período / Tipo de transação / Categoria". Período limitado a 7 dias (pedido da usuária e
+  // limite da Celcoin). Filtros de tipo, categoria e busca são aplicados no app sobre o que a Celcoin devolveu.
+  const ymd = (d) => new Date(d.getTime() - 3 * 3600e3).toISOString().slice(0, 10);
+  const today = () => ymd(new Date());
+  const addDays = (s, n) => ymd(new Date(Date.parse(s + 'T12:00:00Z') + n * 864e5 + 3 * 3600e3));
+  const brDate = (s) => s.split('-').reverse().join('/');
+  const filters = () => (state.stmt = state.stmt || { period: '7d', from: addDays(today(), -6), to: today(), type: 'all', cats: [], q: '' });
+  const CATS = [['pix', 'Pix'], ['entry', 'Crédito e débito em conta']];
+  const catOf = (m) => (String(m.type || '').startsWith('PIX') ? 'pix' : 'entry');
+  const applyFilters = (list, f) => list.filter((m) => (f.type === 'all' || m.direction === f.type)
+    && (!f.cats.length || f.cats.includes(catOf(m)))
+    && (!f.q || `${MOV[m.type] || ''} ${m.description || ''} ${m.counterpart || ''}`.toLowerCase().includes(f.q.toLowerCase())));
+  const periodLabel = (f) => (f.period === '7d' ? 'Últimos 7 dias' : f.period === 'today' ? 'Hoje' : `${brDate(f.from)} a ${brDate(f.to)}`);
+
+  route('/extrato', async (root) => {
+    if (!(await needAccount())) return;
+    const f = filters();
+    const chips = [periodLabel(f), f.type === 'in' ? 'Entradas' : f.type === 'out' ? 'Saídas' : null, ...f.cats.map((c) => CATS.find((x) => x[0] === c)[1])].filter(Boolean);
+    root.innerHTML = frame(`<header class="hdr"><button class="hdr__icon" id="bk" aria-label="Voltar" data-to="/home">${I.chevLeft}</button><h1 class="hdr__title">Extrato</h1><button class="hdr__icon" id="dl" aria-label="Baixar extrato">${I.download || I.copy}</button></header>
+      <div class="scroll"><section class="balance-bar"><span class="row__caption">Saldo disponível</span><strong id="bal">…</strong></section>
+        <section class="searchbar"><div class="keyfield__input"><input id="q" placeholder="Buscar no extrato" value="${esc(f.q)}"/></div><button class="filter-btn" id="flt" aria-label="Filtrar">${I.filter || I.chevDown}</button></section>
+        <div class="chips">${chips.map((c) => `<span class="chip">${esc(c)}</span>`).join('')}${chips.length > 1 ? '<button class="chip chip--clear" id="clr">Limpar</button>' : ''}</div>
+        <section class="body-sec" id="list"><div class="empty">${I.spinner}</div></section></div>`, { studio: '13e383e5 Extrato completo + e620afcc Filtros aplicados (+ 7c2160b2 Extrato Wallet)' });
+    wireBack(root);
+    $('#flt').onclick = () => go('/extrato/filtros');
+    if ($('#clr')) $('#clr').onclick = () => { state.stmt = null; L.render(); };
+    api('/balance').then((b) => { $('#bal').textContent = money(b.amount); }).catch(() => { $('#bal').textContent = 'indisponível'; });
+    let all = [];
+    const paint = () => {
+      const list = applyFilters(all, f);
+      state.movements = list;
+      if (!list.length) { $('#list').innerHTML = `<div class="empty">${all.length ? 'Nenhum lançamento com esses filtros.' : 'Nenhuma movimentação no período.'}</div>`; return; }
+      let html = '', lastDay = '';
+      list.forEach((m, i) => {
+        const d = new Date(String(m.date).replace(' ', 'T'));
+        const day = isNaN(d) ? '' : d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+        if (day !== lastDay) { html += `<div class="day">${esc(day)}</div>`; lastDay = day; }
+        html += `<button class="mov" data-i="${i}"><span class="row__icon row__icon--soft">${catOf(m) === 'pix' ? I.pix : I.coin}</span>
+          <span class="mov__info"><span class="mov__title">${esc(MOV[m.type] || m.description || m.type)}${m.counterpart ? ' · ' + esc(m.counterpart) : ''}</span><span class="mov__sub">${m.pending ? '<span class="tag">Em processamento</span>' : esc(m.status || '')}</span></span>
+          <span class="mov__amount mov__amount--${m.direction}">${m.direction === 'in' ? '+ ' : '− '}${money(m.amount)}</span></button>`;
+      });
+      $('#list').innerHTML = html;
+      $$('.mov', root).forEach((b) => { b.onclick = () => { const m = list[Number(b.dataset.i)]; if (m.txId) go('/comprovante/' + m.txId); else detail(m); }; });
+    };
+    $('#q').oninput = () => { f.q = $('#q').value.trim(); paint(); };
+    $('#dl').onclick = () => downloadSheet(applyFilters(all, f), f);
+    try {
+      const r = await api(`/statement?from=${f.from}&to=${f.to}`);
+      all = r.movements;
+      paint();
+    } catch (e) { $('#list').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+  });
+
+  // Studio: "Relatórios | Filtrar relatório" (estado inicial / outro período / selecionar período) + modais do Wallet
+  route('/extrato/filtros', (root) => {
+    const f = { ...filters(), cats: [...filters().cats] };
+    const radio = (name, v, label, cur) => `<button type="button" class="option-row ${cur === v ? 'is-selected' : ''}" data-${name}="${v}"><span class="option-row-label">${label}</span><span class="option-row-radio"></span></button>`;
+    const box = (v, label) => `<button type="button" class="check-row ${f.cats.includes(v) ? 'is-selected' : ''}" data-cat="${v}"><span class="check-row__box">${I.ok}</span><span class="option-row-label">${label}</span></button>`;
+    root.innerHTML = frame(`<header class="hdr"><button class="hdr__icon" id="bk" aria-label="Voltar">${I.chevLeft}</button><h1 class="hdr__title">Filtrar extrato</h1><span class="hdr__icon"></span></header>
+      <div class="scroll"><section class="body-sec">
+        <div class="group"><span class="group__title">Período</span><div class="option-list">${radio('p', '7d', 'Últimos 7 dias', f.period)}${radio('p', 'today', 'Hoje', f.period)}${radio('p', 'custom', 'Outro período', f.period)}</div>
+          <div id="custom" class="${f.period === 'custom' ? '' : 'hidden'}" style="margin-top:12px"><div class="row2">
+            <div class="field"><span class="field-label">De</span><div class="field-box"><input id="from" type="date" value="${f.from}" max="${today()}"/></div></div>
+            <div class="field"><span class="field-label">Até</span><div class="field-box"><input id="to" type="date" value="${f.to}" max="${today()}"/></div></div></div>
+            <p class="field-helper">Até 7 dias por consulta.</p><p class="field-error" id="per-er"></p></div></div>
+        <div class="group"><span class="group__title">Tipo de transação</span><div class="option-list">${radio('t', 'all', 'Todas', f.type)}${radio('t', 'in', 'Entradas', f.type)}${radio('t', 'out', 'Saídas', f.type)}</div></div>
+        <div class="group"><span class="group__title">Categoria</span><div class="option-list">${CATS.map(([v, l]) => box(v, l)).join('')}</div></div>
+      </section></div>
+      <footer class="footbar" style="display:flex;flex-direction:column;gap:8px"><button class="btn btn-primary btn--lg" id="apply">Aplicar filtros</button><button class="btn btn-ghost" id="clear">Limpar filtros</button></footer>`,
+      { studio: '8c4474c1 Filtrar relatório + 77833a7b Estado inicial + 92b424a3 Outro período + d63ba699/5fa7806f/8d31755d/50e1845b/8480a338 modais do Extrato (modelo comum)' });
+    $('#bk').onclick = () => go('/extrato');
+    const sel = (attr, key) => $$(`[data-${attr}]`, root).forEach((b) => { b.onclick = () => { $$(`[data-${attr}]`, root).forEach((x) => x.classList.remove('is-selected')); b.classList.add('is-selected'); f[key] = b.dataset[attr]; if (attr === 'p') $('#custom').classList.toggle('hidden', f.period !== 'custom'); check(); }; });
+    sel('p', 'period'); sel('t', 'type');
+    $$('[data-cat]', root).forEach((b) => { b.onclick = () => { const c = b.dataset.cat; f.cats = f.cats.includes(c) ? f.cats.filter((x) => x !== c) : [...f.cats, c]; b.classList.toggle('is-selected'); }; });
+    const check = () => {
+      let msg = '';
+      if (f.period === 'custom') {
+        const a = $('#from').value, b = $('#to').value;
+        const span = Math.round((Date.parse(b) - Date.parse(a)) / 864e5) + 1;
+        if (!a || !b) msg = 'Escolha as duas datas.'; else if (span < 1) msg = 'A data inicial precisa ser anterior à final.'; else if (span > 7) msg = 'O período pode ter no máximo 7 dias.';
+      }
+      $('#per-er').textContent = msg; $('#per-er').classList.toggle('is-visible', !!msg); $('#apply').disabled = !!msg;
+    };
+    $('#from').oninput = check; $('#to').oninput = check;
+    check();
+    $('#clear').onclick = () => { state.stmt = null; go('/extrato'); };
+    $('#apply').onclick = () => {
+      if (f.period === '7d') { f.from = addDays(today(), -6); f.to = today(); }
+      else if (f.period === 'today') { f.from = today(); f.to = today(); }
+      else { f.from = $('#from').value; f.to = $('#to').value; }
+      state.stmt = f;
+      go('/extrato');
+    };
+  });
+
+  // Studio: "Relatórios | Modal | Baixar Extrato": PDF, XLS, OFX, e-mail. O arquivo é montado no app com o que está na tela.
+  // XLS sai como planilha CSV (abre no Excel). E-mail fica indisponível: o app não envia e-mails.
+  function downloadSheet(list, f) {
+    const s = sheet(`<h2 class="sheet-title">Escolha qual formato você quer baixar seu extrato</h2><p class="sheet-text">${esc(periodLabel(f))} · ${list.length} lançamento${list.length === 1 ? '' : 's'}</p>
+      <div class="option-list">
+        <button class="option-row" data-f="pdf"><span class="option-row-label">Baixar PDF<span class="option-sub">Abre a impressão; escolha "Salvar como PDF".</span></span></button>
+        <button class="option-row" data-f="csv"><span class="option-row-label">Baixar planilha (CSV)<span class="option-sub">Abre no Excel e no Google Planilhas.</span></span></button>
+        <button class="option-row" data-f="ofx"><span class="option-row-label">Baixar OFX<span class="option-sub">Para programas de gestão financeira.</span></span></button>
+        <button class="option-row" disabled style="opacity:.5"><span class="option-row-label">Receber em meu e-mail<span class="option-sub">Indisponível nesta versão do app.</span></span></button>
+      </div><div class="sheet-actions"><button class="btn btn-ghost" data-x>Cancelar</button></div>`);
+    $('[data-x]', s.el).onclick = s.close;
+    const rows = list.map((m) => ({ date: String(m.date).replace(' ', 'T'), kind: MOV[m.type] || m.type, desc: [m.description, m.counterpart].filter(Boolean).join(' · '), value: (m.direction === 'in' ? 1 : -1) * Number(m.amount), id: m.id || '' }));
+    const save = (name, mime, text) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: mime })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); };
+    const base = `extrato-lobank-${f.from}-a-${f.to}`;
+    $$('[data-f]', s.el).forEach((b) => { b.onclick = () => {
+      const kind = b.dataset.f; s.close();
+      if (!rows.length) return toast('Não há lançamentos para baixar.');
+      if (kind === 'csv') {
+        const q = (v) => `"${String(v).replace(/"/g, '""')}"`;
+        save(base + '.csv', 'text/csv;charset=utf-8', '﻿' + ['Data;Tipo;Descrição;Valor (R$);Identificador', ...rows.map((r) => [fmtDateTime(r.date), r.kind, r.desc, r.value.toFixed(2).replace('.', ','), r.id].map(q).join(';'))].join('\r\n'));
+      } else if (kind === 'ofx') {
+        const d = (s2) => s2.replace(/[-:T]/g, '').slice(0, 14);
+        const tx = rows.map((r) => `<STMTTRN><TRNTYPE>${r.value >= 0 ? 'CREDIT' : 'DEBIT'}</TRNTYPE><DTPOSTED>${d(r.date)}</DTPOSTED><TRNAMT>${r.value.toFixed(2)}</TRNAMT><FITID>${esc(r.id)}</FITID><MEMO>${esc((r.kind + ' ' + r.desc).slice(0, 250))}</MEMO></STMTTRN>`).join('\n');
+        save(base + '.ofx', 'application/x-ofx', `OFXHEADER:100\nDATA:OFXSGML\nVERSION:102\nSECURITY:NONE\nENCODING:UTF-8\nCHARSET:NONE\nCOMPRESSION:NONE\nOLDFILEUID:NONE\nNEWFILEUID:NONE\n\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>BRL</CURDEF><BANKACCTFROM><BANKID>13935893</BANKID><BRANCHID>${esc(state.me.account.branch)}</BRANCHID><ACCTID>${esc(state.me.account.account)}</ACCTID><ACCTTYPE>CHECKING</ACCTTYPE></BANKACCTFROM>\n<BANKTRANLIST><DTSTART>${f.from.replace(/-/g, '')}</DTSTART><DTEND>${f.to.replace(/-/g, '')}</DTEND>\n${tx}\n</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>\n`);
+      } else {
+        const w = window.open('', '_blank');
+        if (!w) return toast('O navegador bloqueou a janela de impressão. Permita pop-ups para este endereço.');
+        w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${base}</title><style>body{font-family:Inter,Arial,sans-serif;margin:32px;color:#302d3f}h1{font-size:20px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{padding:6px;border-bottom:1px solid #eee;text-align:left}td.v{text-align:right;white-space:nowrap}.in{color:#187b28}</style></head><body>
+          <h1>Extrato LoBank</h1><p>${esc(state.me.fullName)} · ${maskDoc(state.me.document || '')} · Ag. ${esc(state.me.account.branch)} · Conta ${esc(state.me.account.account)}<br>Período: ${esc(periodLabel(f))}</p>
+          <table><thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th style="text-align:right">Valor</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${esc(fmtDateTime(r.date))}</td><td>${esc(r.kind)}</td><td>${esc(r.desc)}</td><td class="v ${r.value >= 0 ? 'in' : ''}">${r.value >= 0 ? '+ ' : '− '}${esc(money(Math.abs(r.value)))}</td></tr>`).join('')}</tbody></table>
+          <p style="font-size:11px;color:#6f6b82;margin-top:24px">Gerado pelo app em ${esc(new Date().toLocaleString('pt-BR'))}. Ambiente de testes (sandbox da Celcoin).</p></body></html>`);
+        w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
+      }
+    }; });
+  }
+
+  // ============================================================ MINHA CONTA (Wallet | Minha conta + Editar dados)
+  // Só os itens que funcionam (mesma decisão dos atalhos da Home): Minhas chaves Pix, Minhas senhas, Meus dados e Sair.
+  // Retirados: Gestão de usuário, Meus limites, Tarifas e planos, Meu DDA, Cancelar DDA, Dúvidas, Cancelar minha conta.
+  route('/minha-conta', async (root) => {
+    if (!(await needAccount())) return;
+    const me = state.me;
+    const row = (id, icon, label) => `<button class="row acc-row" id="${id}"><span class="row__icon row__icon--soft">${icon}</span><div class="row__info"><span class="row__label">${label}</span></div><span class="row__chevron">${I.chevRight}</span></button>`;
+    root.innerHTML = frame(`<div class="acc-hero"><div class="acc-hero__bar"><button class="hdr__icon acc-hero__back" id="bk" aria-label="Voltar" data-to="/home">${I.chevLeft}</button><span>Minha conta</span><span class="hdr__icon"></span></div>
+        <span class="acc-hero__avatar">${esc(L.initials(me.fullName))}</span><p class="acc-hero__name">${esc(me.fullName)}</p><p class="acc-hero__doc">CELCOIN IP S.A. · ${me.personType === 'PJ' ? 'CNPJ' : 'CPF'} ${maskDoc(me.document || '')}</p>
+        <div class="acc-hero__meta"><span>Agência ${esc(me.account.branch)}</span><span>Conta ${esc(me.account.account)}</span></div>
+        <button class="acc-hero__share" id="share">Compartilhar</button></div>
+      <div class="scroll">${row('keys', I.key, 'Minhas chaves Pix')}${row('pw', I.shield, 'Minhas senhas')}${row('data', I.person, 'Meus dados')}
+        <div style="padding:16px 24px"><button class="btn btn-ghost acc-out" id="out">Sair do aplicativo</button></div></div>`, { studio: '2d3d03ce Minha conta (só itens que funcionam)' });
+    wireBack(root);
+    $('#keys').onclick = () => go('/pix/chaves');
+    $('#pw').onclick = () => go('/minha-conta/senhas');
+    $('#data').onclick = () => go('/minha-conta/dados');
+    $('#share').onclick = () => copy(`${me.fullName}\nCELCOIN IP S.A. (ISPB 13935893)\nAgência ${me.account.branch} · Conta ${me.account.account}\n${me.personType === 'PJ' ? 'CNPJ' : 'CPF'} ${fmtDoc(me.document || '')}`);
+    $('#out').onclick = async () => { await api('/auth/logout', { method: 'POST', allow401: true }); state.me = null; go('/login'); };
+  });
+
+  // Studio: "Minha conta | Editar dados" (modelo comum). Campos que a Celcoin permite alterar: telefone, e-mail, endereço
+  // (e nome social na PF). Nome, documento, nome da mãe, nascimento, razão social e sócios ficam só para leitura.
+  route('/minha-conta/dados', async (root) => {
+    if (!(await needAccount())) return;
+    const d = await api('/me/details');
+    const a = d.address || {};
+    const pj = d.personType === 'PJ';
+    const fld = (id, label, val, attrs) => `<div class="field"><span class="field-label">${label}</span><div class="field-box"><input id="${id}" value="${esc(val || '')}" ${attrs || ''}/></div><p class="field-error" id="${id}-er"></p></div>`;
+    const ro = (label, val) => `<div class="receipt__row"><span>${label}</span><span>${esc(val)}</span></div>`;
+    root.innerHTML = frame(`<header class="hdr"><button class="hdr__icon" id="bk" aria-label="Voltar" data-to="/minha-conta">${I.chevLeft}</button><h1 class="hdr__title">Meus dados</h1><span class="hdr__icon"></span></header>
+      <div class="scroll"><section class="body-sec">
+        <div class="card"><div class="receipt">${ro(pj ? 'Razão social' : 'Nome', d.fullName)}${pj && d.socialName ? ro('Nome da empresa', d.socialName) : ''}${ro(pj ? 'CNPJ' : 'CPF', fmtDoc(d.document))}
+          ${pj ? (d.owners || []).map((o) => ro(o.type === 'REPRESENTANTE' ? 'Representante' : 'Sócio', o.name + (o.share ? ` (${o.share}%)` : ''))).join('') : ''}</div>
+          <p class="row__caption">${pj ? 'Razão social, nome, CNPJ e sócios não podem ser alterados pelo app. Mudança de sócios é feita pelo time de Compliance da Celcoin.' : 'Nome, CPF, nome da mãe e data de nascimento não podem ser alterados.'}</p></div>
+        <div class="field-group">
+          ${pj ? '' : fld('soc', 'Nome social', d.socialName, 'maxlength="60" placeholder="Opcional"')}
+          ${fld('em', pj ? 'E-mail da empresa' : 'E-mail', d.email, 'type="email" maxlength="100"')}
+          ${fld('ph', pj ? 'Telefone da empresa' : 'Celular', fmtPhone(String(d.phone || '').replace(/^\+55/, '')), 'inputmode="tel" maxlength="15"')}
+          <p class="sheet-text" style="margin:8px 0 0;font-weight:600">${pj ? 'Endereço da empresa' : 'Endereço'}</p>
+          ${fld('cep', 'CEP', fmtCep(a.postalCode || ''), 'inputmode="numeric" maxlength="9"')}${fld('street', 'Rua', a.street, 'maxlength="200"')}
+          <div class="row2">${fld('num', 'Número', a.number, 'maxlength="10"')}${fld('comp', 'Complemento', a.addressComplement || a.complement, 'maxlength="60" placeholder="Opcional"')}</div>
+          ${fld('nb', 'Bairro', a.neighborhood, 'maxlength="200"')}<div class="row2 row2--wide-first">${fld('city', 'Cidade', a.city, 'maxlength="100"')}${fld('uf', 'UF', a.state, 'maxlength="2" style="text-transform:uppercase"')}</div>
+        </div></section></div>
+      <footer class="footbar"><button class="btn btn-primary btn--lg" id="save" disabled>Salvar alterações</button></footer>`, { studio: 'd5ea723e Minha conta Editar dados (modelo comum, limitado ao que a Celcoin permite)' });
+    wireBack(root);
+    const save = $('#save');
+    const read = () => ({ email: $('#em').value.trim(), phone: onlyDigits($('#ph').value), socialName: $('#soc') ? $('#soc').value.trim() : undefined,
+      address: { postalCode: onlyDigits($('#cep').value), street: $('#street').value.trim(), number: $('#num').value.trim(), complement: $('#comp').value.trim(), neighborhood: $('#nb').value.trim(), city: $('#city').value.trim(), state: $('#uf').value.trim().toUpperCase() } });
+    const check = () => { const v = read(); const ad = v.address; save.disabled = !(/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email) && v.phone.length === 11 && ad.postalCode.length === 8 && ad.street && ad.number && ad.neighborhood && ad.city && /^[A-Z]{2}$/.test(ad.state)); };
+    $$('input', root).forEach((i) => { i.addEventListener('input', () => { if (i.id === 'ph') i.value = fmtPhone(i.value); if (i.id === 'cep') i.value = fmtCep(i.value); check(); }); });
+    check();
+    save.onclick = async () => {
+      setLoading(save, true);
+      try { await api('/me', { method: 'PUT', body: read() }); toast('Dados atualizados na Celcoin.'); go('/minha-conta'); }
+      catch (e) { toast(e.message); setLoading(save, false); save.disabled = false; }
+    };
+  });
+
+  // Studio: item "Minhas senhas" da tela Minha conta (sem tela própria no Studio): troca da senha de acesso ou de transferência.
+  route('/minha-conta/senhas', async (root) => {
+    if (!(await needAccount())) return;
+    let kind = 'login';
+    const paint = () => {
+      root.innerHTML = frame(`<header class="hdr"><button class="hdr__icon" id="bk" aria-label="Voltar" data-to="/minha-conta">${I.chevLeft}</button><h1 class="hdr__title">Minhas senhas</h1><span class="hdr__icon"></span></header>
+        <div class="scroll"><section class="body-sec">
+          <div class="seg"><button type="button" class="seg__btn ${kind === 'login' ? 'is-active' : ''}" data-k="login">Senha de acesso</button><button type="button" class="seg__btn ${kind === 'tx' ? 'is-active' : ''}" data-k="tx">Senha de transferência</button></div>
+          <div class="field-group">
+            <div class="field"><span class="field-label">Senha de acesso atual</span><div class="field-box"><input id="cur" type="password" autocomplete="current-password"/></div></div>
+            <div class="field"><span class="field-label">${kind === 'login' ? 'Nova senha de acesso' : 'Nova senha de transferência (4 números)'}</span><div class="field-box"><input id="nx" type="password" ${kind === 'tx' ? 'inputmode="numeric" maxlength="4"' : 'autocomplete="new-password"'}/></div>
+              <p class="field-helper">${kind === 'login' ? 'Use 8 caracteres ou mais, com letras e números.' : 'Ela é pedida em todo Pix.'}</p></div>
+            <div class="field"><span class="field-label">Repita a nova senha</span><div class="field-box"><input id="nx2" type="password" ${kind === 'tx' ? 'inputmode="numeric" maxlength="4"' : 'autocomplete="new-password"'}/></div><p class="field-error" id="er"></p></div>
+          </div></section><p class="studio-note">Tela criada para o app: o Studio tem só o item no menu.</p></div>
+        <footer class="footbar"><button class="btn btn-primary btn--lg" id="save" disabled>Trocar senha</button></footer>`, { studio: 'novo:minhas-senhas (item de 2d3d03ce Minha conta)' });
+      wireBack(root);
+      $$('[data-k]', root).forEach((b) => { b.onclick = () => { kind = b.dataset.k; paint(); }; });
+      const save = $('#save'), er = $('#er');
+      const valid = (v) => (kind === 'login' ? v.length >= 8 && /[A-Za-z]/.test(v) && /\d/.test(v) : /^\d{4}$/.test(v));
+      const check = () => { const a = $('#nx').value, b = $('#nx2').value; const mismatch = b && a !== b; er.textContent = mismatch ? 'As senhas não conferem.' : ''; er.classList.toggle('is-visible', !!mismatch); save.disabled = !($('#cur').value && valid(a) && a === b); };
+      $$('input', root).forEach((i) => { i.oninput = () => { if (kind === 'tx' && i.id !== 'cur') i.value = onlyDigits(i.value).slice(0, 4); check(); }; });
+      save.onclick = async () => {
+        setLoading(save, true);
+        try { await api('/me/passwords', { method: 'POST', allow401: true, body: { kind, current: $('#cur').value, next: $('#nx').value } }); toast('Senha trocada.'); go('/minha-conta'); }
+        catch (e) { er.textContent = e.message; er.classList.add('is-visible'); setLoading(save, false); save.disabled = false; }
+      };
+    };
+    paint();
+  });
+})();

@@ -55,6 +55,8 @@
     eye: '<svg width="22" height="22" viewBox="0 0 19.8348 16.5" fill="none"><path d="M9.91742 0C14.8601 0 18.9723 3.55667 19.8348 8.25C18.9732 12.9433 14.8601 16.5 9.91742 16.5C4.97475 16.5 0.862583 12.9433 0 8.25C0.861667 3.55667 4.97475 0 9.91742 0ZM9.91742 14.6667C11.7869 14.6663 13.6009 14.0313 15.0625 12.8656C16.5241 11.6999 17.5467 10.0726 17.963 8.25C17.5452 6.42886 16.5219 4.80334 15.0605 3.63919C13.599 2.47504 11.7859 1.84115 9.91742 1.84115C8.04897 1.84115 6.2358 2.47504 4.77435 3.63919C3.31289 4.80334 2.28962 6.42886 1.87183 8.25C2.28809 10.0726 3.3107 11.6999 4.7723 12.8656C6.2339 14.0313 8.0479 14.6663 9.91742 14.6667ZM9.91742 12.375C8.8234 12.375 7.77419 11.9404 7.0006 11.1668C6.22701 10.3932 5.79242 9.34402 5.79242 8.25C5.79242 7.15598 6.22701 6.10677 7.0006 5.33318C7.77419 4.5596 8.8234 4.125 9.91742 4.125C11.0114 4.125 12.0606 4.5596 12.8342 5.33318C13.6078 6.10677 14.0424 7.15598 14.0424 8.25C14.0424 9.34402 13.6078 10.3932 12.8342 11.1668C12.0606 11.9404 11.0114 12.375 9.91742 12.375Z" fill="#fff"/></svg>',
     help: '<svg width="22" height="22" viewBox="0 0 21.5 21.5" fill="none"><circle cx="10.75" cy="10.75" r="10" stroke="#fff" stroke-width="1.5"/><path d="M8.75 7.75C8.75 6.64543 9.64543 5.75 10.75 5.75C11.8546 5.75 12.75 6.64543 12.75 7.75C12.75 8.14815 12.6337 8.51913 12.4331 8.83079C11.8354 9.75967 10.75 10.6454 10.75 11.75V12.25" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><path d="M10.742 15.75H10.751" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>',
     caret: '<svg width="16" height="16" viewBox="0 0 8.48533 5.18533" fill="none"><path d="M4.24267 3.3L7.54267 0L8.48533 0.942666L4.24267 5.18533L0 0.942666L0.942667 0L4.24267 3.3Z" fill="#fff"/></svg>',
+    download: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 21h16"/></svg>',
+    filter: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>',
     trash: '<svg width="18" height="20" viewBox="0 0 18 20" fill="none"><path d="M5 1h8M1 4h16M3 4l1 14a1.5 1.5 0 0 0 1.5 1.4h7A1.5 1.5 0 0 0 14 18l1-14M7 8v8M11 8v8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     copy: '<svg width="18.75" height="20.83" viewBox="0 0 18.75 20.8334" fill="none"><path d="M4.16667 4.16667V1.04167C4.16667 0.466 4.633 0 5.20833 0H17.7083C18.2837 0 18.75 0.466 18.75 1.04167V15.625C18.75 16.2003 18.2837 16.6667 17.7083 16.6667H14.5833V19.7917C14.5833 20.3667 14.1146 20.8333 13.5344 20.8333H1.04896C0.469 20.8333 0 20.367 0 19.7917L0.003125 5.20833C0.003125 4.63333 0.471875 4.16667 1.05208 4.16667H4.16667ZM2.08646 6.25L2.08333 18.75H12.5V6.25H2.08646ZM6.25 4.16667H14.5833V14.5833H16.6667V2.08333H6.25V4.16667Z" fill="currentColor"/></svg>',
     key: '<svg width="18.09" height="17.01" viewBox="0 0 18.0881 17.0147" fill="none"><path d="M7.76512 7.849L15.6141 0L17.0281 1.414L15.6141 2.829L18.0881 5.303L16.6741 6.718L14.1991 4.243L12.7851 5.657L14.9061 7.778L13.4921 9.193L11.3711 7.071L9.17912 9.263C9.85957 10.297 10.1325 11.5466 9.94503 12.7701C9.7576 13.9937 9.12316 15.1042 8.16439 15.8871C7.20561 16.67 5.9906 17.0696 4.75429 17.0086C3.51799 16.9477 2.3482 16.4304 1.47112 15.557C0.592147 14.6813 0.0701463 13.5101 0.00657268 12.271C-0.057001 11.0319 0.342393 9.81345 1.12713 8.85242C1.91187 7.89138 3.02589 7.25644 4.25268 7.071C5.47947 6.88555 6.73139 7.16285 7.76512 7.849ZM7.12812 14.142C7.41943 13.8665 7.65255 13.5353 7.8137 13.1681C7.97484 12.8009 8.06074 12.4052 8.06632 12.0042C8.07189 11.6033 7.99703 11.2053 7.84616 10.8338C7.69529 10.4622 7.47147 10.1247 7.18793 9.84119C6.90439 9.55765 6.56688 9.33383 6.19536 9.18296C5.82384 9.03209 5.42584 8.95723 5.02489 8.9628C4.62394 8.96838 4.22818 9.05428 3.861 9.21542C3.49382 9.37656 3.16267 9.60968 2.88712 9.901C2.34064 10.4668 2.03826 11.2246 2.0451 12.0112C2.05193 12.7978 2.36744 13.5502 2.92366 14.1065C3.47989 14.6627 4.23232 14.9782 5.01891 14.985C5.80551 14.9919 6.56331 14.6895 7.12912 14.143L7.12812 14.142Z" fill="currentColor"/></svg>',
@@ -612,8 +614,9 @@
     $('#menu').onclick = () => {
       const s = sheet(`<h2 class="sheet-title">${esc(state.me.fullName)}</h2><p class="sheet-text">Agência ${esc(state.me.account.branch)} · Conta ${esc(state.me.account.account)}</p>
         ${state.mode === 'mock' ? '<div class="sheet-actions"><button class="btn btn-outline" data-credit>Simular crédito de R$ 1.000</button></div>' : ''}
-        <div class="sheet-actions"><button class="btn btn-primary" data-out>Sair</button><button class="btn btn-ghost" data-x>Voltar</button></div>`);
+        <div class="sheet-actions"><button class="btn btn-primary" data-acc>Minha conta</button><button class="btn btn-outline" data-out>Sair</button><button class="btn btn-ghost" data-x>Voltar</button></div>`);
       $('[data-x]', s.el).onclick = s.close;
+      $('[data-acc]', s.el).onclick = () => { s.close(); go('/minha-conta'); };
       $('[data-out]', s.el).onclick = async () => { await api('/auth/logout', { method: 'POST', allow401: true }); state.me = null; go('/login'); };
       const cr = $('[data-credit]', s.el); if (cr) cr.onclick = async () => { await api('/dev/credit', { method: 'POST', body: { amount: 1000 } }); s.close(); loadBal(); };
     };
@@ -884,35 +887,37 @@
 
   // ============================================================ RECEBER (board Receber, fluxo "Único")
   // Studio: "Receber | Home | Único" + "Único | Inserir valor" (modelo comum)
-  route('/receber', async (root) => {
+  // Inserir valor. Único: valor obrigatório. Múltiplos: valor opcional (o QR estático aceita os dois).
+  route('/receber/valor', async (root) => {
     if (!(await loadMe())) return go('/login');
     if (!state.me.account) return go('/validacao');
-    state.receive = state.receive || {};
+    state.receive = state.receive || { mode: 'single' };
+    const multi = state.receive.mode === 'multi';
     root.innerHTML = frame(`<header class="hdr hdr--wl"><button class="hdr__icon" id="bk" aria-label="Voltar">${I.chevLeft}</button><span class="logo">${LOGO('#7664FA', 104)}</span><span class="hdr__icon"></span></header>
       <div class="scroll"><section class="intro"><h1 class="intro__title">Quanto você quer <strong>cobrar</strong>?</h1><p class="intro__desc">Gere um QR Code Pix para receber na sua chave aleatória.</p></section>
         <section class="body-sec"><div class="amount-input"><span>R$</span><input id="amt" inputmode="numeric" placeholder="0,00" value="${state.receive.amount ? esc(state.receive.amount.toFixed(2).replace('.', ',')) : ''}"/></div>
-        <button class="link-inline" id="free">Não definir valor (quem paga escolhe)</button></section></div>
-      <footer class="footbar"><button class="btn btn-primary btn--lg" id="next" disabled>Continuar</button></footer>`, { studio: 'c3a90386 Home Único + 29121fb6 Inserir valor (modelo comum)' });
-    $('#bk').onclick = () => go('/home');
+        ${multi ? '<button class="link-inline" id="free">Não definir valor (quem paga escolhe)</button>' : ''}</section></div>
+      <footer class="footbar"><button class="btn btn-primary btn--lg" id="next" disabled>Continuar</button></footer>`, { studio: multi ? 'acceba30 Múltiplos Inserir valor (modelo comum)' : '29121fb6 Único Inserir valor (modelo comum)' });
+    $('#bk').onclick = () => go('/receber');
     const amt = $('#amt'), next = $('#next');
     amt.oninput = () => { const n = Number(onlyDigits(amt.value) || 0) / 100; amt.value = n ? n.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''; next.disabled = !(n > 0); };
     amt.oninput();
     next.onclick = () => { state.receive.amount = parseMoney(amt.value); go('/receber/revisar'); };
-    $('#free').onclick = () => { state.receive.amount = null; go('/receber/revisar'); };
+    if ($('#free')) $('#free').onclick = () => { state.receive.amount = null; go('/receber/revisar'); };
   });
 
   // Studio: "Receber | Único | Revisar cobrança" (+ "Editar | Descrição"). Edição de CPF/CNPJ e nome do pagador ficam para a Fase 2.
   route('/receber/revisar', (root) => {
     const r = state.receive;
-    if (!r) return go('/receber');
+    if (!r || !r.mode) return go('/receber');
     root.innerHTML = frame(`<header class="hdr hdr--wl"><button class="hdr__icon" id="bk" aria-label="Voltar">${I.chevLeft}</button><span class="logo">${LOGO('#7664FA', 104)}</span><span class="hdr__icon"></span></header>
       <div class="scroll"><section class="intro"><h1 class="intro__title">Revise a <strong>cobrança</strong></h1></section>
         <section class="body-sec"><div><div class="amount__label">Você vai cobrar</div><div class="amount__row"><span class="amount__value">${r.amount ? money(r.amount) : 'Valor livre'}</span><button class="amount__edit" id="edit" aria-label="Editar valor">${I.edit}</button></div></div>
           <div class="card"><button class="row" id="desc"><span class="row__icon row__icon--soft">${I.chat}</span><div class="row__info"><span class="row__caption">Descrição</span><span class="row__label" id="dl">${r.description ? esc(r.description) : 'Adicionar descrição'}</span></div><span class="row__chevron">${I.chevRight}</span></button></div>
-          <div class="info-box"><span class="info-box-bar"></span><span class="info-box-text">O QR Code usa a sua chave aleatória. Quem pagar verá seu nome.</span></div></section></div>
-      <footer class="footbar"><button class="btn btn-primary btn--lg" id="gen">Gerar QR Code</button></footer>`, { studio: 'a982a6e1 Revisar cobrança + 58fb0fdd Editar Descrição (modelo comum)' });
+          <div class="info-box"><span class="info-box-bar"></span><span class="info-box-text">${r.mode === 'multi' ? 'Esse QR Code não expira e pode ser pago várias vezes.' : 'Esse QR Code é para uma cobrança.'} Ele usa a sua chave aleatória e quem pagar verá seu nome.</span></div></section></div>
+      <footer class="footbar"><button class="btn btn-primary btn--lg" id="gen">Gerar QR Code</button></footer>`, { studio: r.mode === 'multi' ? (r.amount ? 'a5984aa8 Múltiplos Revisar Com Valor' : '4013d617 Múltiplos Revisar Sem Valor') + ' (modelo comum)' : 'a982a6e1 Revisar cobrança + 58fb0fdd Editar Descrição (modelo comum)' });
     $('#bk').onclick = back;
-    $('#edit').onclick = () => go('/receber');
+    $('#edit').onclick = () => go('/receber/valor');
     $('#desc').onclick = () => {
       const s = sheet(`<h2 class="sheet-title">Descrição</h2><div class="field"><div class="field-box"><input id="d" maxlength="72" placeholder="Ex.: Pedido 123" value="${esc(r.description || '')}"/></div></div>
         <div class="sheet-actions"><button class="btn btn-primary" data-ok>Salvar</button><button class="btn btn-ghost" data-x>Cancelar</button></div>`);
@@ -938,7 +943,7 @@
       <div class="scroll"><section class="intro"><h1 class="intro__title intro__title--sm">QR Code gerado</h1><p class="intro__desc">${r.amount ? 'Valor: <strong>' + money(r.amount) + '</strong>' : 'Valor livre'}${r.description ? ' · ' + esc(r.description) : ''}</p></section>
         <section class="body-sec"><div class="qr-box">${r.qr.svg}</div><div class="group"><span class="group__title">Pix Copia e Cola</span><div class="emv">${esc(r.qr.emv)}</div></div>
         <div class="info-box"><span class="info-box-bar"></span><span class="info-box-text">Quando o pagamento chegar, ele aparece no seu extrato.</span></div></section></div>
-      <footer class="footbar"><button class="btn btn-primary btn--lg" id="cp">Copiar código</button></footer>`, { studio: '0a001283 QR Code estático (modelo comum)' });
+      <footer class="footbar"><button class="btn btn-primary btn--lg" id="cp">Copiar código</button></footer>`, { studio: r.mode === 'multi' ? (r.amount ? '576af395 Múltiplos QR Com Valor' : '8416a740 Múltiplos QR Sem Valor') + ' (modelo comum)' : '0a001283 Único QR Code estático (modelo comum)' });
     $('#bk').onclick = () => go('/home');
     $('#cp').onclick = () => copy(r.qr.emv);
   });

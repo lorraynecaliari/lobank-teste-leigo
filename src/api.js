@@ -141,7 +141,7 @@ router.post('/onboarding/pf', wrap(async (req, res) => {
     const info = db.prepare(`INSERT INTO users (document, person_type, full_name, social_name, email, phone, password_hash, tx_password_hash, profile_json)
       VALUES (?, 'PF', ?, ?, ?, ?, ?, ?, ?)`).run(cpf, fullName, payload.socialName || null, payload.email, phone,
       auth.hashSecret(password), auth.hashSecret(txPassword),
-      JSON.stringify({ income: b.income || null, assets: b.assets || null, profession: b.profession || null, postalCode: address.postalCode, city: address.city }));
+      JSON.stringify({ income: b.income || null, assets: b.assets || null, profession: b.profession || null, postalCode: address.postalCode, city: address.city, address }));
     db.prepare('INSERT INTO proposals (user_id, proposal_id, client_code, status) VALUES (?, ?, ?, ?)').run(info.lastInsertRowid, proposalId, clientCode, 'PENDING');
     return info.lastInsertRowid;
   });
@@ -197,7 +197,7 @@ router.post('/onboarding/pj', wrap(async (req, res) => {
     const info = db.prepare(`INSERT INTO users (document, person_type, full_name, social_name, email, phone, password_hash, tx_password_hash, profile_json)
       VALUES (?, 'PJ', ?, ?, ?, ?, ?, ?, ?)`).run(cnpj, businessName, tradingName, payload.businessEmail, contactNumber,
       auth.hashSecret(pw.password), auth.hashSecret(pw.txPassword),
-      JSON.stringify({ companyKind: kind, revenue: b.revenue || null, fillerRole: role, postalCode: businessAddress.postalCode, city: businessAddress.city,
+      JSON.stringify({ companyKind: kind, revenue: b.revenue || null, fillerRole: role, postalCode: businessAddress.postalCode, city: businessAddress.city, address: businessAddress,
         owners: owners.map((o, i) => ({ cpf: o.documentNumber, name: o.fullName, type: o.ownerType, share: i ? (extra[i - 1].share || null) : (b.filler.share || null) })) }));
     db.prepare('INSERT INTO proposals (user_id, proposal_id, client_code, status) VALUES (?, ?, ?, ?)').run(info.lastInsertRowid, proposalId, clientCode, 'PENDING');
     return info.lastInsertRowid;
@@ -242,6 +242,53 @@ router.get('/onboarding/status', auth.requireUser, wrap(async (req, res) => {
   const pending = status === 'PENDING_DOCUMENTSCOPY';
   res.json({ status, documentscopyUrl: pending ? url : null, documentscopies: pending ? named : [], account: account ? { branch: account.branch, account: account.account } : null });
 }));
+
+// ---------------------------------------------------------------- Minha conta
+// Studio: "Minha conta | Editar dados". A Celcoin não deixa mudar nome, documento, nome da mãe e nascimento
+// (PF), nem razão social e nome fantasia (PJ). Sócios só pelo time de Compliance da Celcoin.
+router.put('/me', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
+  const b = req.body || {};
+  const phone = v.toE164(b.phone);
+  if (!phone) return bad(res, 'INVALID_PHONE', 'Telefone inválido. Use DDD + número.');
+  if (!v.isEmail(b.email)) return bad(res, 'INVALID_EMAIL', 'E-mail inválido.');
+  const address = parseAddress(b.address);
+  if (!address) return bad(res, 'INVALID_ADDRESS', 'Endereço incompleto.');
+  const email = String(b.email).trim();
+  const pj = req.user.person_type === 'PJ';
+  if (pj) {
+    await celcoin.updateAccountPJ(req.account.account, req.user.document, { businessEmail: email, contactNumber: phone, businessAddress: address });
+  } else {
+    const socialName = String(b.socialName || '').trim() || undefined;
+    await celcoin.updateAccountPF(req.account.account, req.user.document, { phoneNumber: phone, email, socialName, isPoliticallyExposedPerson: b.isPep === true, address });
+    db.prepare('UPDATE users SET social_name = ? WHERE id = ?').run(socialName || null, req.user.id);
+  }
+  const profile = JSON.parse(req.user.profile_json || '{}');
+  Object.assign(profile, { postalCode: address.postalCode, city: address.city, address });
+  db.prepare('UPDATE users SET email = ?, phone = ?, profile_json = ? WHERE id = ?').run(email, phone, JSON.stringify(profile), req.user.id);
+  res.json({ ok: true });
+}));
+
+router.get('/me/details', auth.requireUser, (req, res) => {
+  const profile = JSON.parse(req.user.profile_json || '{}');
+  res.json({ personType: req.user.person_type, document: req.user.document, fullName: req.user.full_name, socialName: req.user.social_name,
+    email: req.user.email, phone: req.user.phone, address: profile.address || { postalCode: profile.postalCode, city: profile.city },
+    owners: req.user.person_type === 'PJ' ? (profile.owners || []).map((o) => ({ name: o.name, type: o.type, share: o.share })) : undefined });
+});
+
+// Senhas ficam só no app (a Celcoin não guarda a senha de acesso nem a de transferência).
+router.post('/me/passwords', auth.requireUser, (req, res) => {
+  const b = req.body || {};
+  if (!auth.verifySecret(String(b.current || ''), req.user.password_hash)) return bad(res, 'INVALID_CREDENTIALS', 'Senha atual incorreta.', 401);
+  if (b.kind === 'login') {
+    const p = String(b.next || '');
+    if (p.length < 8 || !/[A-Za-z]/.test(p) || !/\d/.test(p)) return bad(res, 'WEAK_PASSWORD', 'A senha precisa ter 8 caracteres ou mais, com letras e números.');
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(auth.hashSecret(p), req.user.id);
+  } else if (b.kind === 'tx') {
+    if (!/^\d{4}$/.test(String(b.next || ''))) return bad(res, 'INVALID_TX_PASSWORD', 'A senha de transferência precisa ter 4 números.');
+    db.prepare('UPDATE users SET tx_password_hash = ? WHERE id = ?').run(auth.hashSecret(String(b.next)), req.user.id);
+  } else return bad(res, 'INVALID', 'Escolha qual senha trocar.');
+  res.json({ ok: true });
+});
 
 // ---------------------------------------------------------------- conta
 router.get('/balance', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {

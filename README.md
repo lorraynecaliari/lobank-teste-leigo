@@ -1,4 +1,4 @@
-# LoBank — app (Fase 1, Rodada 0)
+# LoBank — app (Fases 1 e 2, Rodada 0)
 
 App de conta digital **PF** sobre o BaaS da Celcoin, **somente sandbox**. Construído a partir das telas do projeto LoBank no Studio e dos comentários deixados nelas.
 
@@ -39,14 +39,27 @@ Para mexer nas telas sem credenciais: `CELCOIN_MODE=mock npm start`. Todas as te
 | Cobrar com Pix | Receber, Revisar cobrança, QR Code | `POST /pix/v1/brcode/static` com a chave aleatória |
 | Extrato | Extrato, Detalhes, Comprovante | `GET /baas-walletreports/v1/wallet/movement` (janela de até 7 dias) |
 
-**Fora desta fase:** conta PJ, transferência por agência e conta, receber "múltiplos", relatórios e filtros, Minha conta.
+## O que a Fase 2 acrescenta
+
+| Fluxo | Telas | Integração Celcoin |
+|---|---|---|
+| Abertura de conta PJ | Tipo de conta, Termos, Tipo de empresa, CNPJ (+ "Por que o CNPJ"), Razão social, Nome da empresa, Faturamento, Contato da empresa (**nova**), Endereço da empresa (**nova**), Quem está preenchendo, Seus dados (+ nome da mãe), Seu endereço (**nova**), Adicionar sócios (+ modal com os dados que a Celcoin exige), senhas | `POST /onboarding/v1/onboarding-proposal/legal-person` (`owner` em lista; `companyType` PJ ou MEI); conta por `GET /baas/v2/account/fetch-business` |
+| Validação de identidade PJ | Validação com **um link por sócio** | `documentscopys` da proposta, uma por CPF |
+| Pix Copia e Cola | Colar código (**nova**), Valor (quando o código não traz valor), Revisão, Resultado, Comprovante | `POST /pix/v1/emv/full`, DICT pela conta pagadora, `POST /baas/v2/pix/payment` com `STATIC_QRCODE`/`DYNAMIC_QRCODE` |
+| Pix por agência e conta | Selecionar banco, Dados da conta destino (Outra conta / Minha conta), Tipo de conta do destinatário, Valor, Revisão, Resultado, Comprovante | `GET /pix/v1/participants` (ISPB, guardado 24 h), `POST /baas/v2/pix/payment` com `MANUAL` |
+| Receber | Home (Único / Vários recebimentos), Inserir valor, Revisar cobrança (com e sem valor), QR Code | `POST /pix/v1/brcode/static`. Os dois usam QR **estático**; o dinâmico fica para depois |
+| Extrato completo e relatórios | Extrato com busca, Filtrar (período de até 7 dias, tipo, categoria), Baixar extrato (PDF, CSV, OFX) | `GET /baas-walletreports/v1/wallet/movement`; filtros e arquivos montados no app |
+| Minha conta | Minha conta (só itens que funcionam), Meus dados, Minhas senhas (**nova**) | `PUT /baas/v2/account/natural-person` e `/business` (telefone, e-mail, endereço) |
+
+**Fora por enquanto:** QR Code dinâmico (validade e uso único), favoritos e contatos, sócio pessoa jurídica (a API só aceita CPF), envio de extrato por e-mail, Gestão de usuário, Meus limites, Tarifas, DDA, Dúvidas e Cancelar conta.
 
 **Retirado por decisão ou comentário no Studio:** procuração, portabilidade, reivindicação, chaves CPF/celular/e-mail, verificação por SMS, agendamento de Pix, Pix Automático, Minha agenda Pix, cartão e crédito, splash e onboarding v.1–v.4.
 
 ## Regras seguidas
 
 - **Sem sessão, sem acesso; sem conta, sem dinheiro.** Rotas de dinheiro respondem `409 NO_ACCOUNT` enquanto a conta não existe, e nunca há conta padrão.
-- **`200 PROCESSING` não é sucesso.** A tela de confirmação mostra "em processamento" e consulta o desfecho com recuo progressivo.
+- **`200 PROCESSING` não é sucesso.** A tela de confirmação mostra "em processamento" e consulta o desfecho a cada 10 s, com o tempo na tela.
+- **Nenhuma consulta repete antes de 10 s** (`CELCOIN_MIN_QUERY_INTERVAL_MS`), nem em caso de falha.
 - **Saldo é checado antes do Pix**, porque a Celcoin aceita o pedido mesmo sem saldo e só recusa depois.
 - **Chave DICT de uso único:** o `endToEndId` não é reaproveitado. Os dados do recebedor vão para o `creditParty` exatamente como o DICT devolveu, inclusive mascarados.
 - **Mutação ambígua não é reenviada:** se a conexão cair no envio do Pix, o app guarda o `clientCode` e mostra "confirmando com a Celcoin".
