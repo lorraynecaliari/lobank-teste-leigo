@@ -236,7 +236,9 @@ Commits no branch `app-rodada-0`: `7bf26d0` (PJ), `d9746cc` (Copia e Cola e agê
 
 | 17:49 | **Meus dados na conta LTDA** (`PUT /baas/v2/account/business` com e-mail, telefone e endereço) | Recusado: "O campo Owners deve conter um array de no mínimo 1 e máximo 10." | **`owners` é obrigatório no PUT da PJ**, mesmo sem mudar sócios. A documentação mostra o campo no exemplo, mas não diz que é obrigatório, e ainda diz que mudar sócios exige o Compliance. Erro do agente: o app não mandava os sócios. Corrigido (commit `6d9cf60`): o app lê os sócios da conta e os reenvia sem alteração. O mock agora exige o campo. |
 
-**Testado no sandbox real até 17:48:** cadastro PJ MEI e login por CNPJ (A), cadastro PJ LTDA com 2 sócios, Pix `MANUAL` (B), Pix `STATIC_QRCODE` (C), atualização de dados PF (D). **Ainda não testado:** Meus dados de PJ (`PUT /business`), arquivos do extrato com dados reais.
+| 17:50 | **Meus dados PJ repetido depois da correção** | MCP `fetch-business`: e-mail `padariafase3@…`, `lastUpdate 17:50:27`; os 2 sócios iguais aos de antes | `PUT /baas/v2/account/business` verificado no sandbox real. |
+
+**Testado no sandbox real até 17:50:** cadastro PJ MEI e login por CNPJ (A), cadastro PJ LTDA com 2 sócios, Meus dados PJ, Pix `MANUAL` (B), Pix `STATIC_QRCODE` (C), atualização de dados PF (D). **Ainda não testado:** arquivos do extrato (PDF, CSV, OFX) com dados reais.
 
 **Roteiro original mandado à usuária:** cadastro PJ com dois sócios e uma documentoscopia por sócio; login por CNPJ; Pix Copia e Cola (`STATIC_QRCODE` com `transactionIdentification: "***"`, nunca enviado de verdade); Pix por agência e conta (`MANUAL`); atualização de dados (`PUT`).
 
