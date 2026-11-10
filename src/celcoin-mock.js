@@ -82,6 +82,14 @@ async function handle(method, path, body) {
       state.keys.set(body.account, [...(state.keys.get(body.account) || []), k]);
       return { status: 'CONFIRMED', body: k };
     }
+    if (method === 'DELETE' && p.startsWith('/baas/v2/pix/dict/entry/')) {
+      if (!body || !body.account) throw err(400, 'CBE091', 'É necessário informar o campo: account.');
+      const key = decodeURIComponent(p.split('/').pop());
+      const list = state.keys.get(body.account) || [];
+      if (!list.some((k) => k.key === key)) throw err(400, 'CBE190', 'Operação Não permitida. Chave não esta vinculada a essa conta.');
+      state.keys.set(body.account, list.filter((k) => k.key !== key));
+      return { version: '1.0.0', status: 'SUCCESS' };
+    }
     if (method === 'POST' && p === '/baas/v2/pix/payment') {
       const id = crypto.randomUUID();
       state.payments.set(id, { ...body, id, status: 'PROCESSING', at: Date.now() });

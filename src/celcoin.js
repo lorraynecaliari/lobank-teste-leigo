@@ -125,6 +125,9 @@ const listKeys = async (account) => {
 // Com keyType EVP o campo key NÃO deve ser enviado (CBE178), apesar do exemplo da documentação.
 const createEvpKey = (account) => request('POST', '/baas/v2/pix/dict/entry', { account, keyType: 'EVP' });
 
+// Excluir: o path leva a CHAVE e o corpo leva a conta dona dela.
+const deleteKey = (account, key) => request('DELETE', `/baas/v2/pix/dict/entry/${encodeURIComponent(key)}`, { account });
+
 // ---- Pix out -----------------------------------------------------------------
 // DICT do BaaS: o path leva o número da conta PAGADORA.
 const lookupKey = (payerAccount, key) =>
@@ -140,6 +143,6 @@ const createStaticQr = (payload) => request('POST', '/pix/v1/brcode/static', pay
 module.exports = {
   MODE, BASE_URL, CelcoinError, uid,
   createNaturalPersonProposal, getProposal, fetchAccountPF,
-  getBalance, getMovements, listKeys, createEvpKey,
+  getBalance, getMovements, listKeys, createEvpKey, deleteKey,
   lookupKey, pixPayment, pixPaymentStatus, createStaticQr,
 };

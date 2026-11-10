@@ -56,6 +56,8 @@ button { font-family: inherit; }
 .btn-primary { background: var(--studio-primary-color); color: var(--on-primary); }
 .btn-primary:disabled { background: color-mix(in srgb, var(--studio-primary-color) 12%, white); color: color-mix(in srgb, var(--studio-primary-color) 55%, white); cursor: not-allowed; }
 .btn-ghost { background: transparent; color: var(--studio-primary-color); }
+.btn-danger { background: #D93025; color: #fff; }
+.key-card__btn--danger { color: #D93025; margin-left: 8px; }
 .btn-outline { background: transparent; border: 2px solid var(--line); color: var(--studio-primary-color); }
 .btn--lg { padding: 16px 32px; font-size: 20px; line-height: 20px; border-radius: var(--studio-border-radius); }
 .btn.is-loading { opacity: .7; pointer-events: none; }

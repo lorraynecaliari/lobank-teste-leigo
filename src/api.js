@@ -16,6 +16,7 @@ const bad = (res, error, message, status = 400) => res.status(status).json({ err
 const FRIENDLY = {
   CBE180: 'Não encontramos essa chave Pix. Confira e tente de novo.',
   CPD0013: 'Essa chave está restrita por suspeita de fraude e não pode receber Pix.',
+  CBE190: 'Essa chave não está vinculada à sua conta.',
   CBE123: 'Saldo insuficiente para essa transferência.',
   CBE039: 'Conta inválida.',
   CBE468: 'Esta operação não está liberada para o ambiente de testes da sua empresa.',
@@ -193,6 +194,19 @@ router.post('/pix/keys/evp', auth.requireUser, auth.requireAccount, wrap(async (
   const key = ((after.body && after.body.listKeys) || []).find((k) => k.key === (data.body && data.body.key));
   if (!key) return bad(res, 'NOT_CONFIRMED', 'A chave foi solicitada, mas ainda não aparece na sua conta. Tente atualizar em instantes.', 202);
   res.json({ type: key.keyType, key: key.key });
+}));
+
+router.delete('/pix/keys/:key', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
+  const key = String(req.params.key || '');
+  const own = (d) => ((d.body && d.body.listKeys) || []).some((k) => k.key === key);
+  // Só exclui chave que esteja na conta da pessoa logada.
+  if (!own(await celcoin.listKeys(req.account.account))) return bad(res, 'NOT_FOUND', 'Essa chave não está na sua conta.', 404);
+  await celcoin.deleteKey(req.account.account, key);
+  // Confere relendo: não declara sucesso só pela resposta da exclusão.
+  if (own(await celcoin.listKeys(req.account.account))) {
+    return bad(res, 'NOT_CONFIRMED', 'A exclusão foi pedida, mas a chave ainda aparece na sua conta. Atualize em instantes.', 202);
+  }
+  res.json({ ok: true });
 }));
 
 // ---------------------------------------------------------------- Pix out

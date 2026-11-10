@@ -79,6 +79,16 @@ test('fluxo completo: cadastro, documentoscopia, conta, chave, saldo, Pix, QR e 
   r = await call('POST', '/pix/keys/evp');
   assert.equal(r.status, 409);
 
+  // Excluir: chave de outra conta é recusada; a própria some e pode ser recriada.
+  r = await call('DELETE', '/pix/keys/nao-e-minha');
+  assert.equal(r.status, 404);
+  const evpKey = (await call('GET', '/pix/keys')).data.keys[0].key;
+  r = await call('DELETE', '/pix/keys/' + encodeURIComponent(evpKey));
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.deepEqual((await call('GET', '/pix/keys')).data.keys, []);
+  r = await call('POST', '/pix/keys/evp');
+  assert.equal(r.status, 200);
+
   r = await call('POST', '/pix/qrcode', { amount: 25.5, description: 'Pedido 1' });
   assert.equal(r.status, 200);
   assert.match(r.data.emv, /^000201/);
