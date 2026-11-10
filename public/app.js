@@ -523,8 +523,12 @@
   route('/cadastro/sucesso', (root) => {
     root.innerHTML = frame(`<div class="scroll"><div class="result" style="margin-top:96px"><span class="result__badge result__badge--ok" style="width:72px;height:72px">${I.ok}</span>
       <h1 class="result__title">Cadastro enviado!</h1><p class="result__desc">Agora falta só <strong>validar sua identidade</strong> com uma foto do documento e uma selfie. A conta só é aberta depois dessa etapa.</p></div></div>
-      <div class="actions"><button class="btn btn-primary" id="go">Validar identidade</button></div>`, { studio: '6095742f Sucesso (modelo de resultado)' });
-    $('#go').onclick = () => go('/validacao');
+      <p class="result__timer" id="timer" aria-live="polite"></p>
+      <div class="actions"><button class="btn btn-primary" id="go" disabled>Validar identidade</button></div>`, { studio: '6095742f Sucesso (modelo de resultado)' });
+    // A Celcoin leva alguns segundos para preparar a proposta e o link da documentoscopia: espera 10 s antes de liberar.
+    const go2 = $('#go');
+    go2.onclick = () => go('/validacao');
+    countdown('#timer', queryWaitSec(), (n) => (n > 0 ? `Preparando a validação… ${n} s` : ''), () => { go2.disabled = false; $('#timer').textContent = 'Pronto, pode validar sua identidade.'; });
   });
 
   // ============================================================ VALIDAÇÃO DE IDENTIDADE (novo)
