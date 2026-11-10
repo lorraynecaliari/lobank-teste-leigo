@@ -115,6 +115,8 @@ Não é teste de usabilidade. Rodada feita pelo mesmo Claude que escreveu o rote
 | 14:44 | **Teste 1: Pix enviado pelo app** (R$ 15 para `testepix@celcoin.com.br`) | Usuária: OK. MCP: `PIXPAYMENTOUT` R$ 15, criado às 14:44:12 e liberado às 14:44:46 (cerca de 34 s); saldo `5985` | Primeiro Pix out **ponta a ponta pelo app** contra o sandbox real. |
 | 14:45 | **Teste 2: Extrato depois do Pix** | Usuária: OK. MCP: 2 lançamentos (crédito de R$ 6.000 e Pix de R$ 15), dentro da janela de 7 dias | A descrição do lançamento na Celcoin é só "pix"; o nome de quem recebeu vem do banco local do app. |
 | 14:47 | **Teste 3: erros comuns** (chave inexistente `naoexiste123@teste.com`; valor de R$ 99.999 acima do saldo) | Usuária: OK nos dois cenários, com mensagens claras | Testado no sandbox real. Saldo não alterado. |
+| 14:52 | **Teste 4: QR Code estático gerado pelo app** (R$ 25, "Teste cobrar com pix") | Usuária: QR Code e copia e cola ok. Conferido: o EMV traz a chave EVP `af83d12a-…` da PF 41174228, o valor `25.00` e o nome "Lorrayne Caliari" | O EMV saiu com `txid` `***`, que é o normal para QR estático. |
+| 14:53 | **Teste 5: pagamento** PJ 41174137 → chave EVP da PF, R$ 25 (pedido pela usuária), id `36bafe25-…` | `PROCESSING` → **`CONFIRMED`** em cerca de 2 min. PJ debitada (`950` → `925`). `RECEIVEPIX` existe (`transactionId 202611100000000830`) | **O defeito de 12:47 se repetiu, agora em contas criadas pelo app:** cerca de 2 min depois do `CONFIRMED`, o saldo da PF **continua `5985`** e o extrato não mostra o recebimento. O Pix entre contas BaaS do mesmo tenant sai de uma conta e não entra na carteira da outra. Pago por chave (DICT), não pela leitura do EMV. Item para a Celcoin, quando a usuária quiser falar com eles. |
 
 ## Dados da rodada
 
