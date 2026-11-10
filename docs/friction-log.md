@@ -218,6 +218,8 @@ Commits no branch `app-rodada-0`: `7bf26d0` (PJ), `d9746cc` (Copia e Cola e agê
 | 17:04 | **Teste A (sandbox real): cadastro PJ MEI pelo app**, depois da correção | Conta `0001 / 41174517` `ATIVO`, "Teste MEI"; `fetch-business` devolve um único owner | Primeira conta PJ aberta **pelo app**. A consulta PJ traz os dados completos do sócio, inclusive endereço. |
 | 17:06 | Crédito de R$ 10.000 na conta MEI via MCP (`wallet/entry`), pedido pela usuária | `CONFIRMED`; saldo conferido `10000` | O app não tem botão de crédito; feito por fora. |
 
+| 17:09 | Relato da usuária: logo depois de "Cadastro enviado", a validação de identidade deu erro; 10 s depois funcionou | A Celcoin ainda não tinha processado a proposta | Pedido da usuária: esperar 10 s antes de liberar. Feito (commit `be8b867`): botão "Validar identidade" desabilitado, com contagem na tela. |
+
 **A testar no sandbox real (roteiro mandado à usuária):** cadastro PJ com dois sócios e uma documentoscopia por sócio; login por CNPJ; Pix Copia e Cola (`STATIC_QRCODE` com `transactionIdentification: "***"`, nunca enviado de verdade); Pix por agência e conta (`MANUAL`); atualização de dados (`PUT`).
 
 ## Dados da rodada
