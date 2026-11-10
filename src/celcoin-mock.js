@@ -66,6 +66,7 @@ async function handle(method, path, body) {
     }
     if (method === 'POST' && p === '/onboarding/v1/onboarding-proposal/legal-person') {
       if (!Array.isArray(body.owner) || !body.owner.length) throw err(400, 'OBE020', 'owner é obrigatório.');
+      if (body.companyType === 'MEI' && (body.owner.length !== 1 || body.owner[0].ownerType !== 'SOCIO')) throw err(400, 'OBE000', 'Para companyType do tipo MEI ,o campo owner deve conter apenas um SOCIO.');
       const proposalId = crypto.randomUUID();
       const last = String(body.contactNumber || '').slice(-1);
       state.proposals.set(proposalId, {

@@ -198,13 +198,15 @@
   // Studio: "PJ | Quem está preenchendo" (lido). Sócio -> ownerType SOCIO; representante -> REPRESENTANTE.
   route('/cadastro-pj/quem', (root) => {
     if (!guard()) return;
+    const mei = ob().companyKind === 'MEI';
+    if (mei) ob().fillerRole = 'socio';
     const cur = ob().fillerRole;
     root.innerHTML = wizardFrame(8, `<h1 class="headline">Quem está preenchendo este <strong>cadastro?</strong></h1>
       <p class="subtext">Isso nos ajuda a saber quais documentos pedir a seguir.</p>
       <div class="options">
         <button type="button" class="option ${cur === 'socio' ? 'is-selected' : ''}" data-v="socio"><span class="option-avatar">${I.person}</span><span class="option-label">Sou sócio da empresa</span><span class="option-radio"></span></button>
-        <button type="button" class="option ${cur === 'representante' ? 'is-selected' : ''}" data-v="representante"><span class="option-avatar">${I.briefcase}</span><span class="option-label">Sou representante legal</span><span class="option-radio"></span></button>
-      </div>`, null, '728d5ec6 Quem está preenchendo');
+        ${mei ? '' : `<button type="button" class="option ${cur === 'representante' ? 'is-selected' : ''}" data-v="representante"><span class="option-avatar">${I.briefcase}</span><span class="option-label">Sou representante legal</span><span class="option-radio"></span></button>`}
+      </div>${mei ? '<div class="info-box" style="margin-top:16px"><span class="info-box-bar"></span><span class="info-box-text">No MEI, o cadastro é feito pelo próprio titular da empresa.</span></div>' : ''}`, null, '728d5ec6 Quem está preenchendo' + (mei ? ' (MEI: só titular)' : ''));
     const next = wire(root, () => go('/cadastro-pj/seus-dados'));
     next.disabled = !cur;
     $$('.option', root).forEach((x) => { x.onclick = () => { $$('.option', root).forEach((y) => y.classList.remove('is-selected')); x.classList.add('is-selected'); ob().fillerRole = x.dataset.v; next.disabled = false; }; });
@@ -280,6 +282,16 @@
     if (!guard()) return;
     const o = ob();
     o.partners = o.partners || [];
+    if (o.companyKind === 'MEI') {
+      // Regra da Celcoin: MEI tem um único owner (SOCIO). Não há sócios a adicionar.
+      o.partners = [];
+      root.innerHTML = wizardFrame(11, `<h1 class="headline">MEI tem <strong>um único titular</strong></h1>
+        <p class="subtext">Como a empresa é MEI, a conta é aberta só com os seus dados. Não é preciso adicionar sócios.</p>
+        <div class="info-box" style="margin-top:16px"><span class="info-box-bar"></span><span class="info-box-text">Se a empresa tiver sócios, ela não é MEI. Volte ao início e escolha o tipo certo.</span></div>`,
+        `<button type="button" class="btn btn-primary" data-next>Continuar</button><button type="button" class="btn btn-ghost" data-back>Voltar</button>`, 'a631c7eb Adicionar sócios (MEI: sem sócios, regra da Celcoin)');
+      wire(root, () => go('/cadastro/senha'));
+      return;
+    }
     const list = o.partners.length
       ? `<div class="card" style="margin-top:16px">${o.partners.map((s, i) => `<div class="row"><span class="row__icon">${I.person}</span><div class="row__info"><span class="row__label">${esc(s.fullName)}</span>
           <span class="row__caption">CPF ${esc(fmtCpf(s.cpf))}${s.share ? ' · ' + esc(s.share) + '%' : ''}</span></div><button class="key-card__btn key-card__btn--danger" data-rm="${i}" aria-label="Remover sócio">${I.trash}</button></div>`).join('')}</div>`

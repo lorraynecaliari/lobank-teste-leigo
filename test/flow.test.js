@@ -269,3 +269,17 @@ test('Minha conta: atualizar dados na Celcoin e trocar senhas', async () => {
   r = await call('POST', '/auth/login', { document: '90830166173', password: 'outraSenha2' });
   assert.equal(r.status, 200);
 });
+
+test('PJ MEI: um único titular, sem sócios', async () => {
+  cookie = '';
+  const addr = { postalCode: '06455030', street: 'Alameda Xingu', number: '1', neighborhood: 'Alphaville', city: 'Barueri', state: 'SP' };
+  const filler = { fullName: 'Carla Titular Teste', cpf: '318.609.139-03', birthDate: '1985-03-10', motherName: 'Maria Teste', phone: '11987650061', email: 'carla@example.com', address: addr };
+  const base = { cnpj: '11.222.333/0001-81', companyKind: 'MEI', businessName: 'Carla MEI', tradingName: 'Carla', businessEmail: 'mei@example.com', businessPhone: '11987650071',
+    businessAddress: addr, fillerRole: 'socio', filler, partners: [], password: 'senhaForte1', txPassword: '1234' };
+  let r = await call('POST', '/onboarding/pj', { ...base, partners: [{ ...filler, cpf: '908.301.661-73' }] });
+  assert.equal(r.data.error, 'MEI_SINGLE_OWNER');
+  r = await call('POST', '/onboarding/pj', { ...base, fillerRole: 'representante' });
+  assert.equal(r.data.error, 'MEI_SINGLE_OWNER');
+  r = await call('POST', '/onboarding/pj', base);
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+});

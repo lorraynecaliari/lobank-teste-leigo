@@ -172,6 +172,10 @@ router.post('/onboarding/pj', wrap(async (req, res) => {
   const businessAddress = parseAddress(b.businessAddress);
   if (!businessAddress) return bad(res, 'INVALID_ADDRESS', 'Endereço da empresa incompleto.');
   const role = b.fillerRole === 'representante' ? 'REPRESENTANTE' : 'SOCIO';
+  // Regra da Celcoin (descoberta no sandbox): MEI tem um único owner, e ele é SOCIO.
+  if (kind === 'MEI' && (role !== 'SOCIO' || (Array.isArray(b.partners) && b.partners.length))) {
+    return bad(res, 'MEI_SINGLE_OWNER', 'MEI tem um único titular: informe só os seus dados, como sócio, sem outros sócios.');
+  }
   const me = parseOwner(b.filler, 'responsável');
   if (me.error) return bad(res, ...me.error);
   const extra = Array.isArray(b.partners) ? b.partners : [];
