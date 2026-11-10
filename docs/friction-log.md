@@ -13,6 +13,23 @@ Não é teste de usabilidade. Rodada feita pelo mesmo Claude que escreveu o rote
 | 12:11 | `GET /onboarding/v1/onboarding-proposal` sem datas | 400 `OBE051` | Sem `proposalId`, data inicial e final são obrigatórias. |
 | 12:11 | Mesmo GET com `dateFrom`/`dateTo` (30 dias) | 404 `OBE049` | Nenhuma proposta nos últimos 30 dias neste sandbox. |
 | 12:12 | Mesmo GET com janela de 1 ano | 400 `OBE052` | Janela máxima de 30 dias. Não está na skill. |
+| 12:13 | Leitura de `developers.celcoin.com.br` pelo terminal (curl) | Bloqueado pelo proxy de rede | Domínio público, mas fora da lista de domínios permitidos da sessão. Liberar em Settings > Capabilities só vale para conversas novas. |
+| 12:16 | Leitura pelo navegador do app do Claude (`reference/criar-proposta-pessoa-fisica.md`) | OK, com aprovação da usuária | O OpenAPI completo está na página. Campos obrigatórios: `clientCode`, `documentNumber` (11 dígitos), `phoneNumber` (até 14), `email`, `motherName`, `fullName`, `birthDate` (`DD-MM-YYYY`), `address` (`postalCode`, `street`, `number`, `neighborhood`, `city`, `state`), `onboardingType` (`BAAS`). A aprovação pedida para o site inteiro foi concedida para um único uso. |
+| 12:17 | CPF de teste | Gerado com dígito verificador válido (método 4devs) | Autorizado pela usuária, que usa CPFs do 4devs no sandbox. A skill proíbe inventar CPF; aqui a origem foi decisão humana. |
+
+| 12:19 | Teste de saúde 1: `POST /onboarding/v1/onboarding-proposal/natural-person`, telefone final `2` (aprovado pela usuária) | 200 `PROCESSING` | `proposalId` `5937966b-…-d300848a54f6`. A resposta não traz campo `mocked`. |
+| 12:19 | Consulta `GET /onboarding-proposal?proposalId=…` | `REPROVED` cerca de 6 s após a criação | **Confere com a skill**: a recusa por final `2` funciona. O `createdAt` vem como `2026-11-10T12:19:12Z`, mas é horário de Brasília (12:19 local), como a skill avisa. A documentoscopia ficou em `CREATED`. |
+
+| 12:20 | Teste de saúde 2: mesma criação, telefone final `1` (aprovado pela usuária) | 200 `PROCESSING` | `proposalId` `332d4027-…-4dfe8ead3634` |
+| 12:20 | Consulta da proposta (20 s) | `PENDING_DOCUMENTSCOPY` cerca de 5 s após a criação | Documentoscopia `PENDING`, com link externo `celcoin.cadastro.io/…` (passo humano). |
+| 12:22 | Consulta da proposta (2 min) | Ainda `PENDING_DOCUMENTSCOPY`, sem atualização desde 12:20:40 | **Confere com a skill**: final `1` não aprova sozinho; a criação automática de contas está indisponível. |
+| 12:23 | `GET /baas/v2/account/fetch?documentNumber=…` | 404 `CBE078` "Nenhuma conta foi encontrada" | Esperado: a conta ainda não existe ("ainda não", não erro). |
+| 12:23 | `GET /baas/v2/account/fetch-all` com janela de 29 dias | 400 `CBE079` | Janela máxima de 7 dias. Rota e limite não estão na skill. |
+| 12:24 | `fetch-all` em 4 janelas de 7 dias (13/10 a 10/11) | 404 `CBE078` em todas | Nenhuma conta criada neste sandbox nas últimas 4 semanas. A saída da skill ("siga com uma conta já existente") não está disponível aqui. |
+
+**Bloqueio:** sem conta, nada depois do onboarding fecha (saldo, chave Pix, Pix, extrato), porque todas essas rotas exigem a conta pagadora.
+
+**Achado:** só o navegador conseguiu ler a página de referência de criação de proposta PF. A ferramenta de documentação do MCP não alcança essa página porque ela não está no `llms.txt`, e o "truque do `.md`" da skill depende de um acesso HTTP que o agente pode não ter.
 
 ## Dados da rodada
 
