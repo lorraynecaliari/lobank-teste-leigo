@@ -222,6 +222,9 @@ Commits no branch `app-rodada-0`: `7bf26d0` (PJ), `d9746cc` (Copia e Cola e agê
 
 | 17:14 | **Teste A concluído:** conta MEI aberta pelo app e login por CNPJ | Usuária: OK nos dois | Cadastro PJ (MEI) e login por CNPJ verificados no sandbox real. Cadastro PJ com sócios (LTDA, uma documentoscopia por sócio) ainda não testado. |
 
+| 17:16 | **Teste B: Pix por agência e conta** (`MANUAL`) para a conta de teste da Celcoin, R$ 5, a partir da **conta MEI** | Usuária: OK. MCP: `PIXPAYMENTOUT` R$ 5 na conta 41174517, criado às 17:17:05 e liberado às 17:17:39 (cerca de 34 s) | Primeiro Pix `MANUAL` pelo app no sandbox real. |
+| 17:21 | Observação da usuária: no comprovante só havia "Copiar"; ao voltar, a tela do Pix recomeçava a contagem | Ajustado (commit `25742e3`): botão "Voltar ao início" no comprovante; ao voltar, o resultado aparece na hora | A espera de 10 s fica só logo depois de pagar. |
+
 **A testar no sandbox real (roteiro mandado à usuária):** cadastro PJ com dois sócios e uma documentoscopia por sócio; login por CNPJ; Pix Copia e Cola (`STATIC_QRCODE` com `transactionIdentification: "***"`, nunca enviado de verdade); Pix por agência e conta (`MANUAL`); atualização de dados (`PUT`).
 
 ## Dados da rodada
