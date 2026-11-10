@@ -215,6 +215,9 @@ Commits no branch `app-rodada-0`: `7bf26d0` (PJ), `d9746cc` (Copia e Cola e agê
 
 | 17:00 | **Teste A (sandbox real): cadastro PJ como MEI, com um sócio a mais** | Recusado pela Celcoin: "Para companyType do tipo MEI, o campo owner deve conter apenas um SOCIO." | **Regra da API que não está na skill nem na referência da proposta.** Erro do agente: o app deixava MEI ter sócios e representante. Corrigido (commit `d902a54`): no MEI, só o titular como sócio, sem tela de sócios; o servidor valida antes de chamar a Celcoin. Nenhuma proposta foi criada. |
 
+| 17:04 | **Teste A (sandbox real): cadastro PJ MEI pelo app**, depois da correção | Conta `0001 / 41174517` `ATIVO`, "Teste MEI"; `fetch-business` devolve um único owner | Primeira conta PJ aberta **pelo app**. A consulta PJ traz os dados completos do sócio, inclusive endereço. |
+| 17:06 | Crédito de R$ 10.000 na conta MEI via MCP (`wallet/entry`), pedido pela usuária | `CONFIRMED`; saldo conferido `10000` | O app não tem botão de crédito; feito por fora. |
+
 **A testar no sandbox real (roteiro mandado à usuária):** cadastro PJ com dois sócios e uma documentoscopia por sócio; login por CNPJ; Pix Copia e Cola (`STATIC_QRCODE` com `transactionIdentification: "***"`, nunca enviado de verdade); Pix por agência e conta (`MANUAL`); atualização de dados (`PUT`).
 
 ## Dados da rodada
