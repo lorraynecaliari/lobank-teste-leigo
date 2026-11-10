@@ -288,3 +288,14 @@ test('PJ MEI: um único titular, sem sócios', async () => {
   r = await call('POST', '/onboarding/pj', base);
   assert.equal(r.status, 200, JSON.stringify(r.data));
 });
+
+test('Meus dados PJ: reenvia os sócios atuais (owners é obrigatório no PUT)', async () => {
+  cookie = '';
+  let r = await call('POST', '/auth/login', { document: '52601815000120', password: 'senhaForte1' });
+  assert.equal(r.status, 200);
+  const address = { postalCode: '06455030', street: 'Alameda Xingu', number: '400', neighborhood: 'Alphaville', city: 'Barueri', state: 'SP' };
+  r = await call('PUT', '/me', { email: 'novo-pj@example.com', phone: '11912345670', address });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  r = await call('GET', '/me/details');
+  assert.equal(r.data.email, 'novo-pj@example.com');
+});

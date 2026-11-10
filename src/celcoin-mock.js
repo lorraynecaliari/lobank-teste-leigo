@@ -92,7 +92,8 @@ async function handle(method, path, body) {
     if (method === 'GET' && p === '/baas/v2/account/fetch-business') {
       const a = state.accounts.get(q.get('documentNumber'));
       if (!a) throw err(404, 'CBE078', 'Nenhuma conta foi encontrada.');
-      return { status: 'SUCCESS', body: { businessAccount: { branch: a.branch, account: a.account, statusAccount: 'ATIVO' }, businessName: a.businessName, tradingName: a.tradingName } };
+      return { status: 'SUCCESS', body: { businessAccount: { branch: a.branch, account: a.account, statusAccount: 'ATIVO' }, businessName: a.businessName, tradingName: a.tradingName,
+        owners: (a.owner || []).map(({ ownerType, ...o }) => o) } };
     }
     if (method === 'GET' && p === '/baas/v2/account/fetch' && String(q.get('documentNumber')).length > 11) {
       throw err(400, 'CBE370', 'DocumentNumber possui tamanho maximo de 11 caracteres');
@@ -100,6 +101,8 @@ async function handle(method, path, body) {
     if (method === 'PUT' && (p === '/baas/v2/account/natural-person' || p === '/baas/v2/account/business')) {
       const found = [...state.accounts.values()].find((a) => a.account === q.get('Account'));
       if (!found) throw err(400, 'CBE039', 'Account invalido.');
+      // Igual ao sandbox: na PJ o owners é obrigatório (1 a 10).
+      if (p === '/baas/v2/account/business' && (!Array.isArray(body.owners) || body.owners.length < 1 || body.owners.length > 10)) throw err(400, 'CBE400', 'O campo Owners deve conter um array de no mínimo 1 e máximo 10.');
       Object.assign(found, body);
       return { version: '1.0.0', status: '200' };
     }

@@ -260,7 +260,18 @@ router.put('/me', auth.requireUser, auth.requireAccount, wrap(async (req, res) =
   const email = String(b.email).trim();
   const pj = req.user.person_type === 'PJ';
   if (pj) {
-    await celcoin.updateAccountPJ(req.account.account, req.user.document, { businessEmail: email, contactNumber: phone, businessAddress: address });
+    // A Celcoin exige "owners" (1 a 10) no PUT da PJ, mesmo sem mudar sócios (sandbox, 17:49). O app reenvia os
+    // sócios exatamente como a Celcoin os tem, lidos agora da conta; mudança de sócios só pelo Compliance.
+    const cur = (await celcoin.fetchAccountPJ(req.user.document)).body || {};
+    const owners = (cur.owners || []).map((o) => ({
+      documentNumber: o.documentNumber, fullName: o.fullName, phoneNumber: o.phoneNumber, email: o.email, motherName: o.motherName,
+      socialName: o.socialName || undefined, birthDate: o.birthDate, address: o.address, isPoliticallyExposedPerson: o.isPoliticallyExposedPerson === true,
+    }));
+    if (!owners.length) return bad(res, 'OWNERS_UNAVAILABLE', 'Não conseguimos ler os sócios da conta na Celcoin. Tente de novo em instantes.', 502);
+    await celcoin.updateAccountPJ(req.account.account, req.user.document, {
+      businessEmail: email, contactNumber: phone, documentNumber: req.user.document,
+      businessName: cur.businessName, tradeName: cur.tradingName, owners, businessAddress: address,
+    });
   } else {
     const socialName = String(b.socialName || '').trim() || undefined;
     await celcoin.updateAccountPF(req.account.account, req.user.document, { phoneNumber: phone, email, socialName, isPoliticallyExposedPerson: b.isPep === true, address });
