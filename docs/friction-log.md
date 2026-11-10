@@ -194,6 +194,8 @@ Vale só como linha de base, porque quem testou foi o agente com contexto comple
 
 Fase 2 do app, começando por cadastro e login de PJ e pela tela "Pagar com Pix Copia e Cola". Depois, a rodada com o usuário leigo. **Atualização 16:55:** Fase 2 construída, ver abaixo.
 
+**Decisão da usuária (17:58):** a rodada com o usuário leigo fica adiada por enquanto.
+
 ### Rodada 0: Fase 2 construída (10/11/2026, 16:28–16:55)
 
 Commits no branch `app-rodada-0`: `7bf26d0` (PJ), `d9746cc` (Copia e Cola e agência e conta), `1be8f23` (receber, extrato completo, Minha conta). Tudo testado **só no modo simulado**: 12 testes automáticos passando e passagem pelas telas (cerca de 50 capturas). **Nada da Fase 2 rodou ainda no sandbox real.**
