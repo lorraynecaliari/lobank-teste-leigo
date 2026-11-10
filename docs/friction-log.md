@@ -10,7 +10,7 @@ Nunca registre segredos aqui (Client ID, Secret, tokens). Se um segredo vazar, a
 | Operador | |
 | Variante (A: já instalado / B: do zero) | |
 | Ambiente (Claude Code / app do Claude / Codex / Cursor / VS Code) | |
-| Versão da skill cel-agents (original? data) | |
+| Versão da skill cel-agents (original? data) | original, recebida em 10/11/2026: `docs/skill/cel-agents-SKILL.md`, sha256 `8495c282…` (confira se a instalada é igual) |
 | Commit do branch `app` no início | |
 
 ## Retrato antes do teste (gabarito)
