@@ -37,7 +37,7 @@ Para mexer nas telas sem credenciais: `CELCOIN_MODE=mock npm start`. Todas as te
 | Chave Pix aleatória | Área Pix, Minhas chaves | `POST /baas/v2/pix/dict/entry` (sem `key`) e conferência por `GET` |
 | Enviar Pix por chave | Informar chave (com erro), Valor, Revisão, Senha, Saldo insuficiente, Erro, Em processamento/Sucesso, Comprovante | DICT `GET /baas/v2/pix/dict/entry/external/{conta}`, `POST /baas/v2/pix/payment`, status `GET /baas/v2/pix/payment/status` |
 | Cobrar com Pix | Receber, Revisar cobrança, QR Code | `POST /pix/v1/brcode/static` com a chave aleatória |
-| Extrato | Extrato, Detalhes, Comprovante | `GET /baas-walletreports/v1/wallet/movement` |
+| Extrato | Extrato, Detalhes, Comprovante | `GET /baas-walletreports/v1/wallet/movement` (janela de até 7 dias) |
 
 **Fora desta fase:** conta PJ, transferência por agência e conta, receber "múltiplos", relatórios e filtros, Minha conta.
 

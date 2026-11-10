@@ -116,6 +116,16 @@ test('fluxo completo: cadastro, documentoscopia, conta, chave, saldo, Pix, QR e 
   r = await call('GET', '/statement');
   assert.ok(r.data.movements.some((m) => m.type === 'PIXPAYMENTOUT' && m.txId === txId && !m.pending));
 
+
+  // Extrato: janela de no máximo 7 dias
+  r = await call('GET', '/statement?from=2026-11-01&to=2026-11-10');
+  assert.equal(r.data.error, 'PERIOD_TOO_LONG');
+  r = await call('GET', '/statement?from=2026-11-04&to=2026-11-10');
+  assert.equal(r.status, 200);
+  assert.equal(r.data.from, '2026-11-04');
+  r = await call('GET', '/statement?from=2026-11-10&to=2026-11-04');
+  assert.equal(r.data.error, 'INVALID_PERIOD');
+
   // Login e logout
   await call('POST', '/auth/logout');
   r = await call('GET', '/me');

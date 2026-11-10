@@ -885,7 +885,7 @@
     if (!(await loadMe())) return go('/login');
     if (!state.me.account) return go('/validacao');
     root.innerHTML = frame(`<header class="hdr hdr--wl"><button class="hdr__icon" id="bk" aria-label="Voltar">${I.chevLeft}</button><span class="logo">${LOGO('#7664FA', 104)}</span><span class="hdr__icon"></span></header>
-      <div class="scroll"><section class="intro"><h1 class="intro__title intro__title--sm">Extrato</h1><p class="intro__desc">Últimos 30 dias · Saldo <strong id="bal">…</strong></p></section>
+      <div class="scroll"><section class="intro"><h1 class="intro__title intro__title--sm">Extrato</h1><p class="intro__desc">Últimos 7 dias · Saldo <strong id="bal">…</strong></p></section>
         <section class="body-sec" id="list"><div class="empty">${I.spinner}</div></section></div>`, { studio: '7c2160b2 Extrato (modelo comum; filtros na Fase 2)' });
     $('#bk').onclick = () => go('/home');
     api('/balance').then((b) => { $('#bal').textContent = money(b.amount); }).catch(() => { $('#bal').textContent = 'indisponível'; });

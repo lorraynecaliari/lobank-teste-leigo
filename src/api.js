@@ -145,11 +145,18 @@ router.get('/balance', auth.requireUser, auth.requireAccount, wrap(async (req, r
   res.json({ amount: Number(data.body && data.body.amount) || 0 });
 }));
 
-const ymd = (d) => d.toISOString().slice(0, 10);
+// Datas no fuso de Brasília (UTC-3): a Celcoin trabalha em horário local.
+const ymdBr = (ms) => new Date(ms - 3 * 3600e3).toISOString().slice(0, 10);
+const DAY = 864e5;
+const STATEMENT_MAX_DAYS = 7; // janela máxima de consulta do extrato
 
 router.get('/statement', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
-  const to = /^\d{4}-\d{2}-\d{2}$/.test(req.query.to || '') ? req.query.to : ymd(new Date());
-  const from = /^\d{4}-\d{2}-\d{2}$/.test(req.query.from || '') ? req.query.from : ymd(new Date(Date.now() - 29 * 864e5));
+  const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || '') && !Number.isNaN(Date.parse(s + 'T00:00:00Z'));
+  const to = isDate(req.query.to) ? req.query.to : ymdBr(Date.now());
+  const from = isDate(req.query.from) ? req.query.from : ymdBr(Date.parse(to + 'T12:00:00Z') - (STATEMENT_MAX_DAYS - 1) * DAY);
+  const span = Math.round((Date.parse(to + 'T00:00:00Z') - Date.parse(from + 'T00:00:00Z')) / DAY) + 1;
+  if (span < 1) return bad(res, 'INVALID_PERIOD', 'A data inicial precisa ser anterior à final.');
+  if (span > STATEMENT_MAX_DAYS) return bad(res, 'PERIOD_TOO_LONG', `O extrato pode ser consultado em períodos de até ${STATEMENT_MAX_DAYS} dias.`);
   const data = await celcoin.getMovements(req.account.account, from, to);
   const moves = ((data.body && data.body.movements) || []).map((m) => ({
     id: m.id, clientCode: m.clientCode, date: m.createDate, amount: Number(m.amount) || 0,
