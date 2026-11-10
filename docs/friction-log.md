@@ -213,6 +213,8 @@ Commits no branch `app-rodada-0`: `7bf26d0` (PJ), `d9746cc` (Copia e Cola e agê
 | 16:50 | "Minha conta" | Só Minhas chaves, Minhas senhas, Meus dados e Sair | Mesma decisão dos atalhos da Home ("mostrar só os que funcionam"). Saíram Gestão de usuário, Limites, Tarifas, DDA, Dúvidas e Cancelar conta. |
 | 16:50 | "Meus dados" | Altera telefone, e-mail e endereço (e nome social na PF) via `PUT /baas/v2/account/natural-person` ou `/business` | A Celcoin não deixa mudar nome, documento, mãe e nascimento (PF), nem razão social, nome fantasia e sócios (PJ). |
 
+| 17:00 | **Teste A (sandbox real): cadastro PJ como MEI, com um sócio a mais** | Recusado pela Celcoin: "Para companyType do tipo MEI, o campo owner deve conter apenas um SOCIO." | **Regra da API que não está na skill nem na referência da proposta.** Erro do agente: o app deixava MEI ter sócios e representante. Corrigido (commit `d902a54`): no MEI, só o titular como sócio, sem tela de sócios; o servidor valida antes de chamar a Celcoin. Nenhuma proposta foi criada. |
+
 **A testar no sandbox real (roteiro mandado à usuária):** cadastro PJ com dois sócios e uma documentoscopia por sócio; login por CNPJ; Pix Copia e Cola (`STATIC_QRCODE` com `transactionIdentification: "***"`, nunca enviado de verdade); Pix por agência e conta (`MANUAL`); atualização de dados (`PUT`).
 
 ## Dados da rodada
