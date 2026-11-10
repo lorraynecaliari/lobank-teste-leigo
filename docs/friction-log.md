@@ -16,10 +16,8 @@ Não é teste de usabilidade. Rodada feita pelo mesmo Claude que escreveu o rote
 | 12:13 | Leitura de `developers.celcoin.com.br` pelo terminal (curl) | Bloqueado pelo proxy de rede | Domínio público, mas fora da lista de domínios permitidos da sessão. Liberar em Settings > Capabilities só vale para conversas novas. |
 | 12:16 | Leitura pelo navegador do app do Claude (`reference/criar-proposta-pessoa-fisica.md`) | OK, com aprovação da usuária | O OpenAPI completo está na página. Campos obrigatórios: `clientCode`, `documentNumber` (11 dígitos), `phoneNumber` (até 14), `email`, `motherName`, `fullName`, `birthDate` (`DD-MM-YYYY`), `address` (`postalCode`, `street`, `number`, `neighborhood`, `city`, `state`), `onboardingType` (`BAAS`). A aprovação pedida para o site inteiro foi concedida para um único uso. |
 | 12:17 | CPF de teste | Gerado com dígito verificador válido (método 4devs) | Autorizado pela usuária, que usa CPFs do 4devs no sandbox. A skill proíbe inventar CPF; aqui a origem foi decisão humana. |
-
 | 12:19 | Teste de saúde 1: `POST /onboarding/v1/onboarding-proposal/natural-person`, telefone final `2` (aprovado pela usuária) | 200 `PROCESSING` | `proposalId` `5937966b-…-d300848a54f6`. A resposta não traz campo `mocked`. |
 | 12:19 | Consulta `GET /onboarding-proposal?proposalId=…` | `REPROVED` cerca de 6 s após a criação | **Confere com a skill**: a recusa por final `2` funciona. O `createdAt` vem como `2026-11-10T12:19:12Z`, mas é horário de Brasília (12:19 local), como a skill avisa. A documentoscopia ficou em `CREATED`. |
-
 | 12:20 | Teste de saúde 2: mesma criação, telefone final `1` (aprovado pela usuária) | 200 `PROCESSING` | `proposalId` `332d4027-…-4dfe8ead3634` |
 | 12:20 | Consulta da proposta (20 s) | `PENDING_DOCUMENTSCOPY` cerca de 5 s após a criação | Documentoscopia `PENDING`, com link externo `celcoin.cadastro.io/…` (passo humano). |
 | 12:22 | Consulta da proposta (2 min) | Ainda `PENDING_DOCUMENTSCOPY`, sem atualização desde 12:20:40 | **Confere com a skill**: final `1` não aprova sozinho; a criação automática de contas está indisponível. |
@@ -214,32 +212,20 @@ Commits no branch `app-rodada-0`: `7bf26d0` (PJ), `d9746cc` (Copia e Cola e agê
 | 16:45 | "Baixar extrato": PDF, XLS, OFX e e-mail | PDF pela impressão do navegador; XLS virou **CSV**; OFX montado no app; e-mail indisponível | Montados com o que está na tela. A Celcoin não oferece arquivo de extrato pronto nas rotas usadas. |
 | 16:50 | "Minha conta" | Só Minhas chaves, Minhas senhas, Meus dados e Sair | Mesma decisão dos atalhos da Home ("mostrar só os que funcionam"). Saíram Gestão de usuário, Limites, Tarifas, DDA, Dúvidas e Cancelar conta. |
 | 16:50 | "Meus dados" | Altera telefone, e-mail e endereço (e nome social na PF) via `PUT /baas/v2/account/natural-person` ou `/business` | A Celcoin não deixa mudar nome, documento, mãe e nascimento (PF), nem razão social, nome fantasia e sócios (PJ). |
-
 | 17:00 | **Teste A (sandbox real): cadastro PJ como MEI, com um sócio a mais** | Recusado pela Celcoin: "Para companyType do tipo MEI, o campo owner deve conter apenas um SOCIO." | **Regra da API que não está na skill nem na referência da proposta.** Erro do agente: o app deixava MEI ter sócios e representante. Corrigido (commit `d902a54`): no MEI, só o titular como sócio, sem tela de sócios; o servidor valida antes de chamar a Celcoin. Nenhuma proposta foi criada. |
-
 | 17:04 | **Teste A (sandbox real): cadastro PJ MEI pelo app**, depois da correção | Conta `0001 / 41174517` `ATIVO`, "Teste MEI"; `fetch-business` devolve um único owner | Primeira conta PJ aberta **pelo app**. A consulta PJ traz os dados completos do sócio, inclusive endereço. |
 | 17:06 | Crédito de R$ 10.000 na conta MEI via MCP (`wallet/entry`), pedido pela usuária | `CONFIRMED`; saldo conferido `10000` | O app não tem botão de crédito; feito por fora. |
-
 | 17:09 | Relato da usuária: logo depois de "Cadastro enviado", a validação de identidade deu erro; 10 s depois funcionou | A Celcoin ainda não tinha processado a proposta | Pedido da usuária: esperar 10 s antes de liberar. Feito (commit `be8b867`): botão "Validar identidade" desabilitado, com contagem na tela. |
-
 | 17:14 | **Teste A concluído:** conta MEI aberta pelo app e login por CNPJ | Usuária: OK nos dois | Cadastro PJ (MEI) e login por CNPJ verificados no sandbox real. Cadastro PJ com sócios (LTDA, uma documentoscopia por sócio) ainda não testado. |
-
 | 17:16 | **Teste B: Pix por agência e conta** (`MANUAL`) para a conta de teste da Celcoin, R$ 5, a partir da **conta MEI** | Usuária: OK. MCP: `PIXPAYMENTOUT` R$ 5 na conta 41174517, criado às 17:17:05 e liberado às 17:17:39 (cerca de 34 s) | Primeiro Pix `MANUAL` pelo app no sandbox real. |
 | 17:21 | Observação da usuária: no comprovante só havia "Copiar"; ao voltar, a tela do Pix recomeçava a contagem | Ajustado (commit `25742e3`): botão "Voltar ao início" no comprovante; ao voltar, o resultado aparece na hora | A espera de 10 s fica só logo depois de pagar. |
-
 | 17:28 | **Teste C: Pix Copia e Cola** (código gerado na PF às 17:27, colado na MEI) | Erro na tela: "HTTP_400" | **Erro do agente:** o app tirava todos os espaços do código; o BR Code tem espaços de verdade ("Teste C", "Lorrayne Caliari"), e a Celcoin recusou por CRC inválido. Reproduzido via MCP: sem espaços, `PCE002` "Invalid Crc"; com o código intacto, o decode funciona. O erro vem como `code 999` com o JSON escapado em `description` e o código em `errors[0]`, formato que o app não lia. Corrigido (commit `329ab48`). O mock agora confere o CRC; antes, o teste automático não tinha como pegar o problema. |
-
 | 17:32 | **Teste C repetido depois da correção:** QR gerado na PF às 17:31 e pago pela MEI com Copia e Cola às 17:32 | **Pagamento ok:** `initiationType: STATIC_QRCODE`, `transactionIdentification: "***"`, `CONFIRMED`; MEI `9995` → `9988`; webhook `pix-payment-out` entregue; `RECEIVEPIX` existe (`202611100000001150`). **PF continua `5980`** | Primeiro Pix `STATIC_QRCODE` pelo app no sandbox real, aceito com `"***"` no `transactionIdentification`. O recebimento repete o defeito do item 1 para a Celcoin: **4ª vez** (12:46, 14:53, 16:24, 17:32), agora a partir de uma conta MEI e por QR Code. |
-
 | 17:35 | **Teste D: Meus dados (PF)**, e-mail trocado e endereço completado (rua, número, complemento, bairro, UF) | MCP `account/fetch` às 17:36: e-mail `testelorrayne1@…`, endereço novo com complemento, `lastUpdate 2026-11-10T17:35:39` | `PUT /baas/v2/account/natural-person` verificado no sandbox real. O endereço veio incompleto no app porque a conta foi aberta antes de o app guardar o endereço inteiro (só CEP e cidade). Contas novas já guardam tudo. |
-
 | 17:44–17:46 | **Cadastro PJ LTDA com 2 sócios pelo app** (CNPJ `46.013.634/0001-80`) | Proposta criada às 17:44; documentoscopia aprovada às 17:46:00; `RESOURCE_CREATED` às 17:46:05; conta `0001 / 41174608` `ATIVO`, com os 2 sócios em `owners` | **Diverge do que o agente supôs:** a Celcoin criou **uma única documentoscopia, só do 1º owner** (quem preenche), e não uma por sócio. O sócio não fez validação. Erro do agente: o app e o README diziam "um link por sócio". Textos, mock e teste corrigidos (commit `3c4aaf2`). A suposição tinha vindo da PJ das 12:41, que tinha um só sócio. |
 | 17:48 | Crédito de R$ 10.000 na conta LTDA via MCP, pedido pela usuária | `CONFIRMED`; saldo conferido `10000` | |
-
 | 17:49 | **Meus dados na conta LTDA** (`PUT /baas/v2/account/business` com e-mail, telefone e endereço) | Recusado: "O campo Owners deve conter um array de no mínimo 1 e máximo 10." | **`owners` é obrigatório no PUT da PJ**, mesmo sem mudar sócios. A documentação mostra o campo no exemplo, mas não diz que é obrigatório, e ainda diz que mudar sócios exige o Compliance. Erro do agente: o app não mandava os sócios. Corrigido (commit `6d9cf60`): o app lê os sócios da conta e os reenvia sem alteração. O mock agora exige o campo. |
-
 | 17:50 | **Meus dados PJ repetido depois da correção** | MCP `fetch-business`: e-mail `padariafase3@…`, `lastUpdate 17:50:27`; os 2 sócios iguais aos de antes | `PUT /baas/v2/account/business` verificado no sandbox real. |
-
 | 17:56 | **Arquivos do extrato** (PDF, CSV, OFX) com movimentações reais | Usuária: OK nas 3 opções | Montados no app; sem chamada à Celcoin além do extrato. |
 
 **Testado no sandbox real até 17:56 (Fase 2 completa):** cadastro PJ MEI e login por CNPJ (A), cadastro PJ LTDA com 2 sócios, Meus dados PJ, Pix `MANUAL` (B), Pix `STATIC_QRCODE` (C), atualização de dados PF (D), arquivos do extrato (PDF, CSV, OFX). **Fica de fora:** QR Code dinâmico, sócio pessoa jurídica, envio do extrato por e-mail e o recebimento de Pix entre contas do mesmo tenant (defeito da Celcoin, item 1).
