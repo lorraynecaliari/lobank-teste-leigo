@@ -242,7 +242,7 @@ Commits no branch `app-rodada-0`: `7bf26d0` (PJ), `d9746cc` (Copia e Cola e agê
 
 | 17:56 | **Arquivos do extrato** (PDF, CSV, OFX) com movimentações reais | Usuária: OK nas 3 opções | Montados no app; sem chamada à Celcoin além do extrato. |
 
-**Testado no sandbox real até 17:56 (Fase 2 completa):** cadastro PJ MEI e login por CNPJ (A), cadastro PJ LTDA com 2 sócios, Meus dados PJ, Pix `MANUAL` (B), Pix `STATIC_QRCODE` (C), atualização de dados PF (D)., arquivos do extrato (PDF, CSV, OFX). **Fica de fora:** QR Code dinâmico, sócio pessoa jurídica, envio do extrato por e-mail e o recebimento de Pix entre contas do mesmo tenant (defeito da Celcoin, item 1).
+**Testado no sandbox real até 17:56 (Fase 2 completa):** cadastro PJ MEI e login por CNPJ (A), cadastro PJ LTDA com 2 sócios, Meus dados PJ, Pix `MANUAL` (B), Pix `STATIC_QRCODE` (C), atualização de dados PF (D), arquivos do extrato (PDF, CSV, OFX). **Fica de fora:** QR Code dinâmico, sócio pessoa jurídica, envio do extrato por e-mail e o recebimento de Pix entre contas do mesmo tenant (defeito da Celcoin, item 1).
 
 **Roteiro original mandado à usuária:** cadastro PJ com dois sócios e uma documentoscopia por sócio; login por CNPJ; Pix Copia e Cola (`STATIC_QRCODE` com `transactionIdentification: "***"`, nunca enviado de verdade); Pix por agência e conta (`MANUAL`); atualização de dados (`PUT`).
 
