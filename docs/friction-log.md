@@ -225,6 +225,8 @@ Commits no branch `app-rodada-0`: `7bf26d0` (PJ), `d9746cc` (Copia e Cola e agê
 | 17:16 | **Teste B: Pix por agência e conta** (`MANUAL`) para a conta de teste da Celcoin, R$ 5, a partir da **conta MEI** | Usuária: OK. MCP: `PIXPAYMENTOUT` R$ 5 na conta 41174517, criado às 17:17:05 e liberado às 17:17:39 (cerca de 34 s) | Primeiro Pix `MANUAL` pelo app no sandbox real. |
 | 17:21 | Observação da usuária: no comprovante só havia "Copiar"; ao voltar, a tela do Pix recomeçava a contagem | Ajustado (commit `25742e3`): botão "Voltar ao início" no comprovante; ao voltar, o resultado aparece na hora | A espera de 10 s fica só logo depois de pagar. |
 
+| 17:28 | **Teste C: Pix Copia e Cola** (código gerado na PF às 17:27, colado na MEI) | Erro na tela: "HTTP_400" | **Erro do agente:** o app tirava todos os espaços do código; o BR Code tem espaços de verdade ("Teste C", "Lorrayne Caliari"), e a Celcoin recusou por CRC inválido. Reproduzido via MCP: sem espaços, `PCE002` "Invalid Crc"; com o código intacto, o decode funciona. O erro vem como `code 999` com o JSON escapado em `description` e o código em `errors[0]`, formato que o app não lia. Corrigido (commit `329ab48`). O mock agora confere o CRC; antes, o teste automático não tinha como pegar o problema. |
+
 **A testar no sandbox real (roteiro mandado à usuária):** cadastro PJ com dois sócios e uma documentoscopia por sócio; login por CNPJ; Pix Copia e Cola (`STATIC_QRCODE` com `transactionIdentification: "***"`, nunca enviado de verdade); Pix por agência e conta (`MANUAL`); atualização de dados (`PUT`).
 
 ## Dados da rodada
