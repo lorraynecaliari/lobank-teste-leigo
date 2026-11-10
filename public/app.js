@@ -794,7 +794,7 @@
         setLoading(ok, true); tpe.classList.remove('is-visible');
         try {
           const r = await api('/pix/transfer', { method: 'POST', body: { lookupId: p.lookup.lookupId, amount: p.amount, message: p.message, txPassword: tp.value } });
-          state.pix = null; s.close(); go('/pix/transferencia/' + r.txId);
+          state.pix = null; state.justPaid = r.txId; s.close(); go('/pix/transferencia/' + r.txId);
         } catch (e) {
           if (e.data && e.data.error === 'INSUFFICIENT_BALANCE') { s.close(); p.balance = e.data.balance; return go('/pix/transferir/saldo-insuficiente'); }
           if (e.data && e.data.error === 'INVALID_TX_PASSWORD') { tpe.textContent = e.message; tpe.classList.add('is-visible'); setLoading(ok, false); ok.disabled = false; return; }
@@ -860,7 +860,11 @@
       catch (e) { if (e.status === 401) return; toast(e.message); }
       paint(last);
     };
-    paint(null);
+    // Logo depois de pagar: espera 10 s antes da 1ª consulta. Ao voltar para esta tela (ex.: do comprovante),
+    // mostra na hora o que o app já sabe; o servidor só consulta a Celcoin se ainda estiver em processamento,
+    // respeitando o intervalo de 10 s.
+    if (String(state.justPaid) === String(id)) { state.justPaid = null; paint(null); }
+    else query();
   });
 
   // Studio: "Transferir | Chave Pix | Sucesso | Visualizar comprovante" e "Extrato | Comprovante de pagamento" (modelo comum)
@@ -884,7 +888,8 @@
           ${t.message ? `<div class="receipt__row"><span>Mensagem</span><span>${esc(t.message)}</span></div>` : ''}
           <div class="receipt__row"><span>ID da transação</span><span>${esc(t.endToEndId || '')}</span></div>
         </div></div></section></div>
-      <footer class="footbar"><button class="btn btn-primary btn--lg" id="share">Copiar comprovante</button></footer>`, { studio: '2ea377b0 Visualizar comprovante (modelo comum)' });
+      <footer class="footbar" style="display:flex;flex-direction:column;gap:8px"><button class="btn btn-primary btn--lg" id="share">Copiar comprovante</button><button class="btn btn-ghost" id="home">Voltar ao início</button></footer>`, { studio: '2ea377b0 Visualizar comprovante (modelo comum)' });
+    $('#home').onclick = () => go('/home');
     $('#bk').onclick = back;
     $('#share').onclick = () => copy(`Comprovante Pix LoBank\nValor: ${money(t.amount)}\nPara: ${c.name || ''}\n${c.via === 'MANUAL' ? `Banco: ${c.bankName || ''} · Ag. ${c.branch || ''} · Conta ${c.account || ''}` : `Chave: ${c.key || ''}`}\nID: ${t.endToEndId || ''}\nSituação: ${t.status}`);
   });
