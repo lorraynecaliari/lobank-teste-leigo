@@ -103,6 +103,10 @@ Não é teste de usabilidade. Rodada feita pelo mesmo Claude que escreveu o rote
   - Termos de uso com texto provisório, avisando que é conta de teste.
   - O Pix recebido não ganhou tela própria: aparece no extrato quando a Celcoin lança.
 
+| Hora | Passo | Resultado | Observação |
+|------|-------|-----------|------------|
+| 13:34 | `npm install` na máquina da usuária (Windows, Node 26.13, pasta no OneDrive) | Falhou: `better-sqlite3` sem binário pronto para o Node 26; a compilação quebra na API do V8. Avisos `EPERM`/`ENOTEMPTY` por causa do OneDrive | **Erro do agente:** escolheu uma dependência nativa sem checar a versão de Node da usuária. Corrigido no commit seguinte, trocando por `node:sqlite` (embutido, sem compilação). README atualizado: Node 22.13+ e evitar OneDrive. |
+
 ## Dados da rodada
 
 ## Dados da rodada
