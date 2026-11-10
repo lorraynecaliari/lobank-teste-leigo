@@ -86,6 +86,25 @@ Não é teste de usabilidade. Rodada feita pelo mesmo Claude que escreveu o rote
 - **Branding divergente no Studio:** o bloco de branding do HTML das telas traz secundária `#F3F3FA` e raio `12px`, mas o branding efetivo do projeto devolvido pelo MCP é secundária `#49FADE` e raio `8px`. A primária `#7664FA` e a fonte Inter batem. `hasLogo: false`: as telas trazem o logo da Celcoin embutido em SVG.
 - **Tamanho:** cada tela tem cerca de 25 KB de HTML. Ler as 86 telas exatas não cabe numa sessão; a construção será feita em fases.
 
+### Rodada 0: Fase 1 construída (branch `app-rodada-0`, commit `6031c51`)
+
+- **Stack:** Node 20+, Express, SQLite (better-sqlite3), interface em HTML/JS puro, sem framework, com a fonte Inter servida localmente.
+- **Integração:** token `/v5/token`; proposta PF; consulta de proposta e conta; saldo; extrato `baas-walletreports`; chave EVP; DICT; Pix out com status; QR Code estático `/pix/v1/brcode/static`.
+- **Testes:** `npm test` roda 4 testes de ponta a ponta no modo simulado, todos passando. Foram feitas 32 capturas de tela no modo simulado.
+- **Não testado contra o sandbox real a partir deste ambiente:** a rede da sessão bloqueia `sandbox.openfinance.celcoin.dev` fora do MCP. A integração real roda na máquina da usuária.
+- **Gabarito para o P4**, quanto de cada tela veio do Studio:
+  - **HTML lido por completo (9):** Tipo de conta, CPF, Informações financeiras, Endereço Seleção, Home (Wallet), Área Pix Home, Minhas chaves Pix, Transferir Informar chave, Revisão e saldo.
+  - **Montadas com o "modelo comum" das telas lidas, sem ler o HTML próprio:** demais etapas do cadastro, Valor, Saldo insuficiente, Erro, Sucesso, Comprovante, Receber (Home único, Inserir valor, Revisar cobrança, QR Code), Extrato e Detalhes.
+  - **Novas (não existem no Studio):** Login e Validação de identidade.
+- **Adaptações conscientes:**
+  - "Permitir localização" virou "Buscar pelo CEP" (ViaCEP), porque o app não tem serviço de endereço por coordenadas.
+  - Saíram contatos, favoritos e agenda em Transferir, por falta de dados reais.
+  - Saiu o toggle "Favoritar contato" na Revisão.
+  - Termos de uso com texto provisório, avisando que é conta de teste.
+  - O Pix recebido não ganhou tela própria: aparece no extrato quando a Celcoin lança.
+
+## Dados da rodada
+
 ## Dados da rodada
 
 | Campo | Valor |
