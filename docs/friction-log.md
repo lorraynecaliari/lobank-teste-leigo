@@ -231,7 +231,10 @@ Commits no branch `app-rodada-0`: `7bf26d0` (PJ), `d9746cc` (Copia e Cola e agê
 
 | 17:35 | **Teste D: Meus dados (PF)**, e-mail trocado e endereço completado (rua, número, complemento, bairro, UF) | MCP `account/fetch` às 17:36: e-mail `testelorrayne1@…`, endereço novo com complemento, `lastUpdate 2026-11-10T17:35:39` | `PUT /baas/v2/account/natural-person` verificado no sandbox real. O endereço veio incompleto no app porque a conta foi aberta antes de o app guardar o endereço inteiro (só CEP e cidade). Contas novas já guardam tudo. |
 
-**Testado no sandbox real até 17:36:** cadastro PJ MEI e login por CNPJ (A), Pix `MANUAL` (B), Pix `STATIC_QRCODE` (C), atualização de dados PF (D). **Ainda não testado:** cadastro PJ com sócios (uma documentoscopia por sócio), Meus dados de PJ (`PUT /business`), arquivos do extrato com dados reais.
+| 17:44–17:46 | **Cadastro PJ LTDA com 2 sócios pelo app** (CNPJ `46.013.634/0001-80`) | Proposta criada às 17:44; documentoscopia aprovada às 17:46:00; `RESOURCE_CREATED` às 17:46:05; conta `0001 / 41174608` `ATIVO`, com os 2 sócios em `owners` | **Diverge do que o agente supôs:** a Celcoin criou **uma única documentoscopia, só do 1º owner** (quem preenche), e não uma por sócio. O sócio não fez validação. Erro do agente: o app e o README diziam "um link por sócio". Textos, mock e teste corrigidos (commit `3c4aaf2`). A suposição tinha vindo da PJ das 12:41, que tinha um só sócio. |
+| 17:48 | Crédito de R$ 10.000 na conta LTDA via MCP, pedido pela usuária | `CONFIRMED`; saldo conferido `10000` | |
+
+**Testado no sandbox real até 17:48:** cadastro PJ MEI e login por CNPJ (A), cadastro PJ LTDA com 2 sócios, Pix `MANUAL` (B), Pix `STATIC_QRCODE` (C), atualização de dados PF (D). **Ainda não testado:** Meus dados de PJ (`PUT /business`), arquivos do extrato com dados reais.
 
 **Roteiro original mandado à usuária:** cadastro PJ com dois sócios e uma documentoscopia por sócio; login por CNPJ; Pix Copia e Cola (`STATIC_QRCODE` com `transactionIdentification: "***"`, nunca enviado de verdade); Pix por agência e conta (`MANUAL`); atualização de dados (`PUT`).
 
