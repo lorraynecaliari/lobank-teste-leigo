@@ -4,7 +4,9 @@ App de conta digital **PF** sobre o BaaS da Celcoin, **somente sandbox**. Constr
 
 ## Como abrir
 
-Pré-requisito: Node.js 20 ou mais novo.
+Pré-requisito: Node.js 22.13 ou mais novo (o app usa o SQLite embutido no Node; não precisa compilar nada).
+
+> **Windows:** não coloque o projeto dentro do OneDrive. A sincronização trava os arquivos da `node_modules` e o `npm install` falha com `EPERM`. Use uma pasta como `C:\dev\lobank`.
 
 ```bash
 npm install

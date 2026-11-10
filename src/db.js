@@ -2,14 +2,20 @@
 // usuários, vínculo usuário <-> conta, propostas e transações (com o clientCode).
 const path = require('path');
 const fs = require('fs');
-const Database = require('better-sqlite3');
+// SQLite embutido no Node (node:sqlite, Node 22.13+): sem dependência nativa para compilar.
+const { DatabaseSync } = require('node:sqlite');
 
 const file = process.env.DATABASE_FILE || path.join(__dirname, '..', 'data', 'lobank.db');
 if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
 
-const db = new Database(file);
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+const db = new DatabaseSync(file);
+db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
+
+// Equivalente simples ao db.transaction(fn) do better-sqlite3.
+db.transaction = (fn) => (...args) => {
+  db.exec('BEGIN');
+  try { const out = fn(...args); db.exec('COMMIT'); return out; } catch (e) { db.exec('ROLLBACK'); throw e; }
+};
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
