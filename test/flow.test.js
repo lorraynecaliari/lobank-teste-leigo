@@ -220,6 +220,10 @@ test('Pix Copia e Cola e Pix por agência e conta (MANUAL)', async () => {
   assert.equal(r.data.amountLocked, true);
   assert.equal(r.data.qrType, 'STATIC');
   const lookupId = r.data.lookupId;
+  // código com espaços internos (descrição e nome): não pode perder os espaços
+  r = await call('POST', '/pix/emv', { emv: '00020126690014br.gov.bcb.pix0136af83d12a-d4ca-4cdf-974b-37d25ad2477f0207Teste C52040000530398654047.005802BR5916Lorrayne Caliari6007Barueri61080645503062070503***63043DCC\n' });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.amount, 7);
   r = await call('POST', '/pix/transfer', { lookupId, amount: 15, txPassword: '1234' });
   assert.equal(r.data.error, 'AMOUNT_LOCKED');
   r = await call('POST', '/pix/transfer', { lookupId, amount: 10, txPassword: '1234' });

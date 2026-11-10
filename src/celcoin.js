@@ -48,8 +48,9 @@ function extractError(data) {
   if (typeof data?.description === 'string' && data.description.trim().startsWith('{')) {
     try {
       const inner = JSON.parse(data.description);
-      code = inner.code || inner.errorCode || code;
-      message = inner.message || message;
+      const first = Array.isArray(inner.errors) && inner.errors[0]; // ex.: {"errors":[{"errorCode":"PCE002",...}]}
+      code = (first && first.errorCode) || inner.code || inner.errorCode || code;
+      message = (first && first.message) || inner.message || message;
     } catch (_) { /* ignora */ }
   }
   return { code, message };

@@ -391,7 +391,9 @@ router.post('/pix/lookup', auth.requireUser, auth.requireAccount, wrap(async (re
 // ---------------------------------------------------------------- Pix Copia e Cola
 // Decodifica na Celcoin, resolve a chave no DICT a partir da conta pagadora e guarda tudo para o pagamento.
 router.post('/pix/emv', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
-  const emv = String(req.body.emv || '').replace(/\s+/g, '').trim();
+  // Só tira quebras de linha e espaços das pontas: o código tem espaços de verdade (nome, cidade, descrição)
+  // e tirá-los quebra o CRC (a Celcoin responde PCE002 "Invalid Crc").
+  const emv = String(req.body.emv || '').replace(/[\r\n\t]+/g, '').trim();
   if (!/^000201/.test(emv) || emv.length < 50) return bad(res, 'INVALID_EMV', 'Esse não parece um código Pix Copia e Cola. Ele começa com 000201.');
   const dec = (await celcoin.decodeEmv(emv)).body || {};
   if (!dec.key) return bad(res, 'EMV_NO_KEY', 'Não encontramos a chave Pix dentro desse código.', 422);

@@ -26,6 +26,10 @@ function decodeEmvMock(emv) {
     // No sandbox o código real vem dentro de description (code 999 por fora); o cliente já trata isso.
     throw err(400, 'PCE002', 'Código Pix inválido.');
   }
+  // CRC16-CCITT do BR Code, como a Celcoin confere (PCE002 "Invalid Crc").
+  const crc = (str) => { let c = 0xFFFF; for (const ch of Buffer.from(str, 'utf8')) { c ^= ch << 8; for (let i = 0; i < 8; i++) c = (c & 0x8000) ? ((c << 1) ^ 0x1021) & 0xFFFF : (c << 1) & 0xFFFF; } return c.toString(16).toUpperCase().padStart(4, '0'); };
+  const at = s.lastIndexOf('6304');
+  if (at < 0 || crc(s.slice(0, at + 4)) !== s.slice(at + 4, at + 8).toUpperCase()) throw err(400, 'PCE002', 'Error reading emv: [Invalid Crc].');
   const t = tlv(s); const mai = tlv(t['26'] || ''); const add = tlv(t['62'] || '');
   const dynamic = !!mai['25'];
   const amount = t['54'] ? Number(t['54']) : null;

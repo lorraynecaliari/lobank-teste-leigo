@@ -376,7 +376,8 @@
       <footer class="footbar"><button class="btn btn-primary btn--lg" id="next" disabled>Continuar</button></footer>`, { studio: 'novo:pix-copia-e-cola (modelo 5196768b Informar chave)' });
     $('#bk').onclick = () => go('/pix');
     const emv = $('#emv'), next = $('#next'), er = $('#er'), box = $('#box');
-    const check = () => { const v = emv.value.replace(/\s+/g, ''); next.disabled = v.length < 50; er.classList.add('hidden'); box.classList.remove('is-error'); };
+    const clean = () => emv.value.replace(/[\r\n\t]+/g, '').trim(); // espaços internos fazem parte do código
+    const check = () => { next.disabled = clean().length < 50; er.classList.add('hidden'); box.classList.remove('is-error'); };
     emv.oninput = check;
     check();
     $('#paste').onclick = async () => {
@@ -386,7 +387,7 @@
     next.onclick = async () => {
       setLoading(next, true);
       try {
-        const code = emv.value.replace(/\s+/g, '');
+        const code = clean();
         const r = await api('/pix/emv', { method: 'POST', body: { emv: code } });
         state.emv = { code };
         state.pix = { key: r.key, lookup: r, via: 'emv', amount: r.amount || null };
