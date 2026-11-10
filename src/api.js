@@ -203,7 +203,13 @@ router.delete('/pix/keys/:key', auth.requireUser, auth.requireAccount, wrap(asyn
   if (!own(await celcoin.listKeys(req.account.account))) return bad(res, 'NOT_FOUND', 'Essa chave não está na sua conta.', 404);
   await celcoin.deleteKey(req.account.account, key);
   // Confere relendo: não declara sucesso só pela resposta da exclusão.
-  if (own(await celcoin.listKeys(req.account.account))) {
+  // No sandbox a exclusão leva alguns segundos para sumir da lista; relê até ~8 s.
+  let still = true;
+  for (let i = 0; i < 5 && still; i++) {
+    if (i) await new Promise((r) => setTimeout(r, 400 * i));
+    still = own(await celcoin.listKeys(req.account.account));
+  }
+  if (still) {
     return bad(res, 'NOT_CONFIRMED', 'A exclusão foi pedida, mas a chave ainda aparece na sua conta. Atualize em instantes.', 202);
   }
   res.json({ ok: true });
