@@ -194,8 +194,40 @@ async function listParticipants() {
 // ---- Pix in (QR Code estático) -------------------------------------------------
 const createStaticQr = (payload) => request('POST', '/pix/v1/brcode/static', payload);
 
+// ---- Pagamento de contas (boleto, BaaS) ----------------------------------------
+// 1) authorize: consulta o boleto na CIP e devolve valor atualizado + transactionId.
+//    HTTP 200 com errorCode diferente de "000" também é falha.
+//    Linha digitável (47) vai em digitable; código de barras (44, o que leitor USB/bluetooth digita) vai em barCode.
+async function authorizeBill(account, code) {
+  const barCode = code.length === 44 ? { type: 2, digitable: '', barCode: code } : { type: 2, digitable: code, barCode: '' };
+  const data = await request('POST', '/v5/transactions/billpayments/authorize', {
+    externalTerminal: String(account), externalNSU: Number(String(Date.now()).slice(-9)), barCode,
+  });
+  if (data && data.errorCode && data.errorCode !== '000') throw new CelcoinError(400, data.errorCode, data.message, data);
+  return data;
+}
+// 2) pagamento: 200 PROCESSING não é sucesso. clientRequestId vira o clientCode do extrato.
+const payBill = (payload) => request('POST', '/baas/v2/billpayment', payload);
+// 3) status (consulta com intervalo de 10 s). Confirmado, mas sem o recibo.
+const billStatus = (clientRequestId) => request('GET', `/baas/v2/billpayment/status?ClientRequestId=${encodeURIComponent(clientRequestId)}`);
+// 4) recibo oficial: vem no evento "billpayment". O app não recebe webhook, então lê o histórico
+//    de eventos (horário de Brasília, sem fuso) e acha o pagamento pelo clientRequestId.
+async function billReceipt(clientRequestId, fromBr, toBr) {
+  const data = await request('GET', `/baas/v2/webhook/replay/billpayment/details?DateFrom=${fromBr}&DateTo=${toBr}&OnlyPending=false`);
+  const list = (data.body && data.body.webhookDetails) || [];
+  for (const w of list) {
+    if (w.filter && w.filter.clientRequestId && w.filter.clientRequestId !== clientRequestId) continue;
+    let ev = w.request;
+    if (typeof ev === 'string') { try { ev = JSON.parse(ev); } catch (_) { continue; } }
+    const b = ev && ev.body;
+    if (b && b.clientRequestId === clientRequestId) return { status: ev.status || b.status, body: b };
+  }
+  return null;
+}
+
 module.exports = {
   MODE, BASE_URL, CelcoinError, uid, MIN_QUERY_INTERVAL_MS,
+  authorizeBill, payBill, billStatus, billReceipt,
   createNaturalPersonProposal, createLegalPersonProposal, getProposal, fetchAccountPF, fetchAccountPJ, updateAccountPF, updateAccountPJ,
   decodeEmv, listParticipants,
   getBalance, getMovements, listKeys, createEvpKey, deleteKey,

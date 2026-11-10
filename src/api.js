@@ -332,11 +332,12 @@ router.get('/statement', auth.requireUser, auth.requireAccount, wrap(async (req,
   const known = new Set(moves.map((m) => m.clientCode));
   const pending = db.prepare("SELECT * FROM transactions WHERE user_id = ? AND status IN ('PROCESSING','UNKNOWN') ORDER BY id DESC").all(req.user.id)
     .filter((t) => !known.has(t.client_code))
-    .map((t) => ({ id: `local-${t.id}`, txId: t.id, clientCode: t.client_code, date: t.created_at.replace(' ', 'T') + 'Z', amount: t.amount, direction: 'out', type: 'PIXPAYMENTOUT', description: 'Pix enviado', status: 'Em processamento', pending: true }));
-  const txByCode = new Map(db.prepare('SELECT id, client_code, counterpart_json FROM transactions WHERE user_id = ?').all(req.user.id).map((t) => [t.client_code, t]));
+    .map((t) => ({ id: `local-${t.id}`, txId: t.id, kind: t.kind, clientCode: t.client_code, date: t.created_at.replace(' ', 'T') + 'Z', amount: t.amount, direction: 'out',
+      type: t.kind === 'BILL' ? 'BILLPAYMENT' : 'PIXPAYMENTOUT', description: t.kind === 'BILL' ? 'Pagamento de conta' : 'Pix enviado', status: 'Em processamento', pending: true }));
+  const txByCode = new Map(db.prepare('SELECT id, kind, client_code, counterpart_json FROM transactions WHERE user_id = ?').all(req.user.id).map((t) => [t.client_code, t]));
   for (const m of moves) {
     const t = txByCode.get(m.clientCode);
-    if (t) { m.txId = t.id; m.counterpart = JSON.parse(t.counterpart_json).name; }
+    if (t) { m.txId = t.id; m.kind = t.kind; m.counterpart = JSON.parse(t.counterpart_json).name; }
   }
   res.json({ from, to, movements: [...pending, ...moves] });
 }));
@@ -569,6 +570,135 @@ router.post('/pix/qrcode', auth.requireUser, auth.requireAccount, wrap(async (re
   if (!emv) return bad(res, 'QR_FAILED', 'Não foi possível gerar o QR Code.', 502);
   const svg = await QRCode.toString(emv, { type: 'svg', margin: 0, color: { dark: '#302d3fff', light: '#ffffffff' } });
   res.json({ emv, svg, amount, key: evp.key });
+}));
+
+// ---------------------------------------------------------------- pagamento de contas (boleto)
+// Fluxo: authorize (dados e valor atualizado) → billpayment (200 PROCESSING) → status a cada 10 s
+// → recibo oficial pelo histórico do evento billpayment. Sem trava de horário: o sandbox não aplica 07–20.
+const brTs = (ms) => new Date(ms - 3 * 3600e3).toISOString().slice(0, 19); // horário de Brasília, sem fuso
+const num = (x) => (x == null || x === '' ? null : Number(x));
+const BILL_FRIENDLY = {
+  822: 'Esse código de boleto não é válido. Confira os números e tente de novo.',
+  PCE088: 'Esse pagamento passa do limite de pagamentos da conta. Tente um valor menor ou fale com o suporte.',
+};
+
+router.post('/bills/authorize', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
+  const code = v.onlyDigits(req.body.code);
+  if (code.startsWith('8')) return bad(res, 'CONVENIO_NOT_SUPPORTED', 'Contas de consumo e tributos (água, luz, telefone, impostos) ainda não podem ser pagas no LoBank. Por enquanto, só boletos bancários.', 422);
+  if (code.length !== 47 && code.length !== 44) return bad(res, 'INVALID_CODE', 'O código do boleto tem 47 números (ou 44, se veio de um leitor). Confira e tente de novo.');
+  let r;
+  try { r = await celcoin.authorizeBill(req.account.account, code); }
+  catch (e) {
+    if (e instanceof celcoin.CelcoinError && BILL_FRIENDLY[e.code]) return bad(res, e.code === '822' ? 'INVALID_CODE' : e.code, BILL_FRIENDLY[e.code], 422);
+    throw e;
+  }
+  const rd = r.registerData || {};
+  const total = num(rd.totalUpdated) || num(r.value);
+  if (!total || !r.transactionId) return bad(res, 'AUTHORIZE_FAILED', 'Não conseguimos ler esse boleto agora. Tente de novo em instantes.', 502);
+  const due = rd.dueDateRegister || r.dueDate || null;
+  const today = ymdBr(Date.now());
+  const bill = {
+    code, digitable: r.digitable || (code.length === 47 ? code : null), barCode: code.length === 44 ? code : null,
+    transactionId: r.transactionId, assignor: r.assignor || null,
+    recipient: rd.recipient || r.assignor || null, recipientDoc: rd.documentRecipient || null, payer: rd.payer || null, payerDoc: rd.documentPayer || null,
+    dueDate: due, overdue: !!(due && String(due).slice(0, 10) < today),
+    originalValue: num(rd.originalValue) ?? num(r.value), discount: num(rd.discountValue) || 0,
+    fine: num(rd.fineValueCalculated) || 0, interest: num(rd.interestValueCalculated) || 0, total,
+    allowChangeValue: rd.allowChangeValue === true, minValue: num(rd.minValue), maxValue: num(rd.maxValue),
+  };
+  const id = crypto.randomUUID();
+  db.prepare('INSERT INTO pix_lookups (id, user_id, key, data_json, expires_at) VALUES (?, ?, ?, ?, ?)')
+    .run(id, req.user.id, `bill:${code}`, JSON.stringify({ bill }), Date.now() + 1000 * 60 * 30);
+  const { transactionId, ...pub } = bill; // eslint-disable-line no-unused-vars
+  res.json({ lookupId: id, ...pub });
+}));
+
+router.post('/bills/pay', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
+  const lookup = db.prepare('SELECT * FROM pix_lookups WHERE id = ? AND user_id = ?').get(String(req.body.lookupId || ''), req.user.id);
+  const d = lookup && JSON.parse(lookup.data_json);
+  if (!lookup || !d.bill || lookup.expires_at < Date.now()) return bad(res, 'LOOKUP_EXPIRED', 'A consulta do boleto expirou. Digite o código de novo.', 410);
+  const b = d.bill;
+  const amount = v.parseAmount(req.body.amount);
+  if (!amount) return bad(res, 'INVALID_AMOUNT', 'Valor inválido.');
+  const brl = (n) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  if (!b.allowChangeValue && Math.abs(amount - b.total) > 0.001) return bad(res, 'AMOUNT_LOCKED', `Esse boleto é de ${brl(b.total)} e o valor não pode ser alterado.`);
+  if (b.allowChangeValue && ((b.minValue && amount < b.minValue - 0.001) || (b.maxValue && amount > b.maxValue + 0.001))) {
+    return bad(res, 'AMOUNT_OUT_OF_RANGE', `Para esse boleto, o valor precisa ficar entre ${brl(b.minValue || 0)} e ${brl(b.maxValue || b.total)}.`);
+  }
+  if (!auth.verifySecret(String(req.body.txPassword || ''), req.user.tx_password_hash)) return bad(res, 'INVALID_TX_PASSWORD', 'Senha de transferência incorreta.', 401);
+  const balance = Number((await celcoin.getBalance(req.account.account)).body.amount) || 0;
+  if (balance < amount) return res.status(422).json({ error: 'INSUFFICIENT_BALANCE', message: 'Saldo insuficiente para pagar esse boleto.', balance });
+
+  const clientCode = celcoin.uid('lobank-boleto');
+  const counterpart = { name: b.recipient, document: b.recipientDoc, assignor: b.assignor, payer: b.payer, payerDoc: b.payerDoc, dueDate: b.dueDate, overdue: b.overdue,
+    originalValue: b.originalValue, discount: b.discount, fine: b.fine, interest: b.interest, total: b.total, digitable: b.digitable, barCode: b.barCode, via: 'BOLETO' };
+  const info = db.prepare("INSERT INTO transactions (user_id, kind, client_code, amount, status, counterpart_json) VALUES (?, 'BILL', ?, ?, 'PROCESSING', ?)")
+    .run(req.user.id, clientCode, amount, JSON.stringify(counterpart));
+  db.prepare('DELETE FROM pix_lookups WHERE id = ?').run(lookup.id); // o transactionId do authorize vale para um pagamento
+  try {
+    const r = await celcoin.payBill({ clientRequestId: clientCode, amount, account: req.account.account, transactionIdAuthorize: b.transactionId,
+      barCodeInfo: b.digitable ? { digitable: b.digitable } : { barCode: b.barCode } });
+    db.prepare("UPDATE transactions SET celcoin_id = ?, updated_at = datetime('now') WHERE id = ?").run(r.body && r.body.id, info.lastInsertRowid);
+  } catch (e) {
+    if (e.code === 'TRANSPORT') {
+      db.prepare("UPDATE transactions SET status = 'UNKNOWN', error_code = 'TRANSPORT' WHERE id = ?").run(info.lastInsertRowid);
+      return res.status(202).json({ txId: info.lastInsertRowid, status: 'UNKNOWN' });
+    }
+    db.prepare("UPDATE transactions SET status = 'ERROR', error_code = ?, message = ? WHERE id = ?").run(e.code || 'ERROR', e.message || null, info.lastInsertRowid);
+    return res.status(200).json({ txId: info.lastInsertRowid, status: 'ERROR' });
+  }
+  res.json({ txId: info.lastInsertRowid, status: 'PROCESSING' });
+}));
+
+function billView(t) {
+  const c = JSON.parse(t.counterpart_json);
+  return {
+    id: t.id, status: t.status, amount: t.amount, createdAt: t.created_at, clientCode: t.client_code, celcoinId: t.celcoin_id, bill: { ...c, receipt: undefined },
+    receipt: c.receipt || null,
+    errorMessage: t.status === 'ERROR' ? (BILL_FRIENDLY[t.error_code] || FRIENDLY[t.error_code] || t.message || 'O pagamento não foi concluído.') : null,
+  };
+}
+
+router.get('/bills/:id', auth.requireUser, wrap(async (req, res) => {
+  const t = db.prepare("SELECT * FROM transactions WHERE id = ? AND user_id = ? AND kind = 'BILL'").get(Number(req.params.id), req.user.id);
+  if (!t) return bad(res, 'NOT_FOUND', 'Pagamento não encontrado.', 404);
+  if (t.status === 'PROCESSING' || t.status === 'UNKNOWN') {
+    try {
+      const s = await celcoin.billStatus(t.client_code);
+      const st = s.status;
+      if (st && st !== t.status && ['CONFIRMED', 'ERROR', 'PROCESSING'].includes(st)) {
+        const code = s.error ? s.error.errorCode : null;
+        db.prepare("UPDATE transactions SET status = ?, error_code = ?, message = ?, celcoin_id = COALESCE(celcoin_id, ?), updated_at = datetime('now') WHERE id = ?")
+          .run(st, code, s.error ? s.error.message : null, s.body && s.body.id, t.id);
+        Object.assign(t, { status: st, error_code: code, message: s.error ? s.error.message : null });
+      }
+    } catch (e) {
+      if (e.code === 'TRANSPORT' || e.status === 429 || e.status === 404 || e.status >= 500) { /* segue em processamento */ }
+      else if (e.payload && e.payload.status === 'ERROR') {
+        db.prepare("UPDATE transactions SET status = 'ERROR', error_code = ?, message = ? WHERE id = ?").run(e.code, e.message || null, t.id);
+        Object.assign(t, { status: 'ERROR', error_code: e.code, message: e.message });
+      } else throw e;
+    }
+  }
+  // Recibo oficial: só depois de confirmado e só até achar (fica guardado no app).
+  const c = JSON.parse(t.counterpart_json);
+  if (t.status === 'CONFIRMED' && !c.receipt) {
+    const created = Date.parse(t.created_at.replace(' ', 'T') + 'Z');
+    try {
+      const ev = await celcoin.billReceipt(t.client_code, brTs(created - 5 * 60e3), brTs(created + 60 * 60e3));
+      const b = ev && ev.body;
+      if (b && b.receipt) {
+        c.receipt = { formatted: b.receipt.receiptformatted || '', protocol: b.transactionId || null, authentication: b.authentication || null,
+          authenticationCode: (b.authenticationAPI && b.authenticationAPI.BlocoCompleto) || null, convenant: b.convenant || null,
+          settleDate: b.settleDate || null, paidAt: b.createDate || null };
+        db.prepare('UPDATE transactions SET counterpart_json = ? WHERE id = ?').run(JSON.stringify(c), t.id);
+        t.counterpart_json = JSON.stringify(c);
+      }
+    } catch (e) {
+      if (!(e instanceof celcoin.CelcoinError)) throw e; // evento ainda não disponível (ex.: 404 CBE238): tenta na próxima
+    }
+  }
+  res.json(billView(t));
 }));
 
 // ---------------------------------------------------------------- modo simulado

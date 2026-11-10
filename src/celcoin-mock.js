@@ -43,6 +43,15 @@ function decodeEmvMock(emv) {
   } };
 }
 
+// Massa de teste de boletos (linhas oficiais do sandbox; valores conferidos no authorize de 10/11 18:45).
+const BILLS = {
+  '23793381286008301352856000063307789840000150000': { assignor: 'BANCO BRADESCO S.A.', recipient: 'BENEFICIARIO AMBIENTE HOMOLOGACAO', value: 1500, original: 1500, total: 1500 },
+  '34198862666531252277792218900006890430000039322': { assignor: 'ITAU UNIBANCO S.A.', recipient: 'BENEFICIARIO AMBIENTE HOMOLOGACAO', value: 393.22, original: 436.92, discount: 43.70, total: 393.22 },
+  '00190000090100159000700117369173390420000098888': { assignor: 'BANCO DO BRASIL S.A.', recipient: 'BENEFICIARIO AMBIENTE HOMOLOGACAO', value: 988.88, original: 957.24, fine: 28.71, interest: 1.98, total: 987.93, overdue: true },
+  '23790124009217400000702005449802190400000191577': { assignor: 'BANCO BRADESCO S.A.', recipient: 'BENEFICIARIO AMBIENTE HOMOLOGACAO', value: 1915.77, original: 1915.77, fine: 19.15, total: 1934.92, overdue: true },
+  '34191570070404695481642042200008290440000032202': { assignor: 'ITAU UNIBANCO S.A.', recipient: 'BENEFICIARIO AMBIENTE HOMOLOGACAO', value: 322.02, original: 322.02, interest: 1.22, total: 323.24, allow: true, min: 305.92, max: 338.12 },
+};
+
 function approveDocumentscopy(proposalId) {
   const p = state.proposals.get(proposalId);
   if (!p) return false;
@@ -183,6 +192,55 @@ async function handle(method, path, body) {
       const out = { status: pay.status, body: { id: pay.id, amount: pay.amount, endToEndId: pay.endToEndId, creditParty: pay.creditParty } };
       if (pay.errorCode) out.error = { errorCode: pay.errorCode, message: 'Transação não permitida.Conta com saldo insuficiente.' };
       return out;
+    }
+    // ---- Boleto: massa de teste da Celcoin, como o sandbox respondeu em 10/11/2026 às 18:45.
+    if (method === 'POST' && p === '/v5/transactions/billpayments/authorize') {
+      const code = (body.barCode && (body.barCode.digitable || body.barCode.barCode)) || '';
+      const m = BILLS[code] || BILLS[Object.keys(BILLS).find((k) => BILLS[k].barCode === code)];
+      if (!m) throw err(400, '822', 'Erro na conversão de linha digitável');
+      const today = now().slice(0, 10), yesterday = new Date(Date.now() - 3 * 3600e3 - 864e5).toISOString().slice(0, 10);
+      const transactionId = Math.floor(Math.random() * 1e9);
+      state.bills = state.bills || new Map();
+      state.bills.set(transactionId, m);
+      return { assignor: m.assignor, transactionId, digitable: m.digitable || code, value: m.value, type: 2, errorCode: '000', message: null, status: 0,
+        initeHour: '07:00', endHour: '20:00', settleDate: today,
+        registerData: { recipient: m.recipient, documentRecipient: '87754347000108', payer: 'PAGADOR AMBIENTE DE HOMOLOGACA', documentPayer: '69844780144',
+          dueDateRegister: `${m.overdue ? yesterday : today}T00:00:00`, allowChangeValue: !!m.allow, minValue: m.min || 0, maxValue: m.max || 0,
+          originalValue: m.original, discountValue: m.discount || 0, fineValueCalculated: m.fine || 0, interestValueCalculated: m.interest || 0, totalUpdated: m.total } };
+    }
+    if (method === 'POST' && p === '/baas/v2/billpayment') {
+      if (!body.clientRequestId || !body.transactionIdAuthorize || !body.account) throw err(400, 'CBE001', 'Campos obrigatórios ausentes.');
+      const id = crypto.randomUUID();
+      state.billPays = state.billPays || new Map();
+      state.billPays.set(body.clientRequestId, { ...body, id, status: 'PROCESSING', at: Date.now() });
+      return { version: '1.0.0', status: 'PROCESSING', body: { id, clientRequestId: body.clientRequestId, amount: body.amount, transactionIdAuthorize: body.transactionIdAuthorize, barCodeInfo: body.barCodeInfo } };
+    }
+    if (method === 'GET' && p === '/baas/v2/billpayment/status') {
+      const pay = (state.billPays || new Map()).get(q.get('ClientRequestId'));
+      if (!pay) throw err(404, 'CBE106', 'Transação não encontrada.');
+      if (pay.status === 'PROCESSING' && Date.now() - pay.at > 1500) {
+        const moves = state.movements.get(pay.account) || [];
+        const bal = moves.reduce((s, m) => s + (m.balanceType === 'CREDIT' ? m.amount : -m.amount), 0);
+        if (bal < pay.amount) { pay.status = 'ERROR'; pay.errorCode = 'CBE123'; }
+        else {
+          pay.status = 'CONFIRMED'; pay.paidAt = now();
+          moves.push({ id: pay.id, clientCode: pay.clientRequestId, description: 'PAGAMENTO DE CONTAS', createDate: pay.paidAt, amount: pay.amount, status: 'Saldo Bloqueado', balanceType: 'DEBIT', movementType: 'BILLPAYMENT' });
+        }
+      }
+      // Igual ao sandbox: o status confirmado não traz recibo.
+      const out = { version: '1.0.0', status: pay.status, body: { id: pay.id, clientRequestId: pay.clientRequestId, amount: pay.amount, paymentDate: pay.paidAt || null, hasOccurrence: false } };
+      if (pay.errorCode) out.error = { errorCode: pay.errorCode, message: 'Saldo insuficiente.' };
+      return out;
+    }
+    if (method === 'GET' && p === '/baas/v2/webhook/replay/billpayment/details') {
+      const list = [...(state.billPays || new Map()).values()].filter((x) => x.status === 'CONFIRMED').map((x) => ({
+        webhookId: x.id.replace(/-/g, ''), webhookUrl: null, status: 'PENDENTE', filter: { account: x.account, id: x.id, clientRequestId: x.clientRequestId },
+        request: JSON.stringify({ entity: 'billpayment', status: 'CONFIRMED', body: { clientRequestId: x.clientRequestId, id: x.id, account: x.account, amount: x.amount, status: 'CONFIRMED',
+          transactionId: 2150000000 + (x.transactionIdAuthorize % 1e6), authentication: 8934, convenant: '655 | BANCO VOTORANTIN / AGENCIA 0001', createDate: x.paidAt, settleDate: `${x.paidAt.slice(0, 10)}T00:00:00`,
+          authenticationAPI: { BlocoCompleto: 'A5.A6.D2.0A.64.E9.BD.C9.A6.88.05.DA.0A.47.E9.49' },
+          receipt: { receiptData: '', receiptformatted: `      RECIBO SIMULADO\r\n  PROTOCOLO ${2150000000 + (x.transactionIdAuthorize % 1e6)}\r\nVALOR COBRADO   ${x.amount.toFixed(2).replace('.', ',')}\r\n VALIDO COMO RECIBO DE PAGAMENTO\r\n` } } }),
+      }));
+      return { version: '1.0.0', status: 'SUCCESS', body: { totalItems: list.length, webhookDetails: list } };
     }
     if (method === 'POST' && p === '/pix/v1/brcode/static') {
       return { transactionId: Date.now(), emvqrcps: `00020126580014br.gov.bcb.pix0136${body.key}5204000053039865802BR5913MOCK LOBANK6009SAO PAULO62070503***6304ABCD`, transactionIdentification: '***' };

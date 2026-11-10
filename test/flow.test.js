@@ -299,3 +299,69 @@ test('Meus dados PJ: reenvia os sócios atuais (owners é obrigatório no PUT)',
   r = await call('GET', '/me/details');
   assert.equal(r.data.email, 'novo-pj@example.com');
 });
+
+test('Pagamento de contas: massa de teste, valor travado/intervalo, saldo, status e recibo', async () => {
+  cookie = '';
+  let r = await call('POST', '/auth/login', { document: '90830166173', password: 'outraSenha2' });
+  assert.equal(r.status, 200);
+  await call('POST', '/dev/credit', { amount: 1000 });
+  const bal0 = (await call('GET', '/balance')).data.amount;
+
+  // código inválido, convênio e tamanho errado: mensagens próprias, sem erro técnico
+  r = await call('POST', '/bills/authorize', { code: '23793381286008301352856000063307789840000150001' });
+  assert.equal(r.data.error, 'INVALID_CODE');
+  assert.match(r.data.message, /não é válido/);
+  r = await call('POST', '/bills/authorize', { code: '8'.padEnd(48, '1') });
+  assert.equal(r.data.error, 'CONVENIO_NOT_SUPPORTED');
+  r = await call('POST', '/bills/authorize', { code: '123' });
+  assert.equal(r.data.error, 'INVALID_CODE');
+
+  // multa e juros: paga o totalUpdated (987,93), não o valor do código (988,88)
+  r = await call('POST', '/bills/authorize', { code: '00190.00009 01001.590007 00117.369173 3 90420000098888' });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.total, 987.93);
+  assert.equal(r.data.overdue, true);
+  assert.equal(r.data.allowChangeValue, false);
+  assert.equal(r.data.transactionId, undefined); // não vai para o navegador
+  r = await call('POST', '/bills/pay', { lookupId: r.data.lookupId, amount: 988.88, txPassword: '9999' });
+  assert.equal(r.data.error, 'AMOUNT_LOCKED');
+
+  // valor mínimo e máximo
+  r = await call('POST', '/bills/authorize', { code: '34191570070404695481642042200008290440000032202' });
+  assert.equal(r.data.allowChangeValue, true);
+  assert.equal(r.data.minValue, 305.92);
+  const lk = r.data.lookupId;
+  r = await call('POST', '/bills/pay', { lookupId: lk, amount: 400, txPassword: '9999' });
+  assert.equal(r.data.error, 'AMOUNT_OUT_OF_RANGE');
+  r = await call('POST', '/bills/pay', { lookupId: lk, amount: 310, txPassword: '1234' });
+  assert.equal(r.data.error, 'INVALID_TX_PASSWORD');
+  r = await call('POST', '/bills/pay', { lookupId: lk, amount: 310, txPassword: '9999' });
+  assert.equal(r.data.status, 'PROCESSING', JSON.stringify(r.data));
+  const id = r.data.txId;
+  r = await call('POST', '/bills/pay', { lookupId: lk, amount: 310, txPassword: '9999' });
+  assert.equal(r.data.error, 'LOOKUP_EXPIRED'); // um authorize vale para um pagamento
+
+  r = await call('GET', '/bills/' + id);
+  assert.equal(r.data.status, 'PROCESSING');
+  await new Promise((ok) => setTimeout(ok, 1700));
+  r = await call('GET', '/bills/' + id);
+  assert.equal(r.data.status, 'CONFIRMED');
+  assert.ok(r.data.receipt && r.data.receipt.protocol, 'recibo oficial pelo histórico do evento');
+  assert.match(r.data.receipt.formatted, /RECIBO/);
+  assert.equal((await call('GET', '/balance')).data.amount, Math.round((bal0 - 310) * 100) / 100);
+
+  r = await call('GET', '/statement');
+  const mv = r.data.movements.find((m) => m.type === 'BILLPAYMENT');
+  assert.equal(mv.kind, 'BILL');
+  assert.equal(mv.txId, id);
+
+  // saldo insuficiente: barra antes de enviar
+  r = await call('POST', '/bills/authorize', { code: '23790124009217400000702005449802190400000191577' });
+  const big = await call('POST', '/bills/authorize', { code: '23793381286008301352856000063307789840000150000' });
+  const bal = (await call('GET', '/balance')).data.amount;
+  if (bal < 1934.92) {
+    r = await call('POST', '/bills/pay', { lookupId: r.data.lookupId, amount: 1934.92, txPassword: '9999' });
+    assert.equal(r.data.error, 'INSUFFICIENT_BALANCE');
+  }
+  assert.equal(big.data.total, 1500);
+});

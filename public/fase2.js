@@ -549,8 +549,8 @@
   const addDays = (s, n) => ymd(new Date(Date.parse(s + 'T12:00:00Z') + n * 864e5 + 3 * 3600e3));
   const brDate = (s) => s.split('-').reverse().join('/');
   const filters = () => (state.stmt = state.stmt || { period: '7d', from: addDays(today(), -6), to: today(), type: 'all', cats: [], q: '' });
-  const CATS = [['pix', 'Pix'], ['entry', 'Crédito e débito em conta']];
-  const catOf = (m) => (String(m.type || '').startsWith('PIX') ? 'pix' : 'entry');
+  const CATS = [['pix', 'Pix'], ['bill', 'Pagamento de contas'], ['entry', 'Crédito e débito em conta']];
+  const catOf = (m) => (String(m.type || '').startsWith('PIX') ? 'pix' : m.type === 'BILLPAYMENT' ? 'bill' : 'entry');
   const applyFilters = (list, f) => list.filter((m) => (f.type === 'all' || m.direction === f.type)
     && (!f.cats.length || f.cats.includes(catOf(m)))
     && (!f.q || `${MOV[m.type] || ''} ${m.description || ''} ${m.counterpart || ''}`.toLowerCase().includes(f.q.toLowerCase())));
@@ -579,12 +579,12 @@
         const d = new Date(String(m.date).replace(' ', 'T'));
         const day = isNaN(d) ? '' : d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
         if (day !== lastDay) { html += `<div class="day">${esc(day)}</div>`; lastDay = day; }
-        html += `<button class="mov" data-i="${i}"><span class="row__icon row__icon--soft">${catOf(m) === 'pix' ? I.pix : I.coin}</span>
+        html += `<button class="mov" data-i="${i}"><span class="row__icon row__icon--soft">${catOf(m) === 'pix' ? I.pix : catOf(m) === 'bill' ? (I.barcode || I.coin) : I.coin}</span>
           <span class="mov__info"><span class="mov__title">${esc(MOV[m.type] || m.description || m.type)}${m.counterpart ? ' · ' + esc(m.counterpart) : ''}</span><span class="mov__sub">${m.pending ? '<span class="tag">Em processamento</span>' : esc(m.status || '')}</span></span>
           <span class="mov__amount mov__amount--${m.direction}">${m.direction === 'in' ? '+ ' : '− '}${money(m.amount)}</span></button>`;
       });
       $('#list').innerHTML = html;
-      $$('.mov', root).forEach((b) => { b.onclick = () => { const m = list[Number(b.dataset.i)]; if (m.txId) go('/comprovante/' + m.txId); else detail(m); }; });
+      $$('.mov', root).forEach((b) => { b.onclick = () => { const m = list[Number(b.dataset.i)]; if (m.txId) go((m.kind === 'BILL' ? '/boleto/comprovante/' : '/comprovante/') + m.txId); else detail(m); }; });
     };
     $('#q').oninput = () => { f.q = $('#q').value.trim(); paint(); };
     $('#dl').onclick = () => downloadSheet(applyFilters(all, f), f);

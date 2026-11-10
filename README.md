@@ -51,6 +51,14 @@ Para mexer nas telas sem credenciais: `CELCOIN_MODE=mock npm start`. Todas as te
 | Extrato completo e relatórios | Extrato com busca, Filtrar (período de até 7 dias, tipo, categoria), Baixar extrato (PDF, CSV, OFX) | `GET /baas-walletreports/v1/wallet/movement`; filtros e arquivos montados no app |
 | Minha conta | Minha conta (só itens que funcionam), Meus dados, Minhas senhas (**nova**) | `PUT /baas/v2/account/natural-person` e `/business` (telefone, e-mail, endereço) |
 
+## Pagamento de contas (boleto)
+
+| Fluxo | Telas | Integração Celcoin |
+|---|---|---|
+| Pagar boleto bancário | Atalho "Pagar contas" na Home, Formas de Pagamento (Digitar código ou Pix Copia e Cola), Digitar código (aceita leitor USB/bluetooth), Informar valor (só se o boleto deixa mudar, sem data), Confirmar Valor (com aviso de vencido, multa, juros e desconto), Saldo insuficiente, Em processamento, Pagamento concluído, Falha no pagamento, Comprovante e Comprovante pendente | `POST /v5/transactions/billpayments/authorize` (`errorCode "000"`), `POST /baas/v2/billpayment` (200 `PROCESSING`), `GET /baas/v2/billpayment/status?ClientRequestId=` a cada 10 s, recibo oficial por `GET /baas/v2/webhook/replay/billpayment/details` |
+
+Fora, por comentário do Studio ou decisão: leitor por câmera, escolha de conta (a Celcoin só tem conta de pagamento), agendamento, "Abrir PDF" e contas de consumo e tributos (código que começa com 8). Sem trava de horário: o sandbox não aplica o 07:00–20:00 que o `authorize` informa.
+
 **Fora por enquanto:** QR Code dinâmico (validade e uso único), favoritos e contatos, sócio pessoa jurídica (a API só aceita CPF), envio de extrato por e-mail, Gestão de usuário, Meus limites, Tarifas, DDA, Dúvidas e Cancelar conta.
 
 **Retirado por decisão ou comentário no Studio:** procuração, portabilidade, reivindicação, chaves CPF/celular/e-mail, verificação por SMS, agendamento de Pix, Pix Automático, Minha agenda Pix, cartão e crédito, splash e onboarding v.1–v.4.

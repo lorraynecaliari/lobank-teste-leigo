@@ -67,6 +67,7 @@
     chat: '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5.29101 18.824L0 20L1.17601 14.709C0.401543 13.2604 -0.00246185 11.6426 0 10C0 4.477 4.47701 0 10 0C15.523 0 20 4.477 20 10C20 15.523 15.523 20 10 20C8.35737 20.0025 6.73963 19.5985 5.29101 18.824ZM5.58101 16.711L6.23401 17.061C7.39256 17.6801 8.6864 18.0027 10 18C14.418 18 18 14.418 18 10C18 5.582 14.418 2 10 2C5.582 2 2 5.582 2 10C2 11.334 2.32501 12.618 2.94001 13.766L3.28901 14.419L2.63401 17.366L5.58101 16.711Z" fill="currentColor"/></svg>',
     coin: '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 20C4.477 20 0 15.523 0 10C0 4.477 4.477 0 10 0C15.523 0 20 4.477 20 10C20 15.523 15.523 20 10 20ZM10 18C14.418 18 18 14.418 18 10C18 5.582 14.418 2 10 2C5.582 2 2 5.582 2 10C2 14.418 5.582 18 10 18ZM6.5 12H12C12.2761 12 12.5 11.7761 12.5 11.5C12.5 11.2239 12.2761 11 12 11H8C6.61929 11 5.5 9.88071 5.5 8.5C5.5 7.11929 6.61929 6 8 6H9V4H11V6H13.5V8H8C7.72386 8 7.5 8.22386 7.5 8.5C7.5 8.77614 7.72386 9 8 9H12C13.3807 9 14.5 10.1193 14.5 11.5C14.5 12.8807 13.3807 14 12 14H11V16H9V14H6.5V12Z" fill="currentColor"/></svg>',
     edit: '<svg width="24" height="24" viewBox="0 0 23.9611 23.9611" fill="none"><path d="M16.9707 8.87572L15.0853 6.99038L2.66667 19.4091V21.2944H4.552L16.9707 8.87572ZM18.856 6.99038L20.7413 5.10505L18.856 3.21972L16.9707 5.10505L18.856 6.99038ZM5.656 23.9611H0V18.3037L17.9133 0.390382C18.4339 -0.130127 19.2781 -0.130127 19.7987 0.390382L23.5707 4.16238C24.0912 4.68289 24.0912 5.52721 23.5707 6.04772L5.65733 23.9611H5.656Z" fill="currentColor"/></svg>',
+    barcode: '<svg width="22" height="18" viewBox="0 0 22 18" fill="none"><path d="M1 1v16M4 1v16M6.5 1v16M10 1v16M12.5 1v16M15 1v16M18 1v16M21 1v16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M4 1v16M10 1v16M18 1v16" stroke="currentColor" stroke-width="2.6"/></svg>',
     qr: '<svg width="20" height="20" viewBox="0 0 18 18" fill="none"><path d="M13 14V13H10V10H13V12H15V14H14V16H12V18H10V15H12V14H13ZM18 18H14V16H16V14H18V18ZM0 0H8V8H0V0ZM2 2V6H6V2H2ZM10 0H18V8H10V0ZM12 2V6H16V2H12ZM0 10H8V18H0V10ZM2 12V16H6V12H2ZM15 10H18V12H15V10ZM3 3H5V5H3V3ZM3 13H5V15H3V13ZM13 3H15V5H13V3Z" fill="currentColor"/></svg>',
   };
 
@@ -604,6 +605,7 @@
             <button class="shortcut" id="dopix"><span class="shortcut-icon">${I.pix}</span><p class="shortcut-label">Fazer<br>Pix</p></button>
             <button class="shortcut" data-go="/receber"><span class="shortcut-icon">${I.receive}</span><p class="shortcut-label">Cobrar<br>com Pix</p></button>
             <button class="shortcut" data-go="/pix/chaves"><span class="shortcut-icon">${I.key}</span><p class="shortcut-label">Minhas<br>chaves</p></button>
+            <button class="shortcut" data-go="/boleto"><span class="shortcut-icon">${I.barcode}</span><p class="shortcut-label">Pagar<br>contas</p></button>
             <button class="shortcut" data-go="/extrato"><span class="shortcut-icon">${I.list}</span><p class="shortcut-label">Extrato</p></button>
           </div></div>
         <button type="button" class="btn-neutral" data-go="/pix">Área Pix ${I.chevRight}</button>
@@ -969,7 +971,7 @@
   });
 
   // ============================================================ EXTRATO (Wallet | Extrato + Detalhes)
-  const MOV = { PIXPAYMENTOUT: 'Pix enviado', PIXPAYMENTIN: 'Pix recebido', ENTRYCREDIT: 'Crédito em conta', ENTRYDEBIT: 'Débito em conta' };
+  const MOV = { PIXPAYMENTOUT: 'Pix enviado', PIXPAYMENTIN: 'Pix recebido', ENTRYCREDIT: 'Crédito em conta', ENTRYDEBIT: 'Débito em conta', BILLPAYMENT: 'Pagamento de conta' };
   route('/extrato', async (root) => {
     if (!(await loadMe())) return go('/login');
     if (!state.me.account) return go('/validacao');

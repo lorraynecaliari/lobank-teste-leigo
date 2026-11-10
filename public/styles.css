@@ -219,8 +219,8 @@ button.row { width: 100%; border: 0; background: none; padding: 0; text-align: l
 .home-body { display: flex; flex-direction: column; gap: 32px; padding: 16px; }
 .section { display: flex; flex-direction: column; gap: 16px; }
 .section-title { font-size: 18px; font-weight: 600; color: var(--ink-2); margin: 0; }
-.shortcuts { display: flex; gap: 12px; }
-.shortcut { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 68px; flex: 1 0 0; border: 0; background: none; cursor: pointer; padding: 0; }
+.shortcuts { display: flex; gap: 4px; }
+.shortcut { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 60px; flex: 1 0 0; border: 0; background: none; cursor: pointer; padding: 0; }
 .shortcut-icon { display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 999px; background: var(--line); color: #2b2b2b; }
 .shortcut-label { font-size: 12px; font-weight: 600; color: var(--ink-2); text-align: center; line-height: 18px; margin: 0; }
 .btn-neutral { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; border: 1px solid var(--line); border-radius: var(--studio-border-radius); background: var(--surface); padding: 16px; font-size: 16px; font-weight: 600; color: #3a3a3a; cursor: pointer; }
