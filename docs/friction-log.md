@@ -106,6 +106,8 @@ Não é teste de usabilidade. Rodada feita pelo mesmo Claude que escreveu o rote
 | Hora | Passo | Resultado | Observação |
 |------|-------|-----------|------------|
 | 13:34 | `npm install` na máquina da usuária (Windows, Node 26.13, pasta no OneDrive) | Falhou: `better-sqlite3` sem binário pronto para o Node 26; a compilação quebra na API do V8. Avisos `EPERM`/`ENOTEMPTY` por causa do OneDrive | **Erro do agente:** escolheu uma dependência nativa sem checar a versão de Node da usuária. Corrigido no commit seguinte, trocando por `node:sqlite` (embutido, sem compilação). README atualizado: Node 22.13+ e evitar OneDrive. |
+| 13:53 | **Cadastro PF feito pelo app** na máquina da usuária, com documentoscopia | Conta `0001 / 41174228` `ATIVO`, `clientCode lobank-pf-…` gerado pelo app | Primeiro fluxo de onboarding **ponta a ponta pelo app** contra o sandbox real. |
+| 13:55 | Crédito de R$ 6.000 via MCP (`wallet/entry`), pedido pela usuária | `CONFIRMED`; saldo conferido `6000` | O app não tem botão de crédito; feito por fora. |
 
 ## Dados da rodada
 
