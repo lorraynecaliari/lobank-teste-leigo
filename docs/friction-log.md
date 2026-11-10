@@ -149,7 +149,7 @@ Não é teste de usabilidade. Rodada feita pelo mesmo Claude que escreveu o rote
 
 #### Itens para levar à Celcoin (quando a usuária quiser)
 
-1. **Pix entre contas do mesmo tenant não é creditado no destino** (12:47, 14:53 e 16:24, esta última já com os webhooks `pix-payment-in` e `pix-payment-out` cadastrados). O `RECEIVEPIX` existe no módulo Pix (`transactionId 202611100000000666` e `202611100000000830`), mas a carteira de quem recebe não é lançada. Os valores somem da soma das duas contas.
+1. **Pix entre contas do mesmo tenant não é creditado no destino** (12:47, 14:53, 16:24 e 17:32; a de 16:24 já com os webhooks `pix-payment-in` e `pix-payment-out` cadastrados, e a de 17:32 por QR Code, a partir de uma conta MEI). O `RECEIVEPIX` existe no módulo Pix (`transactionId 202611100000000666` e `202611100000000830`), mas a carteira de quem recebe não é lançada. Os valores somem da soma das duas contas.
 2. **Lista de chaves de conta sem chave devolve 404 `CBE180`** em vez de lista vazia (13:57). Não está na documentação nem na skill.
 3. **Busca da documentação pelo MCP:** não acha páginas de BaaS que existem, como criar chave (12:31), excluir chave (14:07) e criar proposta PF (12:09). O `fetch_celcoin_documentation` não aceita a URL `.md` (12:10).
 4. **Divergências na documentação:**
@@ -226,6 +226,8 @@ Commits no branch `app-rodada-0`: `7bf26d0` (PJ), `d9746cc` (Copia e Cola e agê
 | 17:21 | Observação da usuária: no comprovante só havia "Copiar"; ao voltar, a tela do Pix recomeçava a contagem | Ajustado (commit `25742e3`): botão "Voltar ao início" no comprovante; ao voltar, o resultado aparece na hora | A espera de 10 s fica só logo depois de pagar. |
 
 | 17:28 | **Teste C: Pix Copia e Cola** (código gerado na PF às 17:27, colado na MEI) | Erro na tela: "HTTP_400" | **Erro do agente:** o app tirava todos os espaços do código; o BR Code tem espaços de verdade ("Teste C", "Lorrayne Caliari"), e a Celcoin recusou por CRC inválido. Reproduzido via MCP: sem espaços, `PCE002` "Invalid Crc"; com o código intacto, o decode funciona. O erro vem como `code 999` com o JSON escapado em `description` e o código em `errors[0]`, formato que o app não lia. Corrigido (commit `329ab48`). O mock agora confere o CRC; antes, o teste automático não tinha como pegar o problema. |
+
+| 17:32 | **Teste C repetido depois da correção:** QR gerado na PF às 17:31 e pago pela MEI com Copia e Cola às 17:32 | **Pagamento ok:** `initiationType: STATIC_QRCODE`, `transactionIdentification: "***"`, `CONFIRMED`; MEI `9995` → `9988`; webhook `pix-payment-out` entregue; `RECEIVEPIX` existe (`202611100000001150`). **PF continua `5980`** | Primeiro Pix `STATIC_QRCODE` pelo app no sandbox real, aceito com `"***"` no `transactionIdentification`. O recebimento repete o defeito do item 1 para a Celcoin: **4ª vez** (12:46, 14:53, 16:24, 17:32), agora a partir de uma conta MEI e por QR Code. |
 
 **A testar no sandbox real (roteiro mandado à usuária):** cadastro PJ com dois sócios e uma documentoscopia por sócio; login por CNPJ; Pix Copia e Cola (`STATIC_QRCODE` com `transactionIdentification: "***"`, nunca enviado de verdade); Pix por agência e conta (`MANUAL`); atualização de dados (`PUT`).
 
