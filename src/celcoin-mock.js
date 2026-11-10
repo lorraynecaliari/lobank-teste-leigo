@@ -76,8 +76,8 @@ async function handle(method, path, body) {
       state.proposals.set(proposalId, {
         proposalId, documentNumber: body.documentNumber, clientCode: body.clientCode, body, type: 'PJ',
         status: last === '2' ? 'REPROVED' : 'PENDING_DOCUMENTSCOPY',
-        // Igual ao sandbox: uma documentoscopia por sócio (CPF), não pela empresa.
-        docs: body.owner.map((o, i) => ({ documentNumber: o.documentNumber, url: `https://celcoin.cadastro.io/mock-${proposalId.slice(0, 6)}-${i}` })),
+        // Igual ao sandbox (10/11, LTDA com 2 sócios): uma documentoscopia só, do 1º owner, não da empresa.
+        docs: body.owner.slice(0, 1).map((o, i) => ({ documentNumber: o.documentNumber, url: `https://celcoin.cadastro.io/mock-${proposalId.slice(0, 6)}-${i}` })),
       });
       return { version: '1.0.0', status: 'PROCESSING', body: { proposalId, clientCode: body.clientCode, documentNumber: body.documentNumber } };
     }

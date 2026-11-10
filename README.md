@@ -44,7 +44,7 @@ Para mexer nas telas sem credenciais: `CELCOIN_MODE=mock npm start`. Todas as te
 | Fluxo | Telas | Integração Celcoin |
 |---|---|---|
 | Abertura de conta PJ | Tipo de conta, Termos, Tipo de empresa, CNPJ (+ "Por que o CNPJ"), Razão social, Nome da empresa, Faturamento, Contato da empresa (**nova**), Endereço da empresa (**nova**), Quem está preenchendo, Seus dados (+ nome da mãe), Seu endereço (**nova**), Adicionar sócios (+ modal com os dados que a Celcoin exige), senhas | `POST /onboarding/v1/onboarding-proposal/legal-person` (`owner` em lista; `companyType` PJ ou MEI); conta por `GET /baas/v2/account/fetch-business` |
-| Validação de identidade PJ | Validação com **um link por sócio** | `documentscopys` da proposta, uma por CPF |
+| Validação de identidade PJ | Validação com o link de quem preenche (a tela mostra vários, se a Celcoin pedir mais de um) | `documentscopys` da proposta. No sandbox, a Celcoin pediu só a do 1º sócio, mesmo com 2 sócios |
 | Pix Copia e Cola | Colar código (**nova**), Valor (quando o código não traz valor), Revisão, Resultado, Comprovante | `POST /pix/v1/emv/full`, DICT pela conta pagadora, `POST /baas/v2/pix/payment` com `STATIC_QRCODE`/`DYNAMIC_QRCODE` |
 | Pix por agência e conta | Selecionar banco, Dados da conta destino (Outra conta / Minha conta), Tipo de conta do destinatário, Valor, Revisão, Resultado, Comprovante | `GET /pix/v1/participants` (ISPB, guardado 24 h), `POST /baas/v2/pix/payment` com `MANUAL` |
 | Receber | Home (Único / Vários recebimentos), Inserir valor, Revisar cobrança (com e sem valor), QR Code | `POST /pix/v1/brcode/static`. Os dois usam QR **estático**; o dinâmico fica para depois |

@@ -164,7 +164,7 @@ test('telefone final 2: proposta reprovada', async () => {
   assert.equal(r.data.account, null);
 });
 
-test('cadastro PJ: valida, uma documentoscopia por sócio, conta por fetch-business', async () => {
+test('cadastro PJ: valida, documentoscopia de quem preenche, conta por fetch-business', async () => {
   cookie = '';
   const addr = { postalCode: '06455030', street: 'Alameda Xingu', number: '350', neighborhood: 'Alphaville', city: 'Barueri', state: 'SP' };
   const filler = { fullName: 'Ana Responsável Teste', cpf: '908.301.661-73', birthDate: '1985-03-10', motherName: 'Maria Teste', phone: '11987650011', email: 'ana@example.com', isPep: false, address: addr };
@@ -184,8 +184,9 @@ test('cadastro PJ: valida, uma documentoscopia por sócio, conta por fetch-busin
   assert.equal(r.status, 200, JSON.stringify(r.data));
   r = await call('GET', '/onboarding/status');
   assert.equal(r.data.status, 'PENDING_DOCUMENTSCOPY');
-  assert.equal(r.data.documentscopies.length, 2);
-  assert.deepEqual(r.data.documentscopies.map((d) => d.name), ['Ana Responsável Teste', 'Bruno Sócio Teste']);
+  // Como no sandbox: uma validação só, de quem preenche (1º owner), mesmo com 2 sócios.
+  assert.equal(r.data.documentscopies.length, 1);
+  assert.equal(r.data.documentscopies[0].name, 'Ana Responsável Teste');
 
   await call('POST', '/dev/approve-documentscopy');
   r = await call('GET', '/onboarding/status');

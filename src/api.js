@@ -240,7 +240,7 @@ router.get('/onboarding/status', auth.requireUser, wrap(async (req, res) => {
       if (e.code !== 'CBE078') throw e; // CBE078 = "ainda não": a conta pode demorar a aparecer
     }
   }
-  // PJ: uma documentoscopia por sócio. Devolve cada link com o nome de quem precisa fazer.
+  // PJ: devolve cada documentoscopia com o nome do sócio. No sandbox veio só a do 1º owner, mesmo com 2 sócios.
   const owners = (JSON.parse(req.user.profile_json || '{}').owners) || [];
   const named = docs.map((d) => { const o = owners.find((x) => x.cpf === d.documentNumber); return { url: d.url, status: d.status, name: o ? o.name : (req.user.person_type === 'PF' ? req.user.full_name : null) }; });
   const pending = status === 'PENDING_DOCUMENTSCOPY';

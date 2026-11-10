@@ -114,7 +114,7 @@
         <h1 class="headline">Antes de começar, <strong>leia os termos</strong></h1>
         <div class="note-box"><ul>
           <li>Esta é uma conta de <strong>teste</strong> no ambiente sandbox da Celcoin. Nenhum dinheiro real é movimentado.</li>
-          <li>Os dados da empresa e dos sócios serão enviados à Celcoin para abertura da conta. <strong>Cada sócio</strong> informado fará a própria validação de identidade (documento e selfie).</li>
+          <li>Os dados da empresa e dos sócios serão enviados à Celcoin para abertura da conta. A Celcoin pede a validação de identidade (documento e selfie) de <strong>quem está preenchendo</strong>.</li>
           <li>Os termos jurídicos definitivos do LoBank ainda não foram redigidos.</li>
         </ul></div>
         <button type="button" class="option" id="acc"><span class="option-label">Li e aceito os termos de uso e a política de privacidade</span><span class="option-radio"></span></button>
@@ -275,6 +275,8 @@
     get: () => ob().address, set: (a) => { ob().address = a; }, next: '/cadastro-pj/socios' });
 
   // Studio: "PJ | Adicionar sócios" + "Modal | Adicionar sócio" (lidos).
+  // No sandbox (17:44, LTDA com 2 sócios) a Celcoin criou UMA documentoscopia, só do 1º owner (quem preenche).
+  // A tela de validação continua preparada para mostrar vários links, caso a Celcoin peça mais de um.
   // Adaptações: sócio pessoa jurídica fica indisponível (a API só aceita CPF em owner); o modal ganha nascimento,
   // nome da mãe, telefone, e-mail e endereço, que a Celcoin exige de cada sócio.
   const MAX_PARTNERS = 10;
@@ -298,7 +300,7 @@
       : `<div class="empty-card"><span class="empty-card__icon">${I.person}</span><p class="empty-card__title">Nenhum sócio adicionado ainda</p></div>`;
     root.innerHTML = wizardFrame(11, `<h1 class="headline">Quer adicionar <strong>outros sócios?</strong></h1>
       <p class="subtext">Inclua todos os sócios da empresa com 25% de participação ou mais. Isso ajuda a evitar que sua conta seja reprovada depois.</p>
-      <div class="info-box" style="margin-top:16px"><span class="info-box-bar"></span><span class="info-box-text">Essa informação é cruzada com a Receita Federal para validar a composição societária da empresa. Cada sócio fará a própria validação de identidade.</span></div>
+      <div class="info-box" style="margin-top:16px"><span class="info-box-bar"></span><span class="info-box-text">Essa informação é cruzada com a Receita Federal para validar a composição societária da empresa.</span></div>
       ${list}<p class="empty-card__count">${o.partners.length} de ${MAX_PARTNERS} sócios adicionados</p>`,
       `<button type="button" class="btn btn-outline" id="add" ${o.partners.length >= MAX_PARTNERS ? 'disabled' : ''}>+ Adicionar sócio</button><button type="button" class="btn btn-primary" data-next>Continuar</button>`,
       'a631c7eb Adicionar sócios + 0f726f1e Modal Adicionar sócio (com campos exigidos pela Celcoin)');
