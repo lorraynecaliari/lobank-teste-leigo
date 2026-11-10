@@ -24,6 +24,7 @@ const FRIENDLY = {
   celcoin_auth_failed: 'Não conseguimos conectar com a Celcoin. Confira as credenciais de sandbox.',
   APP_CONFIG: 'O app não está configurado: faltam as credenciais de sandbox no arquivo .env.',
   TRANSPORT: 'A Celcoin não respondeu agora. Tente de novo em instantes.',
+  HTTP_429: 'A Celcoin pediu para esperar um pouco. Tente de novo em instantes.',
 };
 
 // ---------------------------------------------------------------- sessão / login
@@ -287,7 +288,7 @@ router.get('/pix/transfer/:id', auth.requireUser, wrap(async (req, res) => {
         t.error_code = s.error ? s.error.errorCode : null;
       }
     } catch (e) {
-      if (e.code === 'CBE106' || e.code === 'TRANSPORT' || e.status >= 500) {
+      if (e.code === 'CBE106' || e.code === 'TRANSPORT' || e.status === 429 || e.status >= 500) {
         // Ainda não localizada ou Celcoin indisponível: segue "em processamento", sem inventar desfecho.
       } else if (e.payload && e.payload.status === 'ERROR') {
         db.prepare("UPDATE transactions SET status = 'ERROR', error_code = ? WHERE id = ?").run(e.code, t.id);

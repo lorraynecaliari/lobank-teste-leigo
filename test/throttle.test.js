@@ -40,3 +40,16 @@ test('consulta de chave no DICT não é segurada (cada uma gera endToEndId novo)
   await celcoin.lookupKey('999003', 'testepix@celcoin.com.br');
   assert.equal(calls.filter((c) => c.includes('/dict/entry/external/')).length, 2);
 });
+
+test('falha da Celcoin também espera o intervalo, sem nova tentativa imediata', async () => {
+  calls = [];
+  const saved = mock.handle;
+  mock.handle = async (method, path) => {
+    calls.push(`${method} ${path}`);
+    throw new celcoin.CelcoinError(503, 'HTTP_503', 'Indisponível');
+  };
+  await assert.rejects(celcoin.getBalance('999004'), { code: 'HTTP_503' });
+  await assert.rejects(celcoin.getBalance('999004'), { code: 'HTTP_503' });
+  mock.handle = saved;
+  assert.equal(calls.length, 1);
+});

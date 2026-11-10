@@ -75,8 +75,9 @@ async function request(method, path, body) {
       queryCache.set(path, { at: Date.now(), data });
       return data;
     } catch (e) {
-      // Guarda só respostas de negócio (4xx); falha de rede ou 5xx pode tentar de novo.
-      if (e instanceof CelcoinError && e.status >= 400 && e.status < 500) queryCache.set(path, { at: Date.now(), error: e });
+      // Falhas também esperam o intervalo: erro de negócio, 429, 5xx ou Celcoin fora do ar.
+      // Exceção: credenciais/configuração, que não dependem da Celcoin voltar.
+      if (e instanceof CelcoinError && !['APP_CONFIG', 'celcoin_auth_failed'].includes(e.code)) queryCache.set(path, { at: Date.now(), error: e });
       throw e;
     }
   }
@@ -100,19 +101,12 @@ async function rawRequest(method, path, body, attempt = 1) {
   try {
     res = await fetch(`${BASE_URL}${path}`, opts);
   } catch (err) {
-    // Falha de transporte: só repete leituras. Mutação com falha é ambígua.
-    if (method === 'GET' && attempt < 3) {
-      await new Promise((r) => setTimeout(r, 300 * attempt + Math.random() * 200));
-      return rawRequest(method, path, body, attempt + 1);
-    }
+    // Sem nova tentativa imediata: a próxima consulta só sai depois do intervalo de 10 s.
     throw new CelcoinError(502, 'TRANSPORT', 'Não foi possível falar com a Celcoin agora.');
   }
+  // Token vencido ou revogado: renova uma única vez (não é repetição de consulta).
   if (res.status === 401 && attempt === 1) {
     tokenCache = { value: null, expiresAt: 0 };
-    return rawRequest(method, path, body, attempt + 1);
-  }
-  if ([429, 502, 503, 504].includes(res.status) && method === 'GET' && attempt < 3) {
-    await new Promise((r) => setTimeout(r, 400 * attempt + Math.random() * 200));
     return rawRequest(method, path, body, attempt + 1);
   }
   const text = await res.text();

@@ -521,7 +521,8 @@
   route('/validacao', async (root) => {
     if (!(await loadMe())) return go('/login');
     if (state.me.account) return go('/home');
-    const WAIT = queryWaitSec();
+    const WAIT = queryWaitSec(), MAX = 30; // até 30 consultas (~5 min), depois só com toque
+    let tries = 0;
     const paint = (s) => {
       const map = {
         LOADING: { badge: 'wait', icon: I.spinner, title: 'Consultando sua proposta…', desc: '' },
@@ -540,17 +541,22 @@
         ${s.status === 'APPROVED' || s.status === 'PENDING_DOCUMENTSCOPY' ? '<p class="result__desc" style="font-size:12px">Status Celcoin: ' + esc(s.status) + '</p>' : ''}</div></div>
         <div class="actions">${s.documentscopyUrl ? `<a class="btn btn-primary" id="doc" href="${esc(s.documentscopyUrl)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Enviar documento e selfie</a>` : ''}
         ${state.mode === 'mock' && s.status === 'PENDING_DOCUMENTSCOPY' ? '<button class="btn btn-outline" id="mockok">Simular documentoscopia aprovada</button>' : ''}
-        ${['REPROVED', 'RESOURCE_ERROR'].includes(s.status) ? '' : '<p class="result__timer" id="timer" aria-live="polite"></p>'}</div>
+        ${['REPROVED', 'RESOURCE_ERROR'].includes(s.status) ? '' : tries >= MAX
+          ? '<p class="result__desc" style="font-size:13px;text-align:center">Paramos de consultar sozinhos. Quando terminar a validação, toque abaixo.</p><button class="btn btn-ghost" id="again">Consultar de novo</button>'
+          : '<p class="result__timer" id="timer" aria-live="polite"></p>'}</div>
         <p class="studio-note">Tela criada para o app: não existe no Studio.</p>`, { studio: 'novo:validacao' });
       $('#out').onclick = async () => { await api('/auth/logout', { method: 'POST', allow401: true }); go('/login'); };
+      if ($('#again')) $('#again').onclick = () => { tries = 0; tick(); };
       if ($('#mockok')) $('#mockok').onclick = async () => { await api('/dev/approve-documentscopy', { method: 'POST' }); toast('Aprovada. A próxima consulta vai mostrar.'); };
     };
     const tick = async () => {
+      tries++;
       let s;
       try { s = await api('/onboarding/status'); } catch (e) { if (e.status === 401) return; s = { status: 'ERROR' }; }
       if (s.account) { await loadMe(); toast('Conta aberta!'); return go('/home'); }
       paint(s);
       if (['REPROVED', 'RESOURCE_ERROR'].includes(s.status)) return;
+      if (tries >= MAX) return; // paint já mostrou "Consultar de novo"
       // Próxima consulta só depois de 10 s, com o tempo na tela.
       countdown('#timer', WAIT, (n) => (n > 0 ? `Próxima consulta em ${n} s` : 'Consultando…'), tick);
     };
