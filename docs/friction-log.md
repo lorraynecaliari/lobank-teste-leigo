@@ -108,6 +108,8 @@ Não é teste de usabilidade. Rodada feita pelo mesmo Claude que escreveu o rote
 | 13:34 | `npm install` na máquina da usuária (Windows, Node 26.13, pasta no OneDrive) | Falhou: `better-sqlite3` sem binário pronto para o Node 26; a compilação quebra na API do V8. Avisos `EPERM`/`ENOTEMPTY` por causa do OneDrive | **Erro do agente:** escolheu uma dependência nativa sem checar a versão de Node da usuária. Corrigido no commit seguinte, trocando por `node:sqlite` (embutido, sem compilação). README atualizado: Node 22.13+ e evitar OneDrive. |
 | 13:53 | **Cadastro PF feito pelo app** na máquina da usuária, com documentoscopia | Conta `0001 / 41174228` `ATIVO`, `clientCode lobank-pf-…` gerado pelo app | Primeiro fluxo de onboarding **ponta a ponta pelo app** contra o sandbox real. |
 | 13:55 | Crédito de R$ 6.000 via MCP (`wallet/entry`), pedido pela usuária | `CONFIRMED`; saldo conferido `6000` | O app não tem botão de crédito; feito por fora. |
+| 13:56 | Extrato no app | Erro da Celcoin: janela maior que 7 dias | App usava janela de 30 dias. Corrigido para 7 dias (commit `a06259b`). A conferência via MCP com 7 dias devolveu o crédito de R$ 6.000. |
+| 13:57 | Minhas chaves Pix no app (conta ainda sem chave) | Tela de erro "Não encontramos essa chave Pix" | **Comportamento da API:** `GET /baas/v2/pix/dict/entry/{conta}` devolve **404 `CBE180`** quando a conta não tem chave, em vez de lista vazia. Isso não está na skill. **Erro do agente:** o mock devolvia lista vazia, então o teste não pegou. App e mock corrigidos (commit `cb21597`). |
 
 ## Dados da rodada
 
