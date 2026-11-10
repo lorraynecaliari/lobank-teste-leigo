@@ -119,8 +119,76 @@ Não é teste de usabilidade. Rodada feita pelo mesmo Claude que escreveu o rote
 | 14:53 | **Teste 5: pagamento** PJ 41174137 → chave EVP da PF, R$ 25 (pedido pela usuária), id `36bafe25-…` | `PROCESSING` → **`CONFIRMED`** em cerca de 2 min. PJ debitada (`950` → `925`). `RECEIVEPIX` existe (`transactionId 202611100000000830`) | **O defeito de 12:47 se repetiu, agora em contas criadas pelo app:** cerca de 2 min depois do `CONFIRMED`, o saldo da PF **continua `5985`** e o extrato não mostra o recebimento. O Pix entre contas BaaS do mesmo tenant sai de uma conta e não entra na carteira da outra. Pago por chave (DICT), não pela leitura do EMV. Item para a Celcoin, quando a usuária quiser falar com eles. |
 | 15:08 | Pedido da usuária: depois de um Pix, esperar 10 s mostrando o tempo; nenhuma consulta pode chamar a API sem intervalo | Implementado (commit `e319d58`): intervalo mínimo de 10 s por consulta no servidor; contagem regressiva no Pix enviado e na validação de identidade | Antes, o app consultava com recuo progressivo começando em 1,5 s (Pix) e 4 s (onboarding). A releitura extra da exclusão de chave, de 14:10, foi removida. |
 | 16:05 | Revisão pedida pela usuária: ainda havia consultas fora da regra dos 10 s | Corrigido (commit `feb5870`): (1) sem novas tentativas imediatas em falha de rede, 429 ou 5xx; (2) falhas também esperam 10 s; (3) validação de identidade limitada a 30 consultas, cerca de 5 min, e depois "Consultar de novo" | **Erro do agente:** a primeira versão do limite de 10 s deixou de fora as tentativas automáticas em caso de falha. Foi achado quando a usuária perguntou. |
+| 16:10 | Pix de R$ 5 para `testepix@celcoin.com.br` com a nova espera de 10 s | Usuária: OK, contagem e comprovante. MCP: `PIXPAYMENTOUT` R$ 5, criado às 16:10:50 e liberado às 16:11:24 (cerca de 34 s) | Com 10 s entre as consultas, a confirmação apareceu na 3ª ou 4ª consulta. |
 
-## Dados da rodada
+### Rodada 0: fechamento (10/11/2026, 16:15)
+
+**O que é esta rodada.** Verificação técnica feita pelo mesmo Claude que escreveu o roteiro, com a skill original e todo o contexto. **Não é o teste com usuário leigo:** as tabelas "Dados da rodada", "Eventos", "Resumo por prompt" e "Hipóteses" mais abaixo continuam em branco para essa rodada. O que está aqui é evidência técnica para comparar depois.
+
+#### O que foi verificado no sandbox real
+
+| Fluxo | Pelo MCP | Pelo app | Resultado |
+|-------|----------|----------|-----------|
+| Onboarding PF com recusa (telefone final 2) | 12:19 | — | ok: `REPROVED` em cerca de 6 s |
+| Onboarding PF com documentoscopia humana | 12:20–12:29 | 13:53 | ok: conta criada segundos depois da documentoscopia aprovada |
+| Onboarding PJ com documentoscopia | 12:41–12:44 | não feito (Fase 2) | ok pelo MCP |
+| Crédito de teste (`wallet/entry`) | 12:30, 12:45, 13:55 | sem botão no app | ok |
+| Saldo | sim | sim | ok |
+| Extrato (janela de até 7 dias) | 12:54 | 13:56, 14:45 | ok |
+| Criar chave EVP | 12:35 | 14:43 | ok, sem OTP |
+| Excluir chave | — | 14:10 | ok |
+| Pix out por chave (`testepix@celcoin.com.br`) | 12:37 | 14:44, 16:10 | ok: confirmado em cerca de 34 a 45 s |
+| Erros comuns (chave inexistente, saldo insuficiente) | — | 14:47 | ok, mensagens claras |
+| QR Code estático (cobrança) | — | 14:52 | ok: EMV com chave, valor e nome |
+| **Pix entre duas contas do mesmo tenant** | 12:46, 14:53 | não dá pelo app (Fase 2) | **falhou:** confirmado e debitado em quem paga, mas **não entra** no saldo nem no extrato de quem recebe (2 de 2 vezes) |
+| Pagar lendo o EMV do QR Code | — | — | não testado |
+
+#### Itens para levar à Celcoin (quando a usuária quiser)
+
+1. **Pix entre contas do mesmo tenant não é creditado no destino** (12:47 e 14:53). O `RECEIVEPIX` existe no módulo Pix (`transactionId 202611100000000666` e `202611100000000830`), mas a carteira de quem recebe não é lançada. Os valores somem da soma das duas contas.
+2. **Lista de chaves de conta sem chave devolve 404 `CBE180`** em vez de lista vazia (13:57). Não está na documentação nem na skill.
+3. **Busca da documentação pelo MCP:** não acha páginas de BaaS que existem, como criar chave (12:31), excluir chave (14:07) e criar proposta PF (12:09). O `fetch_celcoin_documentation` não aceita a URL `.md` (12:10).
+4. **Divergências na documentação:**
+   - exemplo de chave EVP envia `"key": ""`, mas o erro `CBE178` proíbe o campo (12:34);
+   - obrigatórios do Pix out diferem entre a referência e o tutorial (12:37);
+   - `owner` da proposta PJ aparece como objeto no schema e como lista no exemplo (12:41);
+   - o horário do `RECEIVEPIX` vem em UTC e no formato MM/DD/AAAA, enquanto as outras rotas usam horário de Brasília (12:53).
+5. **Não há forma documentada de simular um Pix recebido** no sandbox (12:40).
+
+#### Divergências entre a skill e o sandbox
+
+- **Conta criada em segundos** depois da documentoscopia; a skill fala em cerca de 11 min e em propostas paradas em `APPROVED` (12:29).
+- **`GET /baas/v2/pix/payment/status` funciona no sandbox**; a skill diz que devolve `CBE106` (12:38).
+- **Faltam na skill:** `account/fetch-business` (PJ, com o número em `body.businessAccount.account`), o extrato `baas-walletreports`, a exclusão de chave, o 404 `CBE180` na lista vazia e os limites de janela: proposta 30 dias, `fetch-all` 7 dias, extrato 7 dias.
+- **Confere com a skill:** final 2 reprova; final 1 não aprova sozinho; crédito por `wallet/entry`; `endtoEndId` grafado assim; histórico de eventos com `OnlyPending` em horário de Brasília.
+
+#### Erros do agente nesta rodada
+
+1. **Conclusão errada sobre o Pix recebido** (12:47), corrigida com a evidência da usuária às 12:53.
+2. **Dependência nativa (`better-sqlite3`)** escolhida sem checar o Node da usuária; o `npm install` falhou no Windows (13:34).
+3. **Mock diferente do sandbox** na lista de chaves vazia; o teste automático não pegou o erro (13:57).
+4. **Diagnóstico de "exclusão assíncrona" sem evidência**, com mudança de código desnecessária, depois revertida (14:10).
+5. **Primeira versão do limite de 10 s** deixou de fora as tentativas automáticas em caso de falha (16:05).
+
+#### Hipóteses: evidência técnica da Rodada 0
+
+Vale só como linha de base, porque quem testou foi o agente com contexto completo. A tabela "Hipóteses" mais abaixo é para a rodada com o leigo.
+
+| # | Leitura técnica | Evidência |
+|---|-----------------|-----------|
+| H1 | **Inconclusiva.** Só BaaS/Pix foi usado; Crédito não tem grant. A documentação de BaaS também tem buracos no índice. | 12:09, 12:31, 14:07 |
+| H2 | **Inconclusiva.** Credenciais reais, sem `mocked` nas respostas. O app trata `200 PROCESSING` como "em processamento", nunca como sucesso. | 12:19, 12:37, 15:08 |
+| H3 | **Pendente do P4.** 9 telas feitas a partir do HTML lido inteiro; as outras pelo modelo comum. O branding do HTML diverge do branding do projeto. | seção "Fase 1 construída"; branding em "escopo e decisões" |
+| H4 | **Não testável sem o leigo.** | — |
+| H5 | **Derrubada em parte.** A recusa (final 2) funciona. A aprovação não é automática, mas funciona com a documentoscopia humana e cria a conta em segundos. | 12:19, 12:22, 12:29, 13:53 |
+| H6 | **Confirmada para o agente com contexto.** Todas as mutações no sandbox tiveram aprovação explícita da usuária. | 12:19, 12:35, 12:37, 12:46, 14:53 |
+| H7 | **Inconclusiva.** Nenhum grant necessário faltou nos fluxos de BaaS. | — |
+| H8 | **Confirmada.** Credenciais só no `.env`, fora do Git. Conferido no histórico dos dois branches às 16:15: nenhum segredo commitado. | 16:15 |
+| H9 | **Não coberta por esta seção.** A instalação foi feita antes do início deste log. | — |
+
+#### Próximo passo
+
+Fase 2 do app, começando por cadastro e login de PJ e pela tela "Pagar com Pix Copia e Cola". Depois, a rodada com o usuário leigo.
 
 ## Dados da rodada
 
