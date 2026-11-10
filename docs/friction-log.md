@@ -220,6 +220,8 @@ Commits no branch `app-rodada-0`: `7bf26d0` (PJ), `d9746cc` (Copia e Cola e agê
 
 | 17:09 | Relato da usuária: logo depois de "Cadastro enviado", a validação de identidade deu erro; 10 s depois funcionou | A Celcoin ainda não tinha processado a proposta | Pedido da usuária: esperar 10 s antes de liberar. Feito (commit `be8b867`): botão "Validar identidade" desabilitado, com contagem na tela. |
 
+| 17:14 | **Teste A concluído:** conta MEI aberta pelo app e login por CNPJ | Usuária: OK nos dois | Cadastro PJ (MEI) e login por CNPJ verificados no sandbox real. Cadastro PJ com sócios (LTDA, uma documentoscopia por sócio) ainda não testado. |
+
 **A testar no sandbox real (roteiro mandado à usuária):** cadastro PJ com dois sócios e uma documentoscopia por sócio; login por CNPJ; Pix Copia e Cola (`STATIC_QRCODE` com `transactionIdentification: "***"`, nunca enviado de verdade); Pix por agência e conta (`MANUAL`); atualização de dados (`PUT`).
 
 ## Dados da rodada
