@@ -59,6 +59,12 @@ Não é teste de usabilidade. Rodada feita pelo mesmo Claude que escreveu o rote
 | 12:43 | Consulta da proposta | `APPROVED` às 12:43:10 e `RESOURCE_CREATED` às 12:43:20 | Cerca de 11 s entre a documentoscopia aprovada e a conta criada. Na PJ o estado `APPROVED` apareceu de passagem; não ficou parado nele. |
 | 12:44 | `GET /baas/v2/account/fetch?documentNumber=<CNPJ>` | 400 `CBE370` "DocumentNumber possui tamanho maximo de 11 caracteres" | A consulta de conta da skill só serve para PF. |
 | 12:44 | `GET /baas/v2/account/fetch-business?documentNumber=<CNPJ>` | 200, `ATIVO`, conta `0001 / 41174137` | Rota PJ descoberta por tentativa; **não está na skill**. Na PJ o número fica em `body.businessAccount.account`, e não em `body.account.account` como na PF. |
+| 12:45 | Teste 7a: `POST /baas/v2/wallet/entry/41174137`, R$ 1.000 (aprovado pela usuária) | 200 `CONFIRMED`; saldo PJ `1000` | Evento `launch-in` registrado. |
+| 12:45 | DICT externo a partir da PJ para a chave EVP da PF | 200, dono `Teste Rodada Zero Final Um`, CPF mascarado `***341912**`, `isSameTaxId: false` | |
+| 12:46 | Teste 7b: `POST /baas/v2/pix/payment` PJ → chave EVP da PF, R$ 50, `creditParty` copiado do DICT (aprovado pela usuária) | 200 `PROCESSING`, id `556ccea3-…` | |
+| 12:46 | Saldo PJ (40 s) | `950` | Débito feito. |
+| 12:47 | Status do pagamento e evento `pix-payment-out` | `CONFIRMED`; o recebedor aparece resolvido como conta `41174129` (PF) | Do lado de quem pagou, a transação está concluída. |
+| 12:47–12:49 | Saldo PF e eventos `pix-payment-in`, `internal-transfer-in` e `launch-in` | Saldo PF **continua `4990`**; nenhum evento de entrada para a PF (só o `launch-in` do crédito da PJ) | **Defeito ou limitação do sandbox:** um Pix entre duas contas BaaS do mesmo tenant foi debitado e confirmado na origem, mas não creditado no destino depois de cerca de 3 minutos. **Cash-in não verificável.** Item para pedir à Celcoin. |
 
 **Achado:** só o navegador conseguiu ler a página de referência de criação de proposta PF. A ferramenta de documentação do MCP não alcança essa página porque ela não está no `llms.txt`, e o "truque do `.md`" da skill depende de um acesso HTTP que o agente pode não ter.
 
