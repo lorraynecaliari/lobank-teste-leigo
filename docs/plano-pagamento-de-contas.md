@@ -39,10 +39,10 @@ Board do Studio: **Pagamento de Contas** (14 telas), criado em 10/11/2026 às 18
 - Só deixa mudar o valor quando `allowChangeValue` for `true`, e dentro do intervalo `[minValue, maxValue]`.
 - O vencimento vem de `registerData.dueDateRegister`.
 - `errorCode` diferente de `"000"` é falha, mesmo com HTTP 200.
-- Horário de pagamento: das 07:00 às 20:00 (`initeHour` e `endHour`). Fora disso, o app avisa.
+- **Sem trava de horário no app.** O `authorize` informa `initeHour` 07:00 e `endHour` 20:00, mas a usuária conferiu que o sandbox não aplica esse limite. O app não bloqueia por horário; se a Celcoin recusar, ele mostra o motivo que ela der.
 - O saldo é conferido antes de pagar.
 - Se aparecer `PCE088` ("Excede limite de saldo"), é limite do produto, não falta de saldo. O app mostra uma mensagem própria.
-- O comprovante é montado com os dados do `authorize` e do status. Na consulta de status de hoje, o `receipt` não veio (ver 4).
+- **Comprovante oficial:** a consulta de status confirmada não traz o `receipt`, mas o evento `billpayment` traz: protocolo, autenticação, convênio e o recibo formatado. O app roda no computador da usuária e não recebe webhook, então busca o evento pela consulta de histórico `GET /baas/v2/webhook/replay/billpayment/details` (testado às 18:50: funciona) e localiza o pagamento pelo `clientRequestId`. Se o evento ainda não estiver lá, o comprovante mostra os dados do `authorize` e avisa que o recibo da Celcoin chega em instantes.
 
 ## 3. Teste de saúde (feito às 18:35, aprovado pela usuária)
 
@@ -70,7 +70,7 @@ Na massa de teste, o vencimento vem sempre como hoje ou ontem, o que confere com
 
 ## 5. Roteiro de testes no sandbox real (depois de construído)
 
-Faça os testes **entre 07:00 e 20:00**. Use a conta **LTDA** (saldo R$ 8.500) e anote o horário de cada um.
+Use a conta **LTDA** (saldo R$ 8.500) e anote o horário de cada um.
 
 | # | Teste | Como | Esperado |
 |---|---|---|---|
@@ -80,9 +80,8 @@ Faça os testes **entre 07:00 e 20:00**. Use a conta **LTDA** (saldo R$ 8.500) e
 | B4 | Código inválido | linha **Inválida** | Mensagem clara de código inválido, sem tela de erro técnica |
 | B5 | Saldo insuficiente | linha de **Multa e vencido** (1.934,92) numa conta com saldo menor que isso. Hoje todas as contas com login no app têm mais de R$ 5.900. Então: testar no modo simulado, ou abrir uma conta nova com pouco saldo | O app barra antes de enviar: "Saldo insuficiente" |
 | B6 | Mesmo boleto duas vezes | repetir a linha do B1 | Ver o que a Celcoin faz (bloqueio de duplicidade ou novo pagamento) e registrar |
-| B7 | Espera e comprovante | em qualquer pagamento | Contagem de 10 s na tela "Pagamento em processamento", depois "Pagamento concluído". O comprovante tem "Voltar ao início" |
+| B7 | Espera e comprovante | em qualquer pagamento | Contagem de 10 s na tela "Pagamento em processamento", depois "Pagamento concluído". O comprovante traz o **recibo oficial da Celcoin** (protocolo e autenticação), botão de copiar e "Voltar ao início" |
 | B8 | Extrato | depois de B1 a B3 | Os pagamentos aparecem no extrato com o nome de "Pagamento de conta" |
 | B9 | Pix Copia e Cola pela tela de boleto | Pagar contas → Pix Copia e Cola | Abre o Copia e Cola que já existe |
-| B10 | Fora do horário | depois das 20:00 | O app avisa que o pagamento só pode ser feito das 07:00 às 20:00 |
 
 **Fica de fora:** boleto de convênio (contas de água, luz e afins, linha que começa com 8). A massa de teste dele não foi conferida ainda. Também ficam de fora o agendamento, o leitor por câmera e o "Abrir PDF".
