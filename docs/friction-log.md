@@ -15,10 +15,12 @@ Nunca registre segredos aqui (Client ID, Secret, tokens). Se um segredo vazar, a
 
 ## Retrato antes do teste (gabarito)
 
-- **Permissões concedidas:**
-- **Permissões não concedidas:**
-- **Studio:** projetos, boards e número de conceitos:
-- **Comentários preparados para o P9:** (board, tela, quantas mensagens)
+Preenchido em 10/11/2026 com a conexão do app do Claude. Se a rodada usar uma conexão nova (ex.: Claude Code), confira de novo com `permissions`.
+
+- **Permissões concedidas:** `celcoin_docs_read`, `celcoin_sandbox_credentials_read`, `celcoin_sandbox_execute`, `studio_get_projects`, `studio_get_board_concept_html`, `studio_replace_board_concept_html`, `studio_get_comments`, `studio_reply_to_comment`
+- **Permissões não concedidas:** `get_notifications`, `qa_read`, `qa_run`, Crédito (`cel_credit_sandbox_execute`, `cel_credit_sandbox_credentials_read`, `cel_credit_funding_sandbox_credentials_read`), `admin`
+- **Studio:** 1 projeto (LoBank), 8 boards: Onboarding - PJ (13 conceitos), Onboarding - PF (28), Chaves Pix (12), Receber (13), Transferir (19), Relatórios (6), Área Pix (1), Wallet (11)
+- **Comentários preparados:** 6, todos da dona do projeto, sem respostas. Lista completa e resultado esperado no gabarito do P3 do roteiro.
 - **Modo das credenciais de sandbox (mock ou real):**
 
 ## Eventos

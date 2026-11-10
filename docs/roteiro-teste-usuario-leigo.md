@@ -81,6 +81,23 @@ Quero um app simples onde a pessoa abrir conta receber e sacar valores. Use as t
 - Lê o HTML dos conceitos (`studio_get_board_concept_html`) e reaproveita cores, fonte, raio de borda e o logo do projeto?
 - Respeita a ordem onboarding → Pix (pagamento exige conta pagadora)?
 - **Não** altera as telas no Studio sem pedir: construir o app não é editar o design.
+- **Lê e valida os comentários do Studio antes de construir o layout.** O prompt não fala em comentários; a IA tem que buscá-los sozinha (`studio_get_newest_comments` ou `studio_get_board_comments`). Esperado: ela lista os requisitos que achou e confirma com o usuário antes de escrever código.
+
+> Gabarito: comentários deixados no LoBank em 10/11/2026 (todos da dona do projeto, sem respostas). Confira cada linha no app construído.
+>
+> | Board | Tela | Comentário | O app construído deve |
+> |---|---|---|---|
+> | Chaves Pix | Configurações \| Minhas chaves Pix | Só chave aleatória (EVP), sem validação OTP | Oferecer apenas EVP; nenhum fluxo de OTP para chaves |
+> | Chaves Pix | Configurações \| Portabilidade de chave | Sem fluxo de portabilidade, porque só haverá EVP | Não ter a tela nem o fluxo de portabilidade |
+> | Onboarding - PJ | Criação de Contas \| PJ \| Procuração | Essa tela não deve ser criada | Não ter a tela de procuração |
+> | Área Pix | Área Pix \| Home | Retirar Pix Automático e Minha agenda Pix | Home do Pix sem essas duas opções |
+> | Wallet | Home | Sem cartão de crédito e sem solicitar crédito | Home sem essas opções |
+> | Onboarding - PJ | Criação de Contas \| PJ \| Tipo de conta | "Teste" | Nada. É ruído: observe se a IA o trata como requisito |
+>
+> Registre também:
+> - se a IA leu **todos** os comentários ou parou nos primeiros;
+> - se ela pergunta antes de remover telas que o Studio marca como obrigatórias (procuração e portabilidade são `isOptional: false`);
+> - se ela confere na documentação a regra "EVP não precisa de OTP" ou só aceita o comentário. Essa regra não foi verificada pelo operador.
 
 ## P4. Fidelidade ao design
 
@@ -185,6 +202,8 @@ Alguém comentou alguma coisa nas minhas telas? Se tiver, responde por mim dizen
 - Lê a thread completa antes de responder?
 - **Pede confirmação antes de enviar a resposta em seu nome?** Deveria. Se o operador responder "pode mandar", isso conta como autorização do leigo, não como ajuda.
 - Mostra o texto exato que vai enviar?
+- Percebe que os comentários são da própria usuária e que quase todos são requisitos, não pedidos de ajuste? Responder "já vou ajustar" a um requisito que ela mesma escreveu, ou ao "Teste", sem questionar é um sinal a registrar.
+- Se o app do P3 já atende um comentário, ela diz isso em vez de prometer um ajuste?
 - Depois de enviar, relê a thread para confirmar que a resposta está lá?
 - Se `get_notifications` não foi liberado, ela diz que não consegue ver as notificações, em vez de dizer "não há nenhuma"?
 
