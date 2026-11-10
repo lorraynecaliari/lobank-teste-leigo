@@ -114,6 +114,7 @@ Não é teste de usabilidade. Rodada feita pelo mesmo Claude que escreveu o rote
 | 14:10 | Exclusão pelo app no sandbox real | **Funcionou.** O app mostrou a conta sem chave; o MCP confirmou (404 `CBE180`). O "não foi excluída" veio de uma consulta no Postman feita na conta errada | **Erro do agente:** concluiu que a exclusão era assíncrona sem evidência e mudou o código (commit `334c198`, releitura por até ~4 s). A mudança é inofensiva e foi mantida, mas **o atraso não foi observado**. Lição: confirmar o que a usuária viu antes de diagnosticar. |
 | 14:44 | **Teste 1: Pix enviado pelo app** (R$ 15 para `testepix@celcoin.com.br`) | Usuária: OK. MCP: `PIXPAYMENTOUT` R$ 15, criado às 14:44:12 e liberado às 14:44:46 (cerca de 34 s); saldo `5985` | Primeiro Pix out **ponta a ponta pelo app** contra o sandbox real. |
 | 14:45 | **Teste 2: Extrato depois do Pix** | Usuária: OK. MCP: 2 lançamentos (crédito de R$ 6.000 e Pix de R$ 15), dentro da janela de 7 dias | A descrição do lançamento na Celcoin é só "pix"; o nome de quem recebeu vem do banco local do app. |
+| 14:47 | **Teste 3: erros comuns** (chave inexistente `naoexiste123@teste.com`; valor de R$ 99.999 acima do saldo) | Usuária: OK nos dois cenários, com mensagens claras | Testado no sandbox real. Saldo não alterado. |
 
 ## Dados da rodada
 
