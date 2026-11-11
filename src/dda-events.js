@@ -45,7 +45,8 @@ async function fetchWebhookSite() {
 // Busca eventos novos respeitando o intervalo. Devolve { ok, configured, error }.
 async function sync() {
   if (MODE === 'mock') {
-    for (const e of require('./celcoin-mock').ddaEvents()) store(e.id, e.at, e.body);
+    try { for (const e of require('./celcoin-mock').ddaEvents()) store(e.id, e.at, e.body); }
+    catch (e) { return { ok: false, configured: true, error: e.message }; }
     return { ok: true, configured: true };
   }
   if (!TOKEN) return { ok: false, configured: false, error: 'DDA_WEBHOOK_SITE_TOKEN não configurado no .env' };

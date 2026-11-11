@@ -909,6 +909,8 @@ if (celcoin.MODE === 'mock') {
     const p = db.prepare('SELECT proposal_id FROM proposals WHERE user_id = ? ORDER BY id DESC LIMIT 1').get(req.user.id);
     res.json({ ok: p ? mock.approveDocumentscopy(p.proposal_id) : false });
   });
+  // Só no simulado: liga/desliga a leitura dos avisos do DDA, para ver a tela "Não conseguimos confirmar".
+  router.post('/dev/dda-events-down', (req, res) => { require('./celcoin-mock').ddaState.down = req.body.down === true; res.json({ down: req.body.down === true }); });
   router.post('/dev/credit', auth.requireUser, auth.requireAccount, (req, res) => {
     res.json({ ok: mock.devCredit(req.account.account, v.parseAmount(req.body.amount) || 1000) });
   });

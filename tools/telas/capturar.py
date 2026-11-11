@@ -27,6 +27,7 @@ MODULES = [
     ('receber', 'Receber (QR Code)'),
     ('extrato', 'Extrato'),
     ('boleto', 'Pagamento de contas (boleto)'),
+    ('dda', 'DDA (Débito Direto Autorizado)'),
 ]
 shots = []   # (modulo, arquivo, titulo, rota)
 errors = []
@@ -91,8 +92,8 @@ def new_cpf():
     return ''.join(map(str, d))
 
 
-def with_account(ctx, base, credit=1000, person=None):
-    person = dict(person or PF, cpf=new_cpf())  # um CPF por módulo: cada um tem sua conta
+def with_account(ctx, base, credit=1000, person=None, cpf=None):
+    person = dict(person or PF, cpf=cpf or new_cpf())  # um CPF por módulo: cada um tem sua conta
     r = ctx.request.post(base + '/api/onboarding/pf', data=person); assert r.ok, r.text()
     ctx.request.post(base + '/api/dev/approve-documentscopy'); ctx.request.get(base + '/api/onboarding/status')
     if credit: ctx.request.post(base + '/api/dev/credit', data={'amount': credit})
@@ -262,7 +263,60 @@ def boleto(p, ctx, base, shot):
     p.click('#go'); shot('Saldo insuficiente', 0.8)
 
 
-FLOWS = {'acesso': acesso, 'pj': pj, 'home': home, 'pix': pix, 'copia': copia, 'receber': receber, 'extrato': extrato, 'boleto': boleto}
+def dda(p, ctx, base, shot):
+    # Conta "Sem Aviso": o simulado aceita a adesão e nunca manda o aviso; com o prazo de 1 min, cai em "sem resposta".
+    lost = ctx.browser.new_context(viewport={'width': 360, 'height': 800})
+    with_account(lost, base, credit=0, person=dict(PF, fullName='Sem Aviso Teste'))
+    lost.request.post(base + '/api/dda/subscribe', data={'accept': True})
+    started = time.time()
+    with_account(ctx, base)
+    p.goto(base + '/#/home'); time.sleep(1.2); p.click("[data-go='/dda']"); shot('Ative o DDA (termos)', 1.2)
+    p.check('#acc'); p.click('#next'); shot('Confira seus dados', 1)
+    p.click('#go'); shot('Ativando o DDA', 1.5)
+    time.sleep(31); shot('DDA ativado', 1)
+    p.click('#go'); shot('Meus boletos (vazia)', 1.5)
+    p.click('#test'); shot('Boletos de teste pedidos', 0.8)
+    p.click('[data-x]'); time.sleep(2.5); p.reload(); shot('Meus boletos', 1.5)
+    p.click('[data-f=VENCIDO]'); shot('Filtro: vencidos', 0.8); p.click('[data-f=TODOS]'); time.sleep(1)
+    p.click('#opts'); shot('Opções', 0.6); p.click('#o-about'); shot('Sobre o DDA', 0.8)
+    p.goto(base + '/#/dda/boletos'); time.sleep(1.5)
+    p.click('.dda-card:has(.dda-badge--warn) >> nth=0'); shot('Detalhe do boleto', 1.2)
+    p.click('#pay'); shot('Pagar: código não reconhecido', 1.2)
+    p.goto(base + '/#/minha-conta'); time.sleep(1.2); p.click('#dda'); shot('Minha conta: DDA ativo', 1)
+    p.click('[data-c]'); typ(p, '#tp', '0000'); p.click('[data-ok]'); shot('Sair do DDA: senha incorreta', 1)
+    typ(p, '#tp', '1234'); p.click('[data-ok]'); shot('Saindo do DDA', 1.5)
+    time.sleep(31); shot('DDA desativado', 1)
+    # Adesão recusada: CPF de erro da massa da Celcoin.
+    err = ctx.browser.new_context(viewport={'width': 360, 'height': 800}); pe = err.new_page()
+    with_account(err, base, credit=0, cpf='26817625025')
+    err.request.post(base + '/api/dda/subscribe', data={'accept': True}); time.sleep(2)
+    pe.goto(base + '/#/dda'); time.sleep(2)
+    # Avisos fora do ar, sem nada guardado: "Não conseguimos confirmar".
+    down = ctx.browser.new_context(viewport={'width': 360, 'height': 800}); pd = down.new_page()
+    with_account(down, base, credit=0)
+    down.request.post(base + '/api/dev/dda-events-down', data={'down': True})
+    pd.goto(base + '/#/dda'); time.sleep(2)
+    down.request.post(base + '/api/dev/dda-events-down', data={'down': False})
+    # Sem resposta (prazo de 1 min no servidor da captura).
+    pl = lost.new_page(); time.sleep(max(0, 64 - (time.time() - started)))
+    pl.goto(base + '/#/dda'); time.sleep(2)
+    for page, title in ((pe, 'Erro na adesão'), (pd, 'Não conseguimos confirmar o DDA'), (pl, 'Sem confirmação da Celcoin')):
+        make_shot_into(page, 'dda', title)
+    for c in (err, down, lost): c.close()
+
+
+def make_shot_into(page, mod, title):
+    n = sum(1 for s in shots if s[0] == mod) + 1
+    plain = unicodedata.normalize('NFKD', title.lower()).encode('ascii', 'ignore').decode()
+    name = f'{n:02d}-' + re.sub(r'[^a-z0-9]+', '-', plain).strip('-')[:40] + '.png'
+    os.makedirs(os.path.join(IMG, mod), exist_ok=True)
+    page.screenshot(path=os.path.join(IMG, mod, name))
+    route = '#' + page.url.split('#', 1)[1] if '#' in page.url else '/'
+    studio = page.evaluate("() => { const m = document.querySelector('main.app'); return m ? m.dataset.studio : '' }") or ''
+    shots.append((mod, name, title, re.sub(r'/\d+$', '/:id', route), studio))
+
+
+FLOWS = {'acesso': acesso, 'pj': pj, 'home': home, 'pix': pix, 'copia': copia, 'receber': receber, 'extrato': extrato, 'boleto': boleto, 'dda': dda}
 
 
 def anchor(title):
@@ -347,7 +401,7 @@ def write_evidencias(git_rev):
 
 def main():
     port = free_port()
-    env = dict(os.environ, CELCOIN_MODE='mock', DATABASE_FILE=':memory:', PORT=str(port))
+    env = dict(os.environ, CELCOIN_MODE='mock', DATABASE_FILE=':memory:', PORT=str(port), DDA_PENDING_TIMEOUT_MIN='1')
     srv = subprocess.Popen(['node', 'server.js'], cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
     base = f'http://127.0.0.1:{port}'
     try:

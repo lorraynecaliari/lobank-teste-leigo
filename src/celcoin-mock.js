@@ -283,6 +283,8 @@ async function handle(method, path, body) {
       const del = method === 'DELETE';
       const status = del ? (doc === '26817625025' ? 'Inactive_failed' : 'Inactive') : (doc === '26817625025' ? 'Error' : 'Created');
       if (!del) ddaState.active.delete(doc);
+      // "Sem Aviso" no nome simula o aviso perdido (como a saída da LTDA em 11/11): a Celcoin aceita e o aviso nunca chega.
+      if (/^sem aviso/i.test(body.clientName || '')) return { status: 201, body: { document: doc, clientRequestId: body.clientRequestId, responseDate: new Date().toISOString(), status: 'PROCESSING', subscriptionId } };
       ddaPush({ document: doc, clientRequestId: body.clientRequestId, subscriptionId, clientName: body.clientName || 'Mock Client', status,
         error: status === 'Error' ? [{ ErrorCode: 'CDDA101', ErrorMessage: 'Ocorreu um erro inesperado' }] : null }, () => {
         if (status === 'Created') ddaState.active.add(doc);
@@ -316,7 +318,7 @@ function devCredit(account, amount) {
 }
 
 // ---- eventos do DDA simulados (o app lê como leria do webhook.site)
-const ddaState = { events: [], active: new Set(), seq: 0 };
+const ddaState = { events: [], active: new Set(), seq: 0, down: false };
 function ddaPush(body, onReady) {
   ddaState.events.push({ id: `mock-dda-${++ddaState.seq}`, readyAt: Date.now() + 1500, body, onReady, done: false });
 }
@@ -342,10 +344,11 @@ function ddaInvoice(doc, k) {
   } };
 }
 function ddaEvents() {
+  if (ddaState.down) throw new Error('webhook.site fora do ar (simulado)');
   const now = Date.now();
   const ready = ddaState.events.filter((e) => e.readyAt <= now);
   for (const e of ready) if (!e.done) { e.done = true; if (e.onReady) e.onReady(); }
   return ready.map((e) => ({ id: e.id, at: new Date(e.readyAt).toISOString().replace('T', ' ').slice(0, 19), body: e.body }));
 }
 
-module.exports = { handle, approveDocumentscopy, devCredit, state, ddaEvents };
+module.exports = { handle, approveDocumentscopy, devCredit, state, ddaEvents, ddaState };

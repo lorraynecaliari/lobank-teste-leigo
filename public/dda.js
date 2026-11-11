@@ -60,7 +60,7 @@
     const leaving = s.request && s.request.kind === 'DELETE';
     root.innerHTML = frame(`<div class="scroll"><div class="result" style="margin-top:96px"><span class="result__badge result__badge--err" style="width:72px;height:72px">${I.err}</span>
       <h1 class="result__title">Não recebemos a confirmação da Celcoin</h1>
-      <p class="result__desc">Seu pedido de ${leaving ? 'saída do' : 'adesão ao'} DDA foi enviado, mas a resposta não chegou em ${s.timeoutMinutes} minutos. O aviso pode ter se perdido. Você pode pedir de novo.</p></div>${windowNote(s)}</div>
+      <p class="result__desc">Seu pedido de ${leaving ? 'saída do' : 'adesão ao'} DDA foi enviado, mas a resposta não chegou em ${s.timeoutMinutes} minuto${s.timeoutMinutes > 1 ? 's' : ''}. O aviso pode ter se perdido. Você pode pedir de novo.</p></div>${windowNote(s)}</div>
       <div class="actions"><button class="btn btn-primary" id="again">${leaving ? 'Pedir a saída de novo' : 'Pedir a adesão de novo'}</button><button class="btn btn-ghost" id="home">Voltar ao início</button></div>`,
     { studio: 'novo:dda-sem-resposta (modelo 4e85d7cd Erro)' });
     $('#home').onclick = () => go('/home');

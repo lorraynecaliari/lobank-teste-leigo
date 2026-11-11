@@ -82,6 +82,12 @@ STUDIO = {
     '96d29742': ('Pagamento de Contas', 'Pagamento concluído'), '034d1958': ('Pagamento de Contas', 'Pagamento agendado'),
     '5b258936': ('Pagamento de Contas', 'Falha no pagamento'), 'b4e95469': ('Pagamento de Contas', 'Comprovante de pagamento | Pagamento pendente'),
     'b548a175': ('Pagamento de Contas', 'Comprovante de pagamento | Pagamento agendado'), '26e3d931': ('Pagamento de Contas', 'Comprovante de pagamento'),
+    # DDA (Débito Direto Autorizado)
+    'b86afc13': ('DDA', 'Aderir ao DDA | Termos de uso'), '12b7e262': ('DDA', 'Aderir ao DDA | Cadastro'),
+    '0feb0a07': ('DDA', 'Aderir ao DDA | Cadastro | Processamento'), 'b138a51b': ('DDA', 'Aderir ao DDA | Cadastro | Sucesso'),
+    '4e85d7cd': ('DDA', 'Aderir ao DDA | Cadastro | Erro'), 'c2ec3a50': ('DDA', 'Meus boletos | Vazia'),
+    '2fa3c1ee': ('DDA', 'Meus boletos | Preenchida'), 'b45f3550': ('DDA', 'Meus boletos | Detalhe do boleto'),
+    '46b9c2d6': ('DDA', 'EXCLUIR'),
 }
 
 # Comentários da usuária no Studio (citados nos motivos)
@@ -144,11 +150,11 @@ ALTERACOES = {
     ('pj', 'Validação: link do responsável'): ('Mostra um link de documentoscopia só para o primeiro responsável.', 'No teste da LTDA com 2 sócios, a Celcoin gerou um único link, do primeiro owner.'),
     ('pj', 'Tipo de empresa: MEI'): ('Escolhendo MEI, o fluxo pula a tela de sócios.', 'Regra da Celcoin para MEI (um único sócio, o titular).'),
     # ---------------- home
-    ('home', 'Home sem saldo'): ('Sem cartão de crédito, "Solicitar crédito" e atalhos que não funcionam; atalhos reorganizados.', C_HOME + '; e a regra "mostrar só o que funciona".'),
-    ('home', 'Home'): ('Atalhos: Fazer Pix, Cobrar com Pix, Minhas chaves, Pagar contas e Extrato.', 'Mesma regra; "Pagar contas" entrou com o módulo de boleto.'),
+    ('home', 'Home sem saldo'): ('Sem cartão de crédito, "Solicitar crédito" e atalhos que não funcionam; ações rápidas em 2 linhas de 3.', C_HOME + '; e a regra "mostrar só o que funciona".'),
+    ('home', 'Home'): ('Ações rápidas: Fazer Pix, Cobrar com Pix, Minhas chaves, Pagar contas, DDA e Extrato.', '"Pagar contas" entrou com o módulo de boleto e "DDA" a pedido da usuária (11/11, 13:02); com 6 ações, elas foram para 2 linhas.'),
     ('home', 'Fazer Pix: escolher forma'): ('Modal novo com chave, Copia e Cola e agência e conta.', 'Pedido da usuária: "Fazer Pix" só oferecia chave.'),
     ('home', 'Menu'): ('Menu da conta com "Minha conta" e "Sair" (e crédito simulado só no modo simulado).', 'Acesso aos dados da conta sem sair da Home.'),
-    ('home', 'Minha conta'): ('Só Minhas chaves, Minhas senhas, Meus dados e Sair.', 'Saíram Gestão de usuário, Limites, Tarifas, DDA, Dúvidas e Cancelar conta: não há API usada para eles.'),
+    ('home', 'Minha conta'): ('Só Minhas chaves, Débito Direto Autorizado (DDA), Minhas senhas, Meus dados e Sair.', 'Saíram Gestão de usuário, Limites, Tarifas, Dúvidas e Cancelar conta: não há API usada para eles. O DDA voltou com o módulo de DDA, e é por ele que se sai do DDA (decisão da usuária).'),
     ('home', 'Meus dados'): ('Só telefone, e-mail, endereço (e nome social na PF) podem ser alterados.', 'A Celcoin não deixa mudar nome, documento, mãe e nascimento (PF), nem razão social, nome fantasia e sócios (PJ).'),
     ('home', 'Minhas senhas'): ('Tela nova, no visual do Minha conta.', 'O item existe no Minha conta do Studio, mas a tela não.'),
     # ---------------- pix
@@ -194,7 +200,7 @@ ALTERACOES = {
     ('extrato', 'Extrato com diferença de saldo'): ('Linha nova "Diferença de saldo".', 'No sandbox, boletos recusados tiraram R$ 1.309,95 do saldo sem lançamento no extrato detalhado; o app mostra a diferença em vez de esconder.'),
     ('extrato', 'Detalhe da diferença de saldo'): ('Detalhe da transação do Studio aplicado à diferença de saldo.', 'Explica de quanto para quanto o saldo foi.'),
     # ---------------- boleto
-    ('boleto', 'Formas de pagamento'): ('Só "Digitar código" e "Pix Copia e Cola"; dica para leitor USB ou bluetooth.', 'Leitores por câmera: ' + C_LEITOR + '; "Abrir PDF" retirado por decisão da usuária.'),
+    ('boleto', 'Formas de pagamento'): ('Só "Digitar código", "Pix Copia e Cola" e "Meus boletos (DDA)"; dica para leitor USB ou bluetooth.', 'Leitores por câmera: ' + C_LEITOR + '; "Abrir PDF" retirado por decisão da usuária.'),
     ('boleto', 'Digitar código (incompleto)'): ('Contador de números e formatação da linha; aceita o código de 44 números do leitor.', 'Ajuda quem digita e quem usa leitor de código de barras.'),
     ('boleto', 'Código inválido'): ('Mensagem simples no campo.', 'A Celcoin devolve o erro 822.'),
     ('boleto', 'Dados incompletos do banco emissor'): ('Estado novo: não deixa pagar.', 'No sandbox, uma consulta veio sem os dados do boleto e o pagamento acabou recusado com o valor debitado.'),
@@ -209,6 +215,26 @@ ALTERACOES = {
     ('boleto', 'Falha no pagamento com valor debitado'): ('Avisa quando o valor ficou debitado e esconde "Tentar de novo".', 'No sandbox, dois pagamentos recusados continuaram debitados; o app não pode dizer que nada foi debitado.'),
     ('boleto', 'Comprovante: pagamento não concluído'): ('Estado de falha do comprovante, novo.', 'Mesmo motivo.'),
     ('boleto', 'Saldo insuficiente'): ('Usa a tela de saldo insuficiente do Pix.', 'O Studio não desenha esse caso no boleto.'),
+    # ---------------- dda
+    ('dda', 'Ative o DDA (termos)'): ('Resumo do que o DDA mostra, link para o termo de adesão da Celcoin e aceite obrigatório (botão só libera depois do aceite).', 'A Celcoin exige coletar e guardar o aceite do termo; o app grava data, hora e versão.'),
+    ('dda', 'Confira seus dados'): ('Os campos vêm com os dados da conta; nome e documento não podem ser editados.', 'A adesão usa o documento da conta (decisão da usuária: um documento por conta). A API só recebe documento e nome; e-mail, telefone e CEP ficam guardados com o aceite.'),
+    ('dda', 'Ativando o DDA'): ('Contagem de 30 s entre consultas e aviso de que pode levar até 10 minutos.', 'A adesão é assíncrona e só responde por aviso; a usuária pediu 30 s porque a Celcoin leva cerca de 1 minuto.'),
+    ('dda', 'DDA ativado'): ('Botão "Ver meus boletos".', 'Leva direto à lista depois da adesão.'),
+    ('dda', 'Meus boletos (vazia)'): ('Botão "Gerar boletos de teste (sandbox)" e "Atualizar" com a hora da última leitura.', 'No sandbox, os boletos só existem se forem gerados; os avisos são lidos a cada 10 s, então a lista precisa de atualização manual.'),
+    ('dda', 'Boletos de teste pedidos'): ('Modal novo com "Entendi".', 'A mensagem sumia rápido demais (D5, pedido da usuária).'),
+    ('dda', 'Meus boletos'): ('Mesmos filtros e cartões do Studio; valores convertidos de centavos; "Atualizar" a cada 10 s.', 'Os avisos da Celcoin trazem os valores em centavos e vários boletos por documento.'),
+    ('dda', 'Filtro: vencidos'): ('"Vencido" é calculado pelo app (boleto em aberto com vencimento passado).', 'O aviso traz só o status "Aberto"; não há status de vencido.'),
+    ('dda', 'Opções'): ('Igual ao menu do Studio, com "Gerar boletos de teste (sandbox)" a mais.', 'Mesmo motivo do botão de teste.'),
+    ('dda', 'Sobre o DDA'): ('Tela nova para o item "Sobre o DDA" do menu.', 'O Studio tem o item, mas não a tela.'),
+    ('dda', 'Detalhe do boleto'): ('Juros e multa traduzidos pelos códigos da Celcoin; situação na Celcoin e "Copiar código".', 'O aviso traz só códigos e números; a tabela de códigos está no guia "Sobre DDA".'),
+    ('dda', 'Pagar: código não reconhecido'): ('Mensagem no próprio detalhe.', 'No sandbox, os boletos de teste do DDA não podem ser pagos (822 pela linha, 623 pelo código de barras); decisão da usuária: fluxo real mostrando o erro.'),
+    ('dda', 'Minha conta: DDA ativo'): ('Modal novo com "Ver meus boletos" e "Sair do DDA".', 'Decisão da usuária: sair do DDA pelo Minha conta.'),
+    ('dda', 'Sair do DDA: senha incorreta'): ('Confirmação com senha de transferência; senha errada mostra a mensagem sem sair da sessão.', 'No D6, a senha errada mandava para o login.'),
+    ('dda', 'Saindo do DDA'): ('Processamento do Studio aplicado à saída, com 30 s entre consultas.', 'A saída também é assíncrona.'),
+    ('dda', 'DDA desativado'): ('Tela nova no modelo de "DDA ativado".', 'Pedido da usuária: avisar quem ainda estava esperando a resposta.'),
+    ('dda', 'Erro na adesão'): ('Mostra o código de erro da Celcoin e "Tentar de novo".', 'Massa de teste da Celcoin: CPF 26817625025 simula adesão com erro (CDDA101).'),
+    ('dda', 'Não conseguimos confirmar o DDA'): ('Tela nova: aparece quando os avisos não podem ser lidos e não há nada guardado.', 'No D1, sem o token do webhook.site, o app mostrava "Ative o DDA" para uma conta já ativa.'),
+    ('dda', 'Sem confirmação da Celcoin'): ('Tela nova: pedido sem aviso depois do prazo (10 min no app; 1 min nesta captura), com "Pedir de novo".', 'A saída da LTDA em 11/11 nunca teve aviso e a Celcoin não tem consulta de status (decisão da usuária).'),
 }
 
 # Telas do Studio que não entraram no app, por pasta: (id, motivo)
@@ -230,6 +256,7 @@ FORA_DO_APP = {
               ('cf9dcbd7', 'Usa a revisão do Pix.')],
     'receber': [('0402a8fc', 'O QR Code estático não carrega dados do pagador.'), ('aeebab09', 'O QR Code estático não carrega dados do pagador.')],
     'extrato': [('ddce4015', 'O comprovante abre pelo módulo de origem (Pix ou boleto).')],
+    'dda': [('46b9c2d6', 'Tela chamada "EXCLUIR" no board, sem comentário; o HTML não foi lido. O menu Opções de Meus boletos já traz "Cancelar DDA".')],
     'boleto': [('f3aec588', C_LEITOR + '.'), ('22c1b6ba', C_LEITOR + '.'), ('677ed32f', C_CONTA + '.'),
                ('94e36ffe', 'Agendamento retirado por decisão da usuária.'), ('034d1958', 'Agendamento retirado por decisão da usuária.'),
                ('b548a175', 'Agendamento retirado por decisão da usuária.')],
