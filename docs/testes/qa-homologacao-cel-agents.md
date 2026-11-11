@@ -110,9 +110,63 @@ Depois da auditoria, o agente rodou os fluxos **pelo próprio app**, ligado na m
 - **Crédito de teste** (R$ 100 em cada conta) entrou pelo MCP, fora do app.
 - **Correções nas máscaras** feitas durante a análise: `externalTerminal` (conta usada no `authorize`) e os identificadores da correlação (commits `c66e175` e `dea8302`). Na cópia publicada aqui o campo já está mascarado.
 
+## Rodada 2: correção do código (11/11, 19:48–19:59)
+
+QA no modo **remediate**, escopo aberto (57 itens: 45 do BaaS e 12 do DDA). Código avaliado: `app-rodada-0`, commit `008c4b9`. As evidências de execução são as das 19:17–19:30 (commit `dea8302`). Nenhuma escrita foi feita no sandbox nesta rodada.
+
+| Produto | Conforme | Precisa de ação humana | Não se aplica | Não conforme |
+|---|---|---|---|---|
+| BaaS Conta Única | 14 | 31 | 12 | 0 |
+| DDA | 6 | 6 | 0 | 0 |
+
+**O que entrou no app:**
+
+- **Webhooks do BaaS** em `POST /webhooks/celcoin`, com autenticação básica opcional:
+  - `onboarding-create`
+  - `pix-payment-out` e `pix-payment-in`
+  - `pix-reversal-out` e `pix-reversal-in`
+
+  O app guarda cada aviso uma vez só (pelo `endToEndId`), responde 200 e confere se o valor recebido no QR é o valor cobrado.
+- **Gestão de conta:**
+  - bloquear e desbloquear a conta;
+  - encerrar a conta, só com saldo zero;
+  - listar contas.
+- **Devolução de um Pix recebido:** motivo e valor, sem passar do valor recebido.
+- **QR dinâmico:** o app consulta o payload, usa valor, chave e `txid` da cobrança e recusa uma cobrança que não está ativa.
+  - **COB:** imediato.
+  - **COBV:** com vencimento, juros, multa e desconto.
+- **Ferramenta administrativa** `tools/celcoin-admin.js`:
+  - consulta e cadastro dos webhooks do BaaS e do DDA;
+  - listagem de contas.
+
+  Ela só escreve no sandbox com `--sim`.
+
+**Conformes no DDA:** adesão, aviso `Created`, geração de boletos, aviso `Invoice`, saída e aviso `Inactive`.
+
+**Precisa de ação humana, e quem precisa fornecer:**
+
+1. **Usuária: autorizar e rodar no sandbox as funções novas**, com `EVIDENCIAS=1`. Envolve:
+   - bloquear e encerrar uma conta;
+   - devolver um Pix;
+   - pagar QR dinâmico;
+   - cadastrar os webhooks.
+
+   Hoje elas existem só no código e nos testes simulados, e ainda **não têm tela**.
+2. **Usuária: definir o endereço de entrega dos webhooks do BaaS**, para os avisos chegarem ao app.
+3. **Celcoin: massa para os casos de rejeição.** Nenhum foi provocado:
+   - Pix `ERROR`;
+   - adesão `ERROR`;
+   - saída `INACTIVE_FAILED`.
+4. **Celcoin: confirmar o que foi deduzido da documentação:**
+   - a rota do payload do COB;
+   - os valores de status da conta;
+   - os campos do cadastro de webhook do DDA;
+   - o formato do aviso `onboarding-create`.
+5. **Usuária: anexar no painel** os prints do termo e dos dados do DDA (`docs/telas/dda/01` e `02`) e o print da lista de boletos.
+
 ## Próximos passos
 
 1. **Rodar o app com o `.env` do sandbox** e repetir os fluxos, guardando a requisição e a resposta mascaradas e o log do servidor. Isso deve fechar a maior parte dos 32 itens que precisam de ação humana.
 2. **Anexar no painel os prints do DDA** (termo, dados e boletos).
 3. **Refazer a consulta das URLs do DDA** (`GET webhook/routes`) e guardar a resposta.
-4. **Decidir se o app vai tratar os webhooks do BaaS.** Isso resolve a maior parte dos não conformes.
+4. ~~Decidir se o app vai tratar os webhooks do BaaS.~~ Feito na rodada 2 (commit `008c4b9`): falta só o endereço de entrega e a execução real.
