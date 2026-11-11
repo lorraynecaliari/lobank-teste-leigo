@@ -1,6 +1,6 @@
 # Telas do LoBank
 
-Gerado por `tools/telas/capturar.py` (branch `app-rodada-0`, commit `b7dc76a`), no **modo simulado**, em 360 × 800.
+Gerado por `tools/telas/capturar.py` (branch `app-rodada-0`, commit `02b26a3`), no **modo simulado**, em 360 × 800.
 Os dados nas telas são fictícios. Para atualizar: `python3 tools/telas/capturar.py ../lobank-teste-leigo/docs`.
 
 **Regra:** toda tela nova ou alterada entra no script e este arquivo é gerado de novo no mesmo trabalho.
