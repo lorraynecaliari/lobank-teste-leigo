@@ -312,7 +312,7 @@ def origem(label):
 
 def write_evidencias(git_rev):
     sys.path.insert(0, os.path.dirname(__file__))
-    from evidencias import ALTERACOES, FORA_DO_APP, STUDIO
+    from evidencias import ALTERACOES, FORA_DO_APP, STUDIO, ORIGEM
     pend = []
     out = ['# Evidências de telas', '',
            f'Print de cada tela do LoBank, separado pelas pastas desta pasta `telas/`. Gerado por `tools/telas/capturar.py` '
@@ -329,7 +329,7 @@ def write_evidencias(git_rev):
             if alt is None:
                 pend.append(f'{m}/{t}'); alt, mot = ('_Sem registro: incluir em tools/telas/evidencias.py._', '—')
             out += [f'### {k}. {t}', '', f'<img src="{m}/{f}" width="260" alt="{t}">', '',
-                    f'- **Rota:** `{r}`', f'- **Origem no Studio:** {origem(label)}',
+                    f'- **Rota:** `{r}`', f'- **Origem no Studio:** {origem(ORIGEM.get((m, t), label))}',
                     f'- **Alterado em relação ao Studio:** {alt}', f'- **Motivo:** {mot}', '']
         fora = FORA_DO_APP.get(mod, [])
         if fora:

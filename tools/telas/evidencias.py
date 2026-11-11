@@ -160,7 +160,7 @@ ALTERACOES = {
     ('pix', 'Chave do destinatário'): IGUAL,
     ('pix', 'Valor do Pix'): MODELO,
     ('pix', 'Revisão do Pix'): ('Sem agendamento e sem "Favoritar contato".', 'Agendamento retirado por decisão da usuária; favoritos sem dados reais.'),
-    ('pix', 'Senha de transferência'): MODELO,
+    ('pix', 'Senha de transferência'): ('Modal de senha de 4 números, no visual dos modais do Studio.', 'O Studio não desenha a confirmação por senha; a senha de transferência é pedida em todo pagamento.'),
     ('pix', 'Pix: consultando em 10 s'): ('Estado novo de "em processamento" com contagem de 10 s.', 'O pagamento volta `PROCESSING`; a usuária pediu esperar 10 s com o tempo na tela antes de consultar.'),
     ('pix', 'Pix enviado'): MODELO,
     ('pix', 'Comprovante Pix'): ('Ganhou "Voltar ao início" abaixo de "Copiar comprovante".', 'Pedido da usuária.'),
@@ -233,4 +233,16 @@ FORA_DO_APP = {
     'boleto': [('f3aec588', C_LEITOR + '.'), ('22c1b6ba', C_LEITOR + '.'), ('677ed32f', C_CONTA + '.'),
                ('94e36ffe', 'Agendamento retirado por decisão da usuária.'), ('034d1958', 'Agendamento retirado por decisão da usuária.'),
                ('b548a175', 'Agendamento retirado por decisão da usuária.')],
+}
+
+# Origem quando a tela é um modal sobre outra tela (o data-studio é o da tela de baixo).
+# 'novo' = não existe no Studio.
+ORIGEM = {
+    ('home', 'Fazer Pix: escolher forma'): 'novo',
+    ('home', 'Menu'): 'novo',
+    ('pix', 'Criar chave aleatória'): '508e7b00',
+    ('pix', 'Senha de transferência'): 'novo',
+    ('boleto', 'Senha de transferência'): 'novo',
+    ('extrato', 'Baixar extrato'): 'f1da7b30',
+    ('extrato', 'Detalhe da diferença de saldo'): '9fc2cf9b',
 }
