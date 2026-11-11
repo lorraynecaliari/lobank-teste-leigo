@@ -261,6 +261,12 @@ Commits no branch `app-rodada-0`: `7bf26d0` (PJ), `d9746cc` (Copia e Cola e agê
 | 11/11 12:59 | **D5 Boletos de teste** | Os 6 boletos aparecem na lista, mas a mensagem sumiu rápido demais para ler | Pedido da usuária: mostrar a mensagem com botão de confirmar e ter opção de atualizar a lista. Feito: modal com "Entendi" e botão "Atualizar" com a hora da última leitura, liberado a cada 10 s. |
 | 11/11 13:00 | **D6 Sair do DDA** com senha errada | **Voltou para o login, sem mensagem** | **Erro do agente:** senha errada devolvia HTTP 401, que o app trata como sessão expirada. O mesmo acontecia no Pix, no Pagar contas e em Minhas senhas. Corrigido no commit `046ec84`: 422, com a mensagem na tela. |
 | 11/11 13:02 | Pedido da usuária: DDA nas ações rápidas | Atalho DDA na Home (ações rápidas em 2 linhas de 3), commit `046ec84` | |
+| 11/11 13:06 | **D5 Boletos de teste** (de novo) | Aviso com "Entendi" apareceu; depois de Atualizar, 9 boletos | Usuária: OK |
+| 11/11 13:08 | **D6 Sair do DDA** (PF) | Senha errada: "Senha de transferência incorreta.". Senha certa: "Saindo do DDA"; resposta da Celcoin às 13:09 e volta para a Home | Usuária: OK |
+| 11/11 13:10 | **D7 Aderir pelo app** (PF) | Resposta da Celcoin às 13:11 e "DDA ativado!" | Usuária: OK. Primeira adesão feita pelas telas do app. |
+| 11/11 13:11 | **D8 Boletos depois da nova adesão** | Os 3 boletos aparecem logo em "Ver meus boletos" | Usuária: OK |
+| 11/11 13:13 | **D9 Repetir a adesão** | Com o DDA ativo, abre os boletos em vez de aderir de novo | Usuária: OK |
+| 11/11 13:14 | Pedidos da usuária: espera de 30 s no DDA e tela de desativado | Feito no commit `58e62b6`: contagem de 30 s entre consultas na ativação e na saída; ao confirmar a saída, tela "DDA desativado" (como a de ativado) com "Voltar ao início" e "Ativar de novo" | A Celcoin levou cerca de 1 minuto em cada resposta. |
 
 **Testado no sandbox real até 17:56 (Fase 2 completa):** cadastro PJ MEI e login por CNPJ (A), cadastro PJ LTDA com 2 sócios, Meus dados PJ, Pix `MANUAL` (B), Pix `STATIC_QRCODE` (C), atualização de dados PF (D), arquivos do extrato (PDF, CSV, OFX). **Fica de fora:** QR Code dinâmico, sócio pessoa jurídica, envio do extrato por e-mail e o recebimento de Pix entre contas do mesmo tenant (defeito da Celcoin, item 1).
 
