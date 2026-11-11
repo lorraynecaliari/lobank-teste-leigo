@@ -304,7 +304,7 @@ def origem(label):
     """Tela(s) do Studio citadas no data-studio da tela (ids de 8 caracteres)."""
     from evidencias import STUDIO
     ids = [i for i in re.findall(r'\b([0-9a-f]{8})\b', label) if i in STUDIO]
-    links = [f'{STUDIO[i][0]} › {STUDIO[i][1]} (`{i}`)' for i in ids]
+    links = [f'{STUDIO[i][0]} › {STUDIO[i][1].replace(" | ", " › ")} (`{i}`)' for i in ids]
     if label.startswith('novo') or not ids:
         return 'Tela nova, não existe no Studio' + (f' (no modelo de {", ".join(links)})' if links else '')
     return '; '.join(links)
@@ -334,7 +334,7 @@ def write_evidencias(git_rev):
         fora = FORA_DO_APP.get(mod, [])
         if fora:
             out += ['### Telas do Studio que não entraram no app', '', '| Tela do Studio | Motivo |', '|---|---|']
-            out += [f'| {STUDIO[i][0]} › {STUDIO[i][1]} (`{i}`) | {motivo} |' for i, motivo in fora] + ['']
+            out += [f'| {STUDIO[i][0]} › {STUDIO[i][1].replace(" | ", " › ")} (`{i}`) | {motivo} |' for i, motivo in fora] + ['']  # "|" quebraria a tabela
     open(os.path.join(IMG, 'Evidencias de telas.md'), 'w', encoding='utf-8').write('\n'.join(out))
     return pend
 
