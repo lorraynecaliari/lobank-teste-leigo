@@ -170,6 +170,27 @@ const updateAccountPF = (account, cpf, payload) =>
 const updateAccountPJ = (account, cnpj, payload) =>
   request('PUT', `/baas/v2/account/business?Account=${encodeURIComponent(account)}&DocumentNumber=${encodeURIComponent(cnpj)}`, payload);
 
+// ---- Gestão de contas (status, encerramento e listagem) ---------------------------
+// Referência: "Altera status da conta" (PUT /baas/v2/account/status, body {status, reason}),
+// "Encerra conta" (DELETE /baas/v2/account/close, Reason obrigatório) e
+// "Retorna informações de varias contas PF" (GET /baas/v2/account/fetch-all, até 200 por página).
+// A documentação não lista os valores de status; o app usa os que a própria Celcoin devolve
+// em statusAccount (ATIVO / BLOQUEADO). Conferir no sandbox na primeira execução.
+const accountQuery = (account, document) =>
+  `Account=${encodeURIComponent(account)}&DocumentNumber=${encodeURIComponent(document)}`;
+const setAccountStatus = (account, document, status, reason) =>
+  request('PUT', `/baas/v2/account/status?${accountQuery(account, document)}`, { status, reason });
+const closeAccount = (account, document, reason) =>
+  request('DELETE', `/baas/v2/account/close?${accountQuery(account, document)}&Reason=${encodeURIComponent(reason)}`);
+const listAccounts = ({ dateFrom, dateTo, page = 1, limitPerPage = 200 }) =>
+  request('GET', `/baas/v2/account/fetch-all?DateFrom=${dateFrom}&DateTo=${dateTo}&Page=${page}&LimitPerPage=${Math.min(200, Math.max(1, limitPerPage))}`);
+
+// ---- Webhooks do BaaS (cadastro e consulta) ---------------------------------------
+// POST /baas/v2/webhook/subscription {entity, webhookUrl, auth}; GET lista as inscrições.
+const subscribeWebhook = (entity, webhookUrl, auth) =>
+  request('POST', '/baas/v2/webhook/subscription', { entity, webhookUrl, ...(auth ? { auth } : {}) });
+const listWebhookSubscriptions = () => request('GET', '/baas/v2/webhook/subscription');
+
 // ---- Saldo e extrato ---------------------------------------------------------
 const getBalance = (account) =>
   request('GET', `/baas/v2/wallet/balance?Account=${encodeURIComponent(account)}`);
@@ -220,6 +241,16 @@ const pixPaymentStatus = (id) => request('GET', `/baas/v2/pix/payment/status?id=
 
 // Copia e Cola: decodifica o EMV. Não movimenta nada, mas é POST: não entra no intervalo de consultas.
 const decodeEmv = (emv) => request('POST', '/pix/v1/emv/full', { emv });
+
+// QR Code dinâmico: carrega, valida e analisa o payload a partir da URL do decode (URL encoded).
+// COBV: GET /pix/v1/collection/duedate/payload/{url} (referência "Carrega, valida e analisa ... COBV").
+// COB: mesma família, em /immediate/ (o caminho do COB não aparece na referência indexada; conferir no sandbox).
+const fetchCobPayload = (url) => request('GET', `/pix/v1/collection/immediate/payload/${encodeURIComponent(url)}`);
+const fetchCobvPayload = (url) => request('GET', `/pix/v1/collection/duedate/payload/${encodeURIComponent(url)}`);
+
+// Devolução de um Pix recebido (BaaS): POST /baas/v2/pix/reverse; o resultado chega no evento pix-reversal-out.
+const reversePix = ({ id, endToEndId, clientCode, amount, reason, reversalDescription }) =>
+  request('POST', '/baas/v2/pix/reverse', { id, endToEndId, clientCode, amount, reason, reversalDescription });
 
 // Lista de instituições do Pix (ISPB). Resposta grande (~900 itens): guardada por 24 h em memória.
 let participantsCache = { at: 0, list: null };
@@ -273,9 +304,17 @@ const ddaUnsubscribe = (document, clientRequestId) =>
   request('DELETE', '/dda-subscription-webservice/v1/subscription/Register', { document, clientRequestId });
 // Só no sandbox: gera boletos de teste (no teste de 11/11, 3 boletos por documento).
 const ddaTestInvoices = (documents) => request('POST', '/dda-serviceinvoice-webservice/v1/invoice/register', { document: documents });
+// Webhooks do DDA: um cadastro por evento (Subscription, Deletion, Invoice). Em 11/11 a Celcoin
+// respondeu 201 e devolveu o tipo em minúsculas. Lista vazia volta como 401 CDDA001.
+const DDA_WEBHOOK_TYPES = ['Subscription', 'Deletion', 'Invoice'];
+const ddaWebhookRegister = (typeEventWebhook, url, basicAuthentication) =>
+  request('POST', '/dda-servicewebhook-webservice/v1/webhook/register', { typeEventWebhook, url, ...(basicAuthentication ? { basicAuthentication } : {}) });
+const ddaWebhookRoutes = () => request('GET', '/dda-servicewebhook-webservice/v1/webhook/routes');
 
 module.exports = {
-  ddaSubscribe, ddaUnsubscribe, ddaTestInvoices,
+  ddaSubscribe, ddaUnsubscribe, ddaTestInvoices, ddaWebhookRegister, ddaWebhookRoutes, DDA_WEBHOOK_TYPES,
+  setAccountStatus, closeAccount, listAccounts, subscribeWebhook, listWebhookSubscriptions,
+  fetchCobPayload, fetchCobvPayload, reversePix,
   MODE, BASE_URL, CelcoinError, uid, MIN_QUERY_INTERVAL_MS,
   authorizeBill, payBill, billStatus, billReceipt,
   createNaturalPersonProposal, createLegalPersonProposal, getProposal, fetchAccountPF, fetchAccountPJ, updateAccountPF, updateAccountPJ,

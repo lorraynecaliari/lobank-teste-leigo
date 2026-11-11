@@ -100,6 +100,61 @@ CREATE TABLE IF NOT EXISTS dda_requests (
   contact_json TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+-- Webhooks do BaaS (onboarding-create, pix-payment-out, pix-payment-in, pix-reversal-out, pix-reversal-in).
+-- O id do evento é a chave de deduplicação: entidade + status + endToEndId (ou id/clientCode quando não há).
+CREATE TABLE IF NOT EXISTS baas_events (
+  id TEXT PRIMARY KEY,
+  entity TEXT NOT NULL,
+  status TEXT,
+  end_to_end_id TEXT,
+  client_code TEXT,
+  source TEXT NOT NULL,                   -- 'endpoint' (POST /webhooks/celcoin) ou 'webhook.site'
+  outcome TEXT,                           -- o que o app fez com o evento
+  received_at TEXT NOT NULL DEFAULT (datetime('now')),
+  data_json TEXT NOT NULL
+);
+-- QR Codes estáticos gerados pelo app (para conferir o valor integral do recebimento).
+CREATE TABLE IF NOT EXISTS pix_charges (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  account TEXT NOT NULL,
+  key TEXT NOT NULL,
+  amount REAL,                            -- null = valor livre
+  celcoin_transaction_id TEXT,
+  txid TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+-- Pix recebidos (pix-payment-in), únicos por endToEndId.
+CREATE TABLE IF NOT EXISTS pix_receipts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER REFERENCES users(id),
+  account TEXT NOT NULL,
+  end_to_end_id TEXT NOT NULL UNIQUE,
+  celcoin_id TEXT,
+  amount REAL NOT NULL,
+  initiation_type TEXT,
+  charge_id INTEGER REFERENCES pix_charges(id),
+  expected_amount REAL,
+  amount_ok INTEGER,                      -- 1 = valor integral; 0 = diferente do cobrado; null = sem cobrança com valor
+  payer_json TEXT NOT NULL DEFAULT '{}',
+  received_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+-- Devoluções de Pix recebido pedidas pelo app (resultado em pix-reversal-out).
+CREATE TABLE IF NOT EXISTS pix_reversals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  receipt_id INTEGER NOT NULL REFERENCES pix_receipts(id),
+  client_code TEXT NOT NULL UNIQUE,
+  celcoin_id TEXT,
+  return_id TEXT,
+  amount REAL NOT NULL,
+  reason TEXT NOT NULL,
+  status TEXT NOT NULL,                   -- PROCESSING, CONFIRMED, ERROR
+  error_code TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS dda_events (
   id TEXT PRIMARY KEY,                    -- id do evento na origem (webhook.site ou simulado)
   document TEXT,

@@ -10,6 +10,8 @@ const router = express.Router();
 const TERMINAL = new Set(['RESOURCE_CREATED', 'REPROVED', 'RESOURCE_ERROR']);
 
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+// Lê os avisos novos (webhook.site), no máximo a cada 10 s, e aplica os do BaaS (src/webhooks.js).
+const syncBaasEvents = () => require('./dda-events').sync().catch(() => ({}));
 const bad = (res, error, message, status = 400) => res.status(status).json({ error, message });
 
 // Mensagens para quem usa o app. Códigos técnicos ficam no log do servidor.
@@ -211,6 +213,9 @@ router.post('/onboarding/pj', wrap(async (req, res) => {
 }));
 
 router.get('/onboarding/status', auth.requireUser, wrap(async (req, res) => {
+  // O aviso onboarding-create (webhook) vincula a conta; a consulta abaixo fica como rede de segurança.
+  await syncBaasEvents();
+  if (!req.account) req.account = db.prepare('SELECT * FROM accounts WHERE user_id = ?').get(req.user.id) || null;
   const p = db.prepare('SELECT * FROM proposals WHERE user_id = ? ORDER BY id DESC LIMIT 1').get(req.user.id);
   if (!p) return bad(res, 'NO_PROPOSAL', 'Nenhuma proposta encontrada.', 404);
   let { status, documentscopy_url: url } = p;
@@ -281,6 +286,38 @@ router.put('/me', auth.requireUser, auth.requireAccount, wrap(async (req, res) =
   Object.assign(profile, { postalCode: address.postalCode, city: address.city, address });
   db.prepare('UPDATE users SET email = ?, phone = ?, profile_json = ? WHERE id = ?').run(email, phone, JSON.stringify(profile), req.user.id);
   res.json({ ok: true });
+}));
+
+// ---------------------------------------------------------------- status e encerramento da conta
+// Bloquear/desbloquear (PUT /baas/v2/account/status) e encerrar (DELETE /baas/v2/account/close).
+// As duas pedem a senha de transferência e conferem o resultado relendo a conta na Celcoin.
+const ACCOUNT_STATUS = { BLOQUEAR: 'BLOQUEADO', DESBLOQUEAR: 'ATIVO' };
+const readAccountStatus = async (user) => {
+  const pj = user.person_type === 'PJ';
+  const acc = pj ? await celcoin.fetchAccountPJ(user.document) : await celcoin.fetchAccountPF(user.document);
+  const b = acc.body || {};
+  return String((pj ? (b.businessAccount && b.businessAccount.statusAccount) || b.statusAccount : b.statusAccount) || '').toUpperCase() || null;
+};
+router.put('/account/status', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
+  const action = String(req.body.action || '').toUpperCase();
+  if (!ACCOUNT_STATUS[action]) return bad(res, 'INVALID_ACTION', 'Escolha bloquear ou desbloquear a conta.');
+  const reason = String(req.body.reason || '').trim().slice(0, 200);
+  if (reason.length < 3) return bad(res, 'REASON_REQUIRED', 'Informe o motivo.');
+  if (!auth.verifySecret(String(req.body.txPassword || ''), req.user.tx_password_hash)) return bad(res, 'INVALID_TX_PASSWORD', 'Senha de transferência incorreta.', 422);
+  await celcoin.setAccountStatus(req.account.account, req.user.document, ACCOUNT_STATUS[action], reason);
+  const now = await readAccountStatus(req.user);
+  res.json({ requested: ACCOUNT_STATUS[action], statusAccount: now, confirmed: now === ACCOUNT_STATUS[action] });
+}));
+router.delete('/account', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
+  const reason = String(req.body.reason || '').trim().slice(0, 200);
+  if (reason.length < 3) return bad(res, 'REASON_REQUIRED', 'Informe o motivo do encerramento.');
+  if (!auth.verifySecret(String(req.body.txPassword || ''), req.user.tx_password_hash)) return bad(res, 'INVALID_TX_PASSWORD', 'Senha de transferência incorreta.', 422);
+  const balance = Number((await celcoin.getBalance(req.account.account)).body.amount) || 0;
+  if (balance > 0) return res.status(422).json({ error: 'BALANCE_NOT_ZERO', message: 'Para encerrar a conta, o saldo precisa estar zerado.', balance });
+  await celcoin.closeAccount(req.account.account, req.user.document, reason);
+  let now = null;
+  try { now = await readAccountStatus(req.user); } catch (e) { if (!(e instanceof celcoin.CelcoinError)) throw e; }
+  res.json({ closed: true, statusAccount: now });
 }));
 
 router.get('/me/details', auth.requireUser, (req, res) => {
@@ -440,10 +477,33 @@ router.post('/pix/emv', auth.requireUser, auth.requireAccount, wrap(async (req, 
   const emv = String(req.body.emv || '').replace(/[\r\n\t]+/g, '').trim();
   if (!/^000201/.test(emv) || emv.length < 50) return bad(res, 'INVALID_EMV', 'Esse não parece um código Pix Copia e Cola. Ele começa com 000201.');
   const dec = (await celcoin.decodeEmv(emv)).body || {};
-  if (!dec.key) return bad(res, 'EMV_NO_KEY', 'Não encontramos a chave Pix dentro desse código.', 422);
-  const amt = dec.amount || {};
+  const decType = String(dec.type || 'STATIC').toUpperCase();
+  // QR dinâmico: o decode devolve type IMMEDIATE (COB) ou de vencimento (COBV) e a URL do payload.
+  // O app carrega, valida e analisa o payload pela URL antes de consultar a chave e pagar.
+  const dynamic = decType !== 'STATIC';
+  let key = dec.key, amt = dec.amount || {}, txid = dec.transactionIdentification, cob = null;
+  if (dynamic) {
+    const url = dec.merchantAccountInformation && dec.merchantAccountInformation.url;
+    if (!url) return bad(res, 'EMV_NO_URL', 'Esse QR Code dinâmico não trouxe o endereço da cobrança.', 422);
+    const due = /DUE/.test(decType) || /\/cobv\//i.test(url);
+    const loaded = due ? await celcoin.fetchCobvPayload(url) : await celcoin.fetchCobPayload(url);
+    const pl = (loaded && (loaded.body || loaded)) || {};
+    const st = String(pl.status || (pl.payload && pl.payload.status) || 'ACTIVE').toUpperCase();
+    if (!/ACTIVE|ATIVA/.test(st)) return bad(res, 'QR_NOT_ACTIVE', 'Essa cobrança não está mais ativa e não pode ser paga.', 422);
+    // COBV: o valor final já vem com multa, juros, desconto e abatimento calculados pela Celcoin.
+    const pa = pl.amount || {};
+    amt = { original: pa.original ?? amt.original, final: pa.final ?? pa.original ?? amt.final, canModifyFinalAmount: pa.canModifyFinalAmount ?? amt.canModifyFinalAmount,
+      fine: pa.fine ?? null, interest: pa.interest ?? null, discount: pa.discount ?? null, abatement: pa.abatement ?? null };
+    key = pl.key || key;
+    txid = pl.transactionIdentification || txid;
+    const cal = pl.calendar || (pl.payload && pl.payload.calendar) || {};
+    cob = { kind: due ? 'COBV' : 'COB', dueDate: cal.dueDate || null, expiration: cal.expirationDate || cal.expiration || null };
+  }
+  if (!key) return bad(res, 'EMV_NO_KEY', 'Não encontramos a chave Pix dentro desse código.', 422);
   const amount = Number(amt.final || amt.original) || null;
-  const qr = { type: String(dec.type || 'STATIC').toUpperCase(), txid: dec.transactionIdentification || '***', amount, canModify: amount == null || amt.canModifyFinalAmount === true };
+  const qr = { type: dynamic ? 'DYNAMIC' : 'STATIC', decodedType: decType, txid: txid || '***', amount, canModify: amount == null || amt.canModifyFinalAmount === true, cob,
+    breakdown: dynamic ? { original: amt.original ?? null, fine: amt.fine, interest: amt.interest, discount: amt.discount, abatement: amt.abatement } : null };
+  dec.key = key;
   const data = await celcoin.lookupKey(req.account.account, dec.key);
   const body = data.body || {};
   const e2e = body.endtoEndId || body.endToEndId || body.endtoendid || body.endtoendId;
@@ -454,7 +514,8 @@ router.post('/pix/emv', auth.requireUser, auth.requireAccount, wrap(async (req, 
   db.prepare('INSERT INTO pix_lookups (id, user_id, key, data_json, expires_at) VALUES (?, ?, ?, ?, ?)')
     .run(id, req.user.id, dec.key, JSON.stringify({ ...body, endToEndId: e2e, qr }), Date.now() + 1000 * 60 * 30);
   res.json({
-    lookupId: id, key: dec.key, keyType: body.keyType, qrType: qr.type, amount: qr.amount, amountLocked: !qr.canModify,
+    lookupId: id, key: dec.key, keyType: body.keyType, qrType: qr.type, cobKind: qr.cob && qr.cob.kind, dueDate: qr.cob && qr.cob.dueDate, breakdown: qr.breakdown,
+    amount: qr.amount, amountLocked: !qr.canModify,
     name: body.owner && (body.owner.tradeName || body.owner.name), document: body.owner && body.owner.documentNumber,
     personType: body.owner && body.owner.type, participant: body.account && body.account.participant,
     city: dec.merchantAccountInformation && dec.merchantAccountInformation.merchantCity,
@@ -552,8 +613,11 @@ router.post('/pix/transfer', auth.requireUser, auth.requireAccount, wrap(async (
 }));
 
 router.get('/pix/transfer/:id', auth.requireUser, wrap(async (req, res) => {
+  // 1º os avisos (webhook): pix-payment-out CONFIRMED/ERROR atualiza a transação pelo clientCode.
+  await syncBaasEvents();
   const t = db.prepare('SELECT * FROM transactions WHERE id = ? AND user_id = ?').get(Number(req.params.id), req.user.id);
   if (!t) return bad(res, 'NOT_FOUND', 'Transação não encontrada.', 404);
+  // Sem aviso ainda: consulta de status como rede de segurança (respeita o intervalo de 10 s).
   if (t.status === 'PROCESSING' && t.celcoin_id) {
     try {
       const s = await celcoin.pixPaymentStatus(t.celcoin_id);
@@ -580,6 +644,52 @@ router.get('/pix/transfer/:id', auth.requireUser, wrap(async (req, res) => {
   });
 }));
 
+// ---------------------------------------------------------------- Pix recebidos e devolução
+// Os recebimentos vêm dos avisos pix-payment-in (webhook), conferidos contra a cobrança gerada pelo app.
+router.get('/pix/receipts', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
+  await syncBaasEvents();
+  const list = db.prepare('SELECT * FROM pix_receipts WHERE account = ? ORDER BY id DESC LIMIT 100').all(String(req.account.account));
+  const rev = db.prepare('SELECT receipt_id, SUM(amount) AS total FROM pix_reversals WHERE user_id = ? AND status != ? GROUP BY receipt_id').all(req.user.id, 'ERROR');
+  const reversed = new Map(rev.map((r) => [r.receipt_id, r.total]));
+  res.json({ receipts: list.map((r) => ({ id: r.id, amount: r.amount, receivedAt: r.received_at, endToEndId: r.end_to_end_id, initiationType: r.initiation_type,
+    expectedAmount: r.expected_amount, amountOk: r.amount_ok == null ? null : !!r.amount_ok, payer: (JSON.parse(r.payer_json || '{}').name) || null,
+    reversed: reversed.get(r.id) || 0 })) });
+}));
+
+const REVERSAL_REASONS = { MD06: 'Devolução solicitada pelo cliente', BE08: 'Erro bancário', FR01: 'Suspeita de fraude' };
+router.post('/pix/receipts/:id/refund', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
+  const r = db.prepare('SELECT * FROM pix_receipts WHERE id = ? AND account = ?').get(Number(req.params.id), String(req.account.account));
+  if (!r) return bad(res, 'NOT_FOUND', 'Recebimento não encontrado.', 404);
+  if (!auth.verifySecret(String(req.body.txPassword || ''), req.user.tx_password_hash)) return bad(res, 'INVALID_TX_PASSWORD', 'Senha de transferência incorreta.', 422);
+  const amount = req.body.amount ? v.parseAmount(req.body.amount) : r.amount;
+  if (!amount) return bad(res, 'INVALID_AMOUNT', 'Valor inválido.');
+  const already = db.prepare("SELECT COALESCE(SUM(amount), 0) AS s FROM pix_reversals WHERE receipt_id = ? AND status != 'ERROR'").get(r.id).s;
+  if (amount > r.amount - already + 0.001) return bad(res, 'AMOUNT_TOO_HIGH', 'A devolução passa do valor recebido.', 422);
+  const reason = REVERSAL_REASONS[String(req.body.reason || '').toUpperCase()] ? String(req.body.reason).toUpperCase() : 'MD06';
+  const clientCode = celcoin.uid('lobank-dev');
+  const info = db.prepare("INSERT INTO pix_reversals (user_id, receipt_id, client_code, amount, reason, status) VALUES (?, ?, ?, ?, ?, 'PROCESSING')")
+    .run(req.user.id, r.id, clientCode, amount, reason);
+  try {
+    const out = await celcoin.reversePix({ id: r.celcoin_id || undefined, endToEndId: r.end_to_end_id, clientCode, amount, reason,
+      reversalDescription: String(req.body.description || '').trim().slice(0, 140) || undefined });
+    const b = (out && out.body) || {};
+    db.prepare('UPDATE pix_reversals SET celcoin_id = ?, return_id = ? WHERE id = ?').run(b.id || null, b.returnIdentification || null, info.lastInsertRowid);
+  } catch (e) {
+    if (e.code === 'TRANSPORT') { db.prepare("UPDATE pix_reversals SET status = 'UNKNOWN' WHERE id = ?").run(info.lastInsertRowid); return res.status(202).json({ id: info.lastInsertRowid, status: 'UNKNOWN' }); }
+    db.prepare("UPDATE pix_reversals SET status = 'ERROR', error_code = ? WHERE id = ?").run(e.code || 'ERROR', info.lastInsertRowid);
+    throw e;
+  }
+  // O resultado chega no aviso pix-reversal-out; até lá, "em processamento".
+  res.json({ id: info.lastInsertRowid, status: 'PROCESSING' });
+}));
+
+router.get('/pix/reversals/:id', auth.requireUser, wrap(async (req, res) => {
+  await syncBaasEvents();
+  const r = db.prepare('SELECT * FROM pix_reversals WHERE id = ? AND user_id = ?').get(Number(req.params.id), req.user.id);
+  if (!r) return bad(res, 'NOT_FOUND', 'Devolução não encontrada.', 404);
+  res.json({ id: r.id, status: r.status, amount: r.amount, reason: r.reason, errorCode: r.error_code, clientCode: r.client_code });
+}));
+
 // ---------------------------------------------------------------- Pix in (QR estático)
 router.post('/pix/qrcode', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
   const keys = ((await celcoin.listKeys(req.account.account)).body.listKeys) || [];
@@ -600,6 +710,9 @@ router.post('/pix/qrcode', auth.requireUser, auth.requireAccount, wrap(async (re
   const data = await celcoin.createStaticQr(payload);
   const emv = data.emvqrcps || (data.body && data.body.emvqrcps);
   if (!emv) return bad(res, 'QR_FAILED', 'Não foi possível gerar o QR Code.', 502);
+  // Guarda a cobrança para conferir o valor integral quando o pix-payment-in chegar.
+  db.prepare('INSERT INTO pix_charges (user_id, account, key, amount, celcoin_transaction_id, txid) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(req.user.id, String(req.account.account), evp.key, amount || null, data.transactionId != null ? String(data.transactionId) : null, data.transactionIdentification || '***');
   const svg = await QRCode.toString(emv, { type: 'svg', margin: 0, color: { dark: '#302d3fff', light: '#ffffffff' } });
   res.json({ emv, svg, amount, key: evp.key });
 }));

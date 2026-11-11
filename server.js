@@ -16,6 +16,8 @@ app.use((req, res, next) => {
   next();
 });
 app.use('/api', require('./src/evidence').middleware, api);
+// Webhooks do BaaS (pix-payment-in/out, devoluções, onboarding). Responde 200 depois de gravar.
+app.post('/webhooks/celcoin', require('./src/evidence').middleware, require('./src/webhooks').endpoint);
 app.use('/fonts', express.static(path.join(__dirname, 'node_modules', '@fontsource', 'inter', 'files'), { maxAge: '7d' }));
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));

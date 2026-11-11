@@ -104,7 +104,7 @@ async function handle(method, path, body) {
     if (method === 'GET' && p === '/baas/v2/account/fetch-business') {
       const a = state.accounts.get(q.get('documentNumber'));
       if (!a) throw err(404, 'CBE078', 'Nenhuma conta foi encontrada.');
-      return { status: 'SUCCESS', body: { businessAccount: { branch: a.branch, account: a.account, statusAccount: 'ATIVO' }, businessName: a.businessName, tradingName: a.tradingName,
+      return { status: 'SUCCESS', body: { businessAccount: { branch: a.branch, account: a.account, statusAccount: a.statusAccount || 'ATIVO' }, businessName: a.businessName, tradingName: a.tradingName,
         owners: (a.owner || []).map(({ ownerType, ...o }) => o) } };
     }
     if (method === 'GET' && p === '/baas/v2/account/fetch' && String(q.get('documentNumber')).length > 11) {
@@ -127,7 +127,7 @@ async function handle(method, path, body) {
     if (method === 'GET' && p === '/baas/v2/account/fetch') {
       const a = state.accounts.get(q.get('documentNumber'));
       if (!a) throw err(404, 'CBE078', 'Nenhuma conta foi encontrada.');
-      return { status: 'SUCCESS', body: { statusAccount: 'ATIVO', fullName: a.fullName, account: { branch: a.branch, account: a.account } } };
+      return { status: 'SUCCESS', body: { statusAccount: a.statusAccount || 'ATIVO', fullName: a.fullName, account: { branch: a.branch, account: a.account } } };
     }
     if (method === 'GET' && p === '/baas/v2/wallet/balance') {
       const acc = q.get('Account');
@@ -305,6 +305,62 @@ async function handle(method, path, body) {
     if (method === 'POST' && p === '/pix/v1/brcode/static') {
       return { transactionId: Date.now(), emvqrcps: `00020126580014br.gov.bcb.pix0136${body.key}5204000053039865802BR5913MOCK LOBANK6009SAO PAULO62070503***6304ABCD`, transactionIdentification: '***' };
     }
+    // ---- Gestão de contas
+    if (method === 'PUT' && p === '/baas/v2/account/status') {
+      const a = [...state.accounts.values()].find((x) => x.account === q.get('Account'));
+      if (!a) throw err(400, 'CBE039', 'Account invalido.');
+      if (!body.status || !body.reason) throw err(400, 'CBE225', 'status e reason são obrigatórios.');
+      a.statusAccount = String(body.status).toUpperCase();
+      return { version: '1.0.0', status: 'SUCCESS' };
+    }
+    if (method === 'DELETE' && p === '/baas/v2/account/close') {
+      const a = [...state.accounts.values()].find((x) => x.account === q.get('Account'));
+      if (!a) throw err(400, 'CBE039', 'Account invalido.');
+      if (!q.get('Reason')) throw err(400, 'CBE225', 'Reason é obrigatório.');
+      a.statusAccount = 'ENCERRADO';
+      return { version: '1.0.0', status: 'SUCCESS' };
+    }
+    if (method === 'GET' && p === '/baas/v2/account/fetch-all') {
+      if (!q.get('DateFrom') || !q.get('DateTo')) throw err(400, 'CBE225', 'DateFrom e DateTo são obrigatórios.');
+      const list = [...state.accounts.entries()].filter(([doc]) => doc.length === 11)
+        .map(([doc, a]) => ({ statusAccount: a.statusAccount || 'ATIVO', documentNumber: doc, fullName: a.fullName, account: { branch: a.branch, account: a.account } }));
+      return { version: '1.0.0', status: 'SUCCESS', totalItems: list.length, currentPage: 1, totalPages: 1, body: { accounts: list } };
+    }
+    // ---- Webhooks do BaaS e do DDA
+    if (method === 'POST' && p === '/baas/v2/webhook/subscription') {
+      state.subscriptions = state.subscriptions || [];
+      const sub = { subscriptionId: crypto.randomUUID(), entity: body.entity, webhookUrl: body.webhookUrl, active: true };
+      state.subscriptions.push(sub);
+      return { version: '1.0.0', status: 'SUCCESS', body: sub };
+    }
+    if (method === 'GET' && p === '/baas/v2/webhook/subscription') {
+      const subs = state.subscriptions || [];
+      if (!subs.length) throw err(404, 'CBE217', 'Não foram encontrados webhooks cadastrados.');
+      return { version: '1.0.0', status: 'SUCCESS', body: { subscriptions: subs } };
+    }
+    if (method === 'POST' && p === '/dda-servicewebhook-webservice/v1/webhook/register') {
+      state.ddaRoutes = (state.ddaRoutes || []).filter((r) => r.typeEventWebhook !== String(body.typeEventWebhook).toLowerCase());
+      state.ddaRoutes.push({ typeEventWebhook: String(body.typeEventWebhook).toLowerCase(), url: body.url });
+      return { status: 201, body: { typeEventWebhook: String(body.typeEventWebhook).toLowerCase(), url: body.url } };
+    }
+    if (method === 'GET' && p === '/dda-servicewebhook-webservice/v1/webhook/routes') {
+      if (!(state.ddaRoutes || []).length) throw err(401, 'CDDA001', 'Nenhum webhook cadastrado');
+      return { status: 200, body: state.ddaRoutes };
+    }
+    // ---- QR Code dinâmico: payload carregado pela URL (COB e COBV)
+    if (method === 'GET' && (p.startsWith('/pix/v1/collection/immediate/payload/') || p.startsWith('/pix/v1/collection/duedate/payload/'))) {
+      const due = p.includes('/duedate/');
+      const url = decodeURIComponent(p.split('/payload/')[1]);
+      const qr = (state.dynamicQrs || {})[url];
+      if (!qr) throw err(400, 'PCE010', 'The BRCode is expired and can\'t be paid.');
+      return { version: '1.0.0', status: 200, body: qr.payload(due) };
+    }
+    // ---- Devolução de Pix recebido
+    if (method === 'POST' && p === '/baas/v2/pix/reverse') {
+      if (!body.clientCode || !body.amount || !body.reason || !(body.id || body.endToEndId)) throw err(400, 'CBE225', 'Campos obrigatórios ausentes.');
+      const id = crypto.randomUUID();
+      return { version: '1.0.0', status: 'PROCESSING', body: { id, clientCode: body.clientCode, amount: body.amount, originalEndToEndId: body.endToEndId, returnIdentification: `D13935893${Date.now()}` } };
+    }
     throw err(404, 'MOCK_ROUTE', `Rota não simulada: ${method} ${p}`);
   } catch (e) { return wrapError(e); }
 }
@@ -351,4 +407,10 @@ function ddaEvents() {
   return ready.map((e) => ({ id: e.id, at: new Date(e.readyAt).toISOString().replace('T', ' ').slice(0, 19), body: e.body }));
 }
 
-module.exports = { handle, approveDocumentscopy, devCredit, state, ddaEvents, ddaState };
+// Só no simulado: registra um QR dinâmico (COB ou COBV) para o payload responder pela URL.
+function registerDynamicQr(url, payload) {
+  state.dynamicQrs = state.dynamicQrs || {};
+  state.dynamicQrs[url] = { payload };
+}
+
+module.exports = { handle, approveDocumentscopy, devCredit, state, ddaEvents, ddaState, registerDynamicQr };

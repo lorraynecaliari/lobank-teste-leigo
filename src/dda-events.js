@@ -39,7 +39,9 @@ async function fetchWebhookSite() {
   for (const r of data.data || []) {
     let parsed;
     try { parsed = JSON.parse(r.content || ''); } catch (_) { continue; }
-    if (parsed && parsed.entity) continue; // eventos do BaaS (Pix, boleto): não são do DDA
+    // Eventos do BaaS (onboarding, Pix, devoluções) têm "entity": vão para o tratamento de webhooks,
+    // com a mesma deduplicação do endpoint do app.
+    if (parsed && (parsed.entity || parsed.Entity)) { require('./webhooks').handle(parsed, 'webhook.site', r.created_at); continue; }
     store(r.uuid, r.created_at, parsed && parsed.body);
   }
 }

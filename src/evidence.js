@@ -169,4 +169,10 @@ function record({ mode, method, path: celPath, reqBody, status, resBody, duratio
   }
 }
 
-module.exports = { ENABLED, DIR, middleware, record, mask, maskPath, normalizeRoute, correlation };
+// Para ferramentas do app fora do servidor (tools/celcoin-admin.js): marca a ação no registro.
+function run(appRoute, fn) {
+  if (!ENABLED) return fn();
+  return context.run({ appRoute, appRequestId: crypto.randomBytes(6).toString('hex') }, fn);
+}
+
+module.exports = { ENABLED, DIR, middleware, record, run, mask, maskPath, normalizeRoute, correlation };
