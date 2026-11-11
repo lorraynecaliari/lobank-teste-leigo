@@ -364,6 +364,9 @@ router.get('/statement', auth.requireUser, auth.requireAccount, wrap(async (req,
       description: m.description || null, status: STATUS[m.status] || m.status, counterpart: (party && party.name) || null,
       endToEndId: a.endToEndId || null, balanceBefore: num(a.oldBalance), balanceAfter: num(a.currentBalance),
       refundable: m.balanceType === 'CREDIT' && /PIX/i.test(String(m.movementType || '')) && m.status === 'CONFIRMED' && !!a.endToEndId,
+      // Quem pagou (Pix recebido): mostrado na devolução. O app mascara o documento na tela.
+      payer: m.balanceType === 'CREDIT' && a.debitParty ? { name: a.debitParty.name || null, taxId: a.debitParty.taxId || null, bank: a.debitParty.bank || null,
+        branch: a.debitParty.branch || null, account: a.debitParty.account || null } : null,
     };
   });
   // Saldo que muda sem lançamento: no sandbox (11/11), R$ 1.309,95 de dois boletos recusados saíram do saldo
@@ -689,7 +692,10 @@ router.get('/pix/reversals/:id', auth.requireUser, wrap(async (req, res) => {
   await syncBaasEvents();
   const r = db.prepare('SELECT * FROM pix_reversals WHERE id = ? AND user_id = ?').get(Number(req.params.id), req.user.id);
   if (!r) return bad(res, 'NOT_FOUND', 'Devolução não encontrada.', 404);
-  res.json({ id: r.id, status: r.status, amount: r.amount, reason: r.reason, errorCode: r.error_code, clientCode: r.client_code });
+  const rec = db.prepare('SELECT * FROM pix_receipts WHERE id = ?').get(r.receipt_id) || {};
+  res.json({ id: r.id, status: r.status, amount: r.amount, reason: r.reason, errorCode: r.error_code, clientCode: r.client_code, returnId: r.return_id,
+    createdAt: r.created_at, payer: (JSON.parse(rec.payer_json || '{}').name) || null, endToEndId: rec.end_to_end_id || null,
+    errorMessage: r.status === 'ERROR' ? (FRIENDLY[r.error_code] || 'A devolução não foi concluída.') : null });
 }));
 
 // ---------------------------------------------------------------- Pix in (QR estático)
@@ -1028,6 +1034,10 @@ if (celcoin.MODE === 'mock') {
   router.post('/dev/dda-events-down', (req, res) => { require('./celcoin-mock').ddaState.down = req.body.down === true; res.json({ down: req.body.down === true }); });
   router.post('/dev/credit', auth.requireUser, auth.requireAccount, (req, res) => {
     res.json({ ok: mock.devCredit(req.account.account, v.parseAmount(req.body.amount) || 1000) });
+  });
+  router.post('/dev/pix-in', auth.requireUser, auth.requireAccount, (req, res) => {
+    const payer = { name: 'Douglas Assis de Oliveira', taxId: '52998224725', bank: '18236120', branch: '0001', account: '840474112', accountType: 'TRAN' };
+    res.json({ endToEndId: mock.devPixIn(req.account.account, v.parseAmount(req.body.amount) || 90, payer) });
   });
 }
 

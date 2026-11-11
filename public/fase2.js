@@ -584,7 +584,7 @@
           <span class="mov__amount mov__amount--${m.direction}">${m.direction === 'in' ? '+ ' : '− '}${money(m.amount)}</span></button>`;
       });
       $('#list').innerHTML = html;
-      $$('.mov', root).forEach((b) => { b.onclick = () => { const m = list[Number(b.dataset.i)]; if (m.txId) go((m.kind === 'BILL' ? '/boleto/comprovante/' : '/comprovante/') + m.txId); else detail(m); }; });
+      $$('.mov', root).forEach((b) => { b.onclick = () => { const m = list[Number(b.dataset.i)]; if (m.refundable && L.openRefund) L.openRefund(m); else if (m.txId) go((m.kind === 'BILL' ? '/boleto/comprovante/' : '/comprovante/') + m.txId); else detail(m); }; });
     };
     $('#q').oninput = () => { f.q = $('#q').value.trim(); paint(); };
     $('#dl').onclick = () => downloadSheet(applyFilters(all, f), f);
@@ -675,7 +675,7 @@
 
   // ============================================================ MINHA CONTA (Wallet | Minha conta + Editar dados)
   // Só os itens que funcionam (mesma decisão dos atalhos da Home): Minhas chaves Pix, Minhas senhas, Meus dados e Sair.
-  // Retirados: Gestão de usuário, Meus limites, Tarifas e planos, Meu DDA, Cancelar DDA, Dúvidas, Cancelar minha conta.
+  // Retirados: Gestão de usuário, Meus limites, Tarifas e planos, Meu DDA, Cancelar DDA e Dúvidas. "Cancelar minha conta" voltou (11/11): encerra a conta na Celcoin.
   route('/minha-conta', async (root) => {
     if (!(await needAccount())) return;
     const me = state.me;
@@ -684,7 +684,7 @@
         <span class="acc-hero__avatar">${esc(L.initials(me.fullName))}</span><p class="acc-hero__name">${esc(me.fullName)}</p><p class="acc-hero__doc">CELCOIN IP S.A. · ${me.personType === 'PJ' ? 'CNPJ' : 'CPF'} ${maskDoc(me.document || '')}</p>
         <div class="acc-hero__meta"><span>Agência ${esc(me.account.branch)}</span><span>Conta ${esc(me.account.account)}</span></div>
         <button class="acc-hero__share" id="share">Compartilhar</button></div>
-      <div class="scroll">${row('keys', I.key, 'Minhas chaves Pix')}${row('dda', I.barcode, 'Débito Direto Autorizado (DDA)')}${row('pw', I.shield, 'Minhas senhas')}${row('data', I.person, 'Meus dados')}
+      <div class="scroll">${row('keys', I.key, 'Minhas chaves Pix')}${row('dda', I.barcode, 'Débito Direto Autorizado (DDA)')}${row('pw', I.shield, 'Minhas senhas')}${row('data', I.person, 'Meus dados')}${row('close', I.trash, 'Cancelar minha conta')}
         <div style="padding:16px 24px"><button class="btn btn-ghost acc-out" id="out">Sair do aplicativo</button></div></div>`, { studio: '2d3d03ce Minha conta (só itens que funcionam)' });
     wireBack(root);
     $('#keys').onclick = () => go('/pix/chaves');
@@ -701,6 +701,7 @@
     };
     $('#pw').onclick = () => go('/minha-conta/senhas');
     $('#data').onclick = () => go('/minha-conta/dados');
+    $('#close').onclick = () => L.closeAccount();
     $('#share').onclick = () => copy(`${me.fullName}\nCELCOIN IP S.A. (ISPB 13935893)\nAgência ${me.account.branch} · Conta ${me.account.account}\n${me.personType === 'PJ' ? 'CNPJ' : 'CPF'} ${fmtDoc(me.document || '')}`);
     $('#out').onclick = async () => { await api('/auth/logout', { method: 'POST', allow401: true }); state.me = null; go('/login'); };
   });

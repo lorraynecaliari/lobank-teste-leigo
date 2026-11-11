@@ -994,7 +994,7 @@
         <span class="mov__amount mov__amount--${m.direction}">${m.direction === 'in' ? '+ ' : '− '}${money(m.amount)}</span></button>`;
     });
     $('#list').innerHTML = html;
-    $$('.mov').forEach((b) => { b.onclick = () => { const m = movements[Number(b.dataset.i)]; if (m.txId) go('/comprovante/' + m.txId); else detail(m); }; });
+    $$('.mov').forEach((b) => { b.onclick = () => { const m = movements[Number(b.dataset.i)]; if (m.refundable && window.LoBank.openRefund) window.LoBank.openRefund(m); else if (m.txId) go('/comprovante/' + m.txId); else detail(m); }; });
   });
 
   // Studio: "Extrato | Detalhes da transação" (modelo comum), para lançamentos sem comprovante de Pix do app

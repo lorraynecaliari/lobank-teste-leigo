@@ -359,7 +359,18 @@ async function handle(method, path, body) {
     if (method === 'POST' && p === '/baas/v2/pix/reverse') {
       if (!body.clientCode || !body.amount || !body.reason || !(body.id || body.endToEndId)) throw err(400, 'CBE225', 'Campos obrigatórios ausentes.');
       const id = crypto.randomUUID();
-      return { version: '1.0.0', status: 'PROCESSING', body: { id, clientCode: body.clientCode, amount: body.amount, originalEndToEndId: body.endToEndId, returnIdentification: `D13935893${Date.now()}` } };
+      const ret = `D13935893${Date.now()}`;
+      // Como no sandbox: responde PROCESSING e o desfecho chega depois, no aviso pix-reversal-out.
+      // Se o Pix original está no extrato simulado, a devolução debita a conta.
+      setTimeout(() => {
+        for (const [, moves] of state.movements) {
+          if (moves.some((m) => m.extra && m.extra.endToEndId === body.endToEndId)) {
+            moves.push({ id, clientCode: body.clientCode, description: 'Devolução de Pix', createDate: now(), amount: Number(body.amount), balanceType: 'DEBIT', movementType: 'PIXREVERSALOUT', extra: { endToEndId: ret } });
+          }
+        }
+        try { require('./webhooks').handle({ entity: 'pix-reversal-out', status: 'CONFIRMED', body: { id, clientCode: body.clientCode, amount: Number(body.amount), endToEndId: ret } }, 'mock'); } catch (_) { /* simulado */ }
+      }, 1500).unref();
+      return { version: '1.0.0', status: 'PROCESSING', body: { id, clientCode: body.clientCode, amount: body.amount, originalEndToEndId: body.endToEndId, returnIdentification: ret } };
     }
     throw err(404, 'MOCK_ROUTE', `Rota não simulada: ${method} ${p}`);
   } catch (e) { return wrapError(e); }
@@ -371,6 +382,16 @@ function devCredit(account, amount) {
   if (!moves) return false;
   moves.push({ id: crypto.randomUUID(), clientCode: 'mock-credit', description: 'Crédito simulado', createDate: now(), amount, balanceType: 'CREDIT', movementType: 'ENTRYCREDIT' });
   return true;
+}
+
+// Pix recebido simulado: entra no extrato como o power-movement real (PIXPAYMENTIN com endToEndId e quem pagou).
+function devPixIn(account, amount, payer) {
+  const moves = state.movements.get(account);
+  if (!moves) return null;
+  const e2e = `E13935893${new Date().toISOString().slice(0, 10).replace(/-/g, '')}${crypto.randomBytes(6).toString('hex')}`;
+  moves.push({ id: crypto.randomUUID(), clientCode: `mock-in-${crypto.randomBytes(3).toString('hex')}`, description: 'Pix recebido', createDate: now(), amount,
+    balanceType: 'CREDIT', movementType: 'PIXPAYMENTIN', extra: { endToEndId: e2e, debitParty: payer } });
+  return e2e;
 }
 
 // ---- eventos do DDA simulados (o app lê como leria do webhook.site)
@@ -413,4 +434,4 @@ function registerDynamicQr(url, payload) {
   state.dynamicQrs[url] = { payload };
 }
 
-module.exports = { handle, approveDocumentscopy, devCredit, state, ddaEvents, ddaState, registerDynamicQr };
+module.exports = { handle, approveDocumentscopy, devCredit, devPixIn, state, ddaEvents, ddaState, registerDynamicQr };

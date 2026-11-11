@@ -124,6 +124,24 @@ test('pix-payment-in: confere o valor integral do QR gerado e permite devolver (
   assert.equal(r.data.status, 'CONFIRMED');
 });
 
+test('devolução a partir do extrato: Pix recebido que só está no extrato da Celcoin', async () => {
+  await newAccount('84729153600', '11987650161', 'wh7@example.com');
+  let r = await call('POST', '/api/dev/pix-in', { amount: 40 });
+  const e2e = r.data.endToEndId;
+  r = await call('GET', '/api/statement');
+  const m = r.data.movements.find((x) => x.endToEndId === e2e);
+  assert.ok(m && m.refundable, 'o Pix recebido aparece no extrato como devolvível');
+  assert.equal(m.payer.name, 'Douglas Assis de Oliveira');
+  r = await call('POST', '/api/pix/refund', { endToEndId: e2e, date: m.date.slice(0, 10), amount: 41, txPassword: '1234', reason: 'MD06' });
+  assert.equal(r.data.error, 'AMOUNT_TOO_HIGH');
+  r = await call('POST', '/api/pix/refund', { endToEndId: e2e, date: m.date.slice(0, 10), amount: 15, txPassword: '1234', reason: 'BE08' });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  await new Promise((ok) => setTimeout(ok, 1700)); // o simulado confirma pelo aviso pix-reversal-out
+  r = await call('GET', `/api/pix/reversals/${r.data.id}`);
+  assert.equal(r.data.status, 'CONFIRMED');
+  assert.equal(r.data.payer, 'Douglas Assis de Oliveira');
+});
+
 test('onboarding-create: o aviso vincula a conta à proposta pelo clientCode', async () => {
   cookie = '';
   const r = await call('POST', '/api/onboarding/pf', person('390.533.447-05', '11987650121', 'wh3@example.com'));
