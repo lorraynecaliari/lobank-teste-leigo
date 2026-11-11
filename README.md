@@ -51,6 +51,8 @@ Para mexer nas telas sem credenciais: `CELCOIN_MODE=mock npm start`. Todas as te
 | Extrato completo e relatórios | Extrato com busca, Filtrar (período de até 7 dias, tipo, categoria), Baixar extrato (PDF, CSV, OFX) | `GET /baas-walletreports/v1/wallet/movement`; filtros e arquivos montados no app |
 | Minha conta | Minha conta (só itens que funcionam), Meus dados, Minhas senhas (**nova**) | `PUT /baas/v2/account/natural-person` e `/business` (telefone, e-mail, endereço) |
 
+Catálogo com o print de todas as telas: [`docs/telas.md` na branch `main`](https://github.com/lorraynecaliari/lobank-teste-leigo/blob/main/docs/telas.md), gerado por `tools/telas/capturar.py` (regra em `CLAUDE.md`).
+
 ## Pagamento de contas (boleto)
 
 | Fluxo | Telas | Integração Celcoin |
