@@ -450,3 +450,22 @@ test('DDA: classificação dos eventos (o webhook não diz o tipo)', () => {
   assert.equal(classify({ registerData: { payer: { documentNumber: '1' } } }).type, 'INVOICE');
   assert.equal(classify({ entity: 'pix-payment-out' }), null);
 });
+
+test('DDA: pedido sem aviso depois do prazo libera pedir de novo', async () => {
+  cookie = '';
+  let r = await call('POST', '/auth/login', { document: '90830166173', password: 'outraSenha2' });
+  assert.equal(r.status, 200);
+  const db = require('../src/db');
+  // Como a saída da LTDA em 11/11: pedido enviado e aviso perdido, 40 minutos atrás.
+  db.prepare("INSERT INTO dda_requests (user_id, document, kind, client_request_id, created_at) SELECT id, document, 'DELETE', 'perdido-1', datetime('now', '-40 minutes') FROM users WHERE document = '90830166173'").run();
+  r = await call('GET', '/dda');
+  assert.equal(r.data.status, 'TIMEOUT');
+  assert.equal(r.data.request.kind, 'DELETE');
+  r = await call('POST', '/dda/subscribe', { accept: true });
+  assert.equal(r.data.error, 'USE_CANCEL_AGAIN');
+  r = await call('POST', '/dda/cancel', { txPassword: '9999' });
+  assert.equal(r.data.status, 'CANCELLING', JSON.stringify(r.data));
+  await new Promise((ok) => setTimeout(ok, 1700));
+  r = await call('GET', '/dda');
+  assert.equal(r.data.status, 'NONE');
+});

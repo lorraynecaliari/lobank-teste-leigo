@@ -760,6 +760,7 @@ router.get('/bills/:id', auth.requireUser, auth.requireAccount, wrap(async (req,
 // documento; um pedido do app ainda sem evento fica "em processamento".
 const ddaEvents = require('./dda-events');
 const DDA_TERMS_VERSION = 'modelo-termo-adesao-dda (Celcoin)';
+const DDA_PENDING_TIMEOUT_MS = Math.max(60e3, Number(process.env.DDA_PENDING_TIMEOUT_MIN ?? 30) * 60e3);
 const DDA_FRIENDLY = {
   CDDA106: 'Já existe um pedido de adesão em andamento para esse documento.',
   CDDA101: 'A Celcoin não aceitou o documento.',
@@ -799,7 +800,11 @@ function ddaState(user) {
   const req = db.prepare('SELECT * FROM dda_requests WHERE document = ? ORDER BY id DESC LIMIT 1').get(doc);
   const forReq = req && evs.find((e) => e.body.clientRequestId === req.client_request_id);
   let status = 'NONE', error = null, deleteFailed = false;
-  if (req && !forReq) status = req.kind === 'SUBSCRIBE' ? 'PROCESSING' : 'CANCELLING';
+  // Pedido sem aviso depois do prazo: o aviso pode ter se perdido (11/11: a saída da LTDA nunca chegou ao webhook.site).
+  // A Celcoin não tem consulta de status, então o app para de esperar e deixa pedir de novo.
+  const age = req ? Date.now() - Date.parse(req.created_at.replace(' ', 'T') + 'Z') : 0;
+  if (req && !forReq && age > DDA_PENDING_TIMEOUT_MS) status = 'TIMEOUT';
+  else if (req && !forReq) status = req.kind === 'SUBSCRIBE' ? 'PROCESSING' : 'CANCELLING';
   else if (last) {
     const st = String(last.body.status).toUpperCase();
     if (st === 'CREATED') status = 'ACTIVE';
@@ -807,7 +812,7 @@ function ddaState(user) {
     else if (st === 'INACTIVE') status = 'NONE';
     else if (st === 'INACTIVE_FAILED') { status = 'ACTIVE'; deleteFailed = true; }
   }
-  return { status, error: error && { code: error.ErrorCode || error.errorCode, message: DDA_FRIENDLY[error.ErrorCode] || error.ErrorMessage || error.message },
+  return { status, timeoutMinutes: Math.round(DDA_PENDING_TIMEOUT_MS / 60e3), error: error && { code: error.ErrorCode || error.errorCode, message: DDA_FRIENDLY[error.ErrorCode] || error.ErrorMessage || error.message },
     deleteFailed, request: req ? { kind: req.kind, at: req.created_at } : null, since: last && String(last.body.status).toUpperCase() === 'CREATED' ? last.received_at : null };
 }
 const ddaHasEvents = (doc) => !!db.prepare('SELECT 1 FROM dda_events WHERE document = ? LIMIT 1').get(doc);
@@ -839,6 +844,7 @@ router.post('/dda/subscribe', auth.requireUser, auth.requireAccount, wrap(async 
     return bad(res, 'EVENTS_UNAVAILABLE', `Não conseguimos confirmar se o DDA já está ativo (${sync.error}). Tente de novo em instantes.`, 503);
   }
   if (st.status === 'ACTIVE') return bad(res, 'ALREADY_ACTIVE', 'O DDA já está ativo para essa conta.', 409);
+  if (st.status === 'TIMEOUT' && st.request.kind === 'DELETE') return bad(res, 'USE_CANCEL_AGAIN', 'O pedido anterior foi de saída. Peça a saída de novo para confirmar a situação.', 409);
   if (st.status === 'PROCESSING' || st.status === 'CANCELLING') return bad(res, 'IN_PROGRESS', 'Já existe um pedido do DDA em andamento. Aguarde o retorno da Celcoin.', 409);
   const crid = celcoin.uid('lobank-dda');
   const contact = { email: String(req.body.email || '').trim(), phone: v.onlyDigits(req.body.phone), cep: v.onlyDigits(req.body.cep) };
@@ -856,9 +862,24 @@ router.post('/dda/subscribe', auth.requireUser, auth.requireAccount, wrap(async 
 router.post('/dda/cancel', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
   if (!auth.verifySecret(String(req.body.txPassword || ''), req.user.tx_password_hash)) return bad(res, 'INVALID_TX_PASSWORD', 'Senha de transferência incorreta.', 422); // 422: a sessão continua válida
   await ddaEvents.sync();
-  if (ddaState(req.user).status !== 'ACTIVE') return bad(res, 'NOT_ACTIVE', 'O DDA não está ativo para essa conta.', 409);
+  const cur = ddaState(req.user);
+  const retryDelete = cur.status === 'TIMEOUT' && cur.request.kind === 'DELETE';
+  if (cur.status !== 'ACTIVE' && !retryDelete) return bad(res, 'NOT_ACTIVE', 'O DDA não está ativo para essa conta.', 409);
   const crid = celcoin.uid('lobank-dda-saida');
-  const r = await celcoin.ddaUnsubscribe(req.user.document, crid);
+  let r;
+  try { r = await celcoin.ddaUnsubscribe(req.user.document, crid); }
+  catch (e) {
+    // Repetindo uma saída sem aviso: se a Celcoin diz que não há adesão ativa, a saída anterior já valeu.
+    // Guarda um aviso do próprio app (id app-...) para o status ficar certo.
+    if (retryDelete && e instanceof celcoin.CelcoinError && /nenhuma subscri|n[aã]o .*ativ|inexist|not found/i.test(e.message || '')) {
+      db.prepare('INSERT OR IGNORE INTO dda_events (id, document, type, received_at, data_json) VALUES (?, ?, ?, ?, ?)')
+        .run(`app-${cur.request.at}`, req.user.document, 'DELETION', new Date().toISOString().replace('T', ' ').slice(0, 19),
+          JSON.stringify({ document: req.user.document, clientRequestId: db.prepare('SELECT client_request_id FROM dda_requests WHERE document = ? ORDER BY id DESC LIMIT 1').get(req.user.document).client_request_id,
+            subscriptionId: 'app', status: 'Inactive', error: null, source: 'app: Celcoin informou que não há adesão ativa' }));
+      return res.json({ status: 'NONE', inWindow: ddaInWindow() });
+    }
+    throw e;
+  }
   db.prepare("INSERT INTO dda_requests (user_id, document, kind, client_request_id, subscription_id) VALUES (?, ?, 'DELETE', ?, ?)")
     .run(req.user.id, req.user.document, crid, r.body && r.body.subscriptionId);
   res.json({ status: 'CANCELLING', inWindow: ddaInWindow() });

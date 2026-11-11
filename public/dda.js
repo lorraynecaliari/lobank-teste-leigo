@@ -35,7 +35,7 @@
       const s = await loadDda();
       state.dda = s;
       go(s.status === 'ACTIVE' ? '/dda/boletos' : s.status === 'PROCESSING' || s.status === 'CANCELLING' ? '/dda/processando'
-        : s.status === 'ERROR' ? '/dda/erro' : s.status === 'UNKNOWN' ? '/dda/indisponivel' : '/dda/termos');
+        : s.status === 'ERROR' ? '/dda/erro' : s.status === 'UNKNOWN' ? '/dda/indisponivel' : s.status === 'TIMEOUT' ? '/dda/sem-resposta' : '/dda/termos');
     } catch (e) { toast(e.message); go('/home'); }
   });
 
@@ -50,6 +50,21 @@
     { studio: 'novo:dda-indisponivel (modelo 4e85d7cd Erro)' });
     $('#again').onclick = () => go('/dda');
     $('#home').onclick = () => go('/home');
+  });
+
+  // ============================================================ Pedido sem confirmação depois do prazo (tela nova)
+  route('/dda/sem-resposta', async (root) => {
+    if (!(await needAccount())) return;
+    const s = state.dda = await loadDda();
+    if (s.status !== 'TIMEOUT') return go('/dda');
+    const leaving = s.request && s.request.kind === 'DELETE';
+    root.innerHTML = frame(`<div class="scroll"><div class="result" style="margin-top:96px"><span class="result__badge result__badge--err" style="width:72px;height:72px">${I.err}</span>
+      <h1 class="result__title">Não recebemos a confirmação da Celcoin</h1>
+      <p class="result__desc">Seu pedido de ${leaving ? 'saída do' : 'adesão ao'} DDA foi enviado, mas a resposta não chegou em ${s.timeoutMinutes} minutos. O aviso pode ter se perdido. Você pode pedir de novo.</p></div>${windowNote(s)}</div>
+      <div class="actions"><button class="btn btn-primary" id="again">${leaving ? 'Pedir a saída de novo' : 'Pedir a adesão de novo'}</button><button class="btn btn-ghost" id="home">Voltar ao início</button></div>`,
+    { studio: 'novo:dda-sem-resposta (modelo 4e85d7cd Erro)' });
+    $('#home').onclick = () => go('/home');
+    $('#again').onclick = () => (leaving ? confirmCancel() : go('/dda/termos'));
   });
 
   // ============================================================ Termos de uso (b86afc13)
@@ -134,6 +149,7 @@
       if (s && s.status === 'ACTIVE') return go(s.deleteFailed ? '/dda/boletos' : '/dda/sucesso');
       if (s && s.status === 'ERROR') return go('/dda/erro');
       if (s && s.status === 'NONE') return go('/dda/desativado');
+      if (s && s.status === 'TIMEOUT') return go('/dda/sem-resposta');
       paint();
     };
     if (state.ddaJustSent) { state.ddaJustSent = false; paint(); } else query();
@@ -178,8 +194,10 @@
     ok.onclick = async () => {
       setLoading(ok, true);
       try {
-        await api('/dda/cancel', { method: 'POST', body: { txPassword: tp.value } });
-        s.close(); state.dda = { status: 'CANCELLING', inWindow: true }; state.ddaJustSent = true; go('/dda/processando');
+        const r = await api('/dda/cancel', { method: 'POST', body: { txPassword: tp.value } });
+        s.close();
+        if (r.status === 'NONE') return go('/dda/desativado'); // a Celcoin já não tinha adesão ativa
+        state.dda = { status: 'CANCELLING', inWindow: true }; state.ddaJustSent = true; go('/dda/processando');
       } catch (e) { setLoading(ok, false); ok.disabled = false; tpe.textContent = e.message; tpe.classList.add('is-visible'); }
     };
   }
