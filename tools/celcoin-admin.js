@@ -3,6 +3,7 @@
 // (src/celcoin.js), com o mesmo registro de evidências (EVIDENCIAS=1 no .env).
 //
 //   node tools/celcoin-admin.js contas [AAAA-MM-DD] [AAAA-MM-DD]        lista contas PF (fetch-all)
+//   node tools/celcoin-admin.js conta-status <cpf|cnpj> bloquear|desbloquear <motivo>  (escrita no sandbox)
 //   node tools/celcoin-admin.js webhooks-baas listar                    inscrições do BaaS
 //   node tools/celcoin-admin.js webhooks-baas cadastrar <url> [entidades]  cadastra (escrita no sandbox)
 //   node tools/celcoin-admin.js webhooks-dda listar                     URLs do DDA (webhook/routes)
@@ -26,6 +27,28 @@ async function main(argv) {
     const data = await evidence.run('CLI contas (fetch-all)', () => celcoin.listAccounts({ dateFrom, dateTo }));
     return show(`Contas PF abertas de ${dateFrom} a ${dateTo}:`, data);
   }
+  if (cmd === 'conta-status') {
+    // Bloquear e desbloquear ficam só com quem administra as contas (decisão da usuária, 11/11), não com o titular.
+    const doc = String(sub || '').replace(/\D/g, '');
+    const action = String(args[0] || '').toLowerCase();
+    const reason = args.slice(1).join(' ').trim();
+    const status = { bloquear: 'BLOQUEADO', desbloquear: 'ATIVO' }[action];
+    if (!(doc.length === 11 || doc.length === 14) || !status || reason.length < 3) {
+      throw new Error('Uso: conta-status <cpf|cnpj> bloquear|desbloquear <motivo> [--sim]');
+    }
+    const read = async () => {
+      const r = doc.length === 14 ? await celcoin.fetchAccountPJ(doc) : await celcoin.fetchAccountPF(doc);
+      const b = r.body || {};
+      const acc = doc.length === 14 ? b.businessAccount || {} : b.account || {};
+      return { account: acc.account, status: String((doc.length === 14 ? acc.statusAccount || b.statusAccount : b.statusAccount) || '').toUpperCase() || null };
+    };
+    const before = await evidence.run('CLI conta-status consultar', read);
+    if (!before.account) throw new Error('Conta não encontrada para esse documento.');
+    if (!yes) return console.log(`Escrita no sandbox: mudaria a conta …${String(before.account).slice(-3)} de ${before.status} para ${status}. Repita com --sim para confirmar.`);
+    await evidence.run('CLI conta-status alterar', () => celcoin.setAccountStatus(before.account, doc, status, reason));
+    const after = await evidence.run('CLI conta-status conferir', read);
+    return console.log(`Conta …${String(before.account).slice(-3)}: ${before.status} → ${after.status} (${after.status === status ? 'confirmado' : 'ainda não refletido'})`);
+  }
   if (cmd === 'webhooks-baas' && sub === 'listar') {
     return show('Inscrições de webhook do BaaS:', await evidence.run('CLI webhooks-baas listar', () => celcoin.listWebhookSubscriptions()));
   }
@@ -48,7 +71,7 @@ async function main(argv) {
     for (const t of celcoin.DDA_WEBHOOK_TYPES) show(`${t}:`, await evidence.run('CLI webhooks-dda cadastrar', () => celcoin.ddaWebhookRegister(t, url)));
     return;
   }
-  console.log('Uso: contas | webhooks-baas listar|cadastrar <url> [--sim] | webhooks-dda listar|cadastrar <url> [--sim]');
+  console.log('Uso: contas | conta-status <cpf|cnpj> bloquear|desbloquear <motivo> [--sim] | webhooks-baas listar|cadastrar <url> [--sim] | webhooks-dda listar|cadastrar <url> [--sim]');
 }
 
 if (require.main === module) {

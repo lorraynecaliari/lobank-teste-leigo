@@ -291,23 +291,15 @@ router.put('/me', auth.requireUser, auth.requireAccount, wrap(async (req, res) =
 // ---------------------------------------------------------------- status e encerramento da conta
 // Bloquear/desbloquear (PUT /baas/v2/account/status) e encerrar (DELETE /baas/v2/account/close).
 // As duas pedem a senha de transferência e conferem o resultado relendo a conta na Celcoin.
-const ACCOUNT_STATUS = { BLOQUEAR: 'BLOQUEADO', DESBLOQUEAR: 'ATIVO' };
 const readAccountStatus = async (user) => {
   const pj = user.person_type === 'PJ';
   const acc = pj ? await celcoin.fetchAccountPJ(user.document) : await celcoin.fetchAccountPF(user.document);
   const b = acc.body || {};
   return String((pj ? (b.businessAccount && b.businessAccount.statusAccount) || b.statusAccount : b.statusAccount) || '').toUpperCase() || null;
 };
-router.put('/account/status', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
-  const action = String(req.body.action || '').toUpperCase();
-  if (!ACCOUNT_STATUS[action]) return bad(res, 'INVALID_ACTION', 'Escolha bloquear ou desbloquear a conta.');
-  const reason = String(req.body.reason || '').trim().slice(0, 200);
-  if (reason.length < 3) return bad(res, 'REASON_REQUIRED', 'Informe o motivo.');
-  if (!auth.verifySecret(String(req.body.txPassword || ''), req.user.tx_password_hash)) return bad(res, 'INVALID_TX_PASSWORD', 'Senha de transferência incorreta.', 422);
-  await celcoin.setAccountStatus(req.account.account, req.user.document, ACCOUNT_STATUS[action], reason);
-  const now = await readAccountStatus(req.user);
-  res.json({ requested: ACCOUNT_STATUS[action], statusAccount: now, confirmed: now === ACCOUNT_STATUS[action] });
-}));
+// Bloquear e desbloquear conta não ficam com o titular: só quem administra as contas, por
+// tools/celcoin-admin.js (decisão da usuária, 11/11).
+
 router.delete('/account', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
   const reason = String(req.body.reason || '').trim().slice(0, 200);
   if (reason.length < 3) return bad(res, 'REASON_REQUIRED', 'Informe o motivo do encerramento.');
@@ -371,6 +363,7 @@ router.get('/statement', auth.requireUser, auth.requireAccount, wrap(async (req,
       amount: Number(m.amount) || 0, direction: m.balanceType === 'CREDIT' ? 'in' : 'out', type: m.movementType,
       description: m.description || null, status: STATUS[m.status] || m.status, counterpart: (party && party.name) || null,
       endToEndId: a.endToEndId || null, balanceBefore: num(a.oldBalance), balanceAfter: num(a.currentBalance),
+      refundable: m.balanceType === 'CREDIT' && /PIX/i.test(String(m.movementType || '')) && m.status === 'CONFIRMED' && !!a.endToEndId,
     };
   });
   // Saldo que muda sem lançamento: no sandbox (11/11), R$ 1.309,95 de dois boletos recusados saíram do saldo
@@ -646,20 +639,29 @@ router.get('/pix/transfer/:id', auth.requireUser, wrap(async (req, res) => {
 
 // ---------------------------------------------------------------- Pix recebidos e devolução
 // Os recebimentos vêm dos avisos pix-payment-in (webhook), conferidos contra a cobrança gerada pelo app.
-router.get('/pix/receipts', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
-  await syncBaasEvents();
-  const list = db.prepare('SELECT * FROM pix_receipts WHERE account = ? ORDER BY id DESC LIMIT 100').all(String(req.account.account));
-  const rev = db.prepare('SELECT receipt_id, SUM(amount) AS total FROM pix_reversals WHERE user_id = ? AND status != ? GROUP BY receipt_id').all(req.user.id, 'ERROR');
-  const reversed = new Map(rev.map((r) => [r.receipt_id, r.total]));
-  res.json({ receipts: list.map((r) => ({ id: r.id, amount: r.amount, receivedAt: r.received_at, endToEndId: r.end_to_end_id, initiationType: r.initiation_type,
-    expectedAmount: r.expected_amount, amountOk: r.amount_ok == null ? null : !!r.amount_ok, payer: (JSON.parse(r.payer_json || '{}').name) || null,
-    reversed: reversed.get(r.id) || 0 })) });
-}));
+// Pix recebidos ficam no extrato (power-movement); não há lista separada para o titular.
+
 
 const REVERSAL_REASONS = { MD06: 'Devolução solicitada pelo cliente', BE08: 'Erro bancário', FR01: 'Suspeita de fraude' };
-router.post('/pix/receipts/:id/refund', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
-  const r = db.prepare('SELECT * FROM pix_receipts WHERE id = ? AND account = ?').get(Number(req.params.id), String(req.account.account));
-  if (!r) return bad(res, 'NOT_FOUND', 'Recebimento não encontrado.', 404);
+// Devolução de um Pix recebido, a partir do lançamento no extrato (endToEndId + dia do lançamento).
+// O app confere no extrato da Celcoin que é um Pix recebido por esta conta antes de pedir a devolução.
+router.post('/pix/refund', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
+  const e2e = String(req.body.endToEndId || '').trim();
+  const day = String(req.body.date || '').slice(0, 10);
+  if (!/^E[0-9A-Za-z]{4,40}$/.test(e2e)) return bad(res, 'INVALID_E2E', 'Lançamento inválido.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return bad(res, 'INVALID_DATE', 'Data do lançamento inválida.');
+  if (Date.now() - Date.parse(day + 'T12:00:00Z') > 90 * DAY) return bad(res, 'REFUND_EXPIRED', 'A devolução só pode ser pedida até 90 dias depois do recebimento.', 422);
+  let r = db.prepare('SELECT * FROM pix_receipts WHERE end_to_end_id = ? AND account = ?').get(e2e, String(req.account.account));
+  if (!r) {
+    const data = await celcoin.getMovements(req.account.account, day, day);
+    const m = ((data.body && data.body.movements) || []).find((x) => x.balanceType === 'CREDIT' && /PIX/i.test(String(x.movementType || ''))
+      && (x.additionalInformation || {}).endToEndId === e2e);
+    if (!m) return bad(res, 'NOT_FOUND', 'Não encontramos esse Pix recebido no extrato da sua conta.', 404);
+    const payer = ((m.additionalInformation || {}).debitParty) || {};
+    db.prepare("INSERT OR IGNORE INTO pix_receipts (user_id, account, end_to_end_id, amount, payer_json) VALUES (?, ?, ?, ?, ?)")
+      .run(req.user.id, String(req.account.account), e2e, Number(m.amount) || 0, JSON.stringify({ name: payer.name || null }));
+    r = db.prepare('SELECT * FROM pix_receipts WHERE end_to_end_id = ? AND account = ?').get(e2e, String(req.account.account));
+  }
   if (!auth.verifySecret(String(req.body.txPassword || ''), req.user.tx_password_hash)) return bad(res, 'INVALID_TX_PASSWORD', 'Senha de transferência incorreta.', 422);
   const amount = req.body.amount ? v.parseAmount(req.body.amount) : r.amount;
   if (!amount) return bad(res, 'INVALID_AMOUNT', 'Valor inválido.');

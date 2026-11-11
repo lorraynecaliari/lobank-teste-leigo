@@ -99,17 +99,23 @@ test('pix-payment-in: confere o valor integral do QR gerado e permite devolver (
   assert.equal(r.status, 200, JSON.stringify(r.data));
   webhooks.handle({ entity: 'pix-payment-in', status: 'CONFIRMED', body: { id: 'in-1', amount: 10, endToEndId: 'E1111', initiationType: 'STATIC_QRCODE', creditParty: { account: acc, key }, debitParty: { name: 'Fulano' } } });
   webhooks.handle({ entity: 'pix-payment-in', status: 'CONFIRMED', body: { id: 'in-2', amount: 9.5, endToEndId: 'E2222', initiationType: 'STATIC_QRCODE', creditParty: { account: acc, key }, debitParty: { name: 'Beltrano' } } });
+  // Pix recebidos não têm lista própria para o titular: ficam no extrato (decisão da usuária, 11/11).
   r = await call('GET', '/api/pix/receipts');
-  const byE2e = Object.fromEntries(r.data.receipts.map((x) => [x.endToEndId, x]));
-  assert.equal(byE2e.E1111.amountOk, true);
-  assert.equal(byE2e.E2222.amountOk, false, 'valor diferente do cobrado é sinalizado');
-  assert.equal(byE2e.E2222.expectedAmount, 10);
+  assert.ok(!r.data.receipts, 'a rota de lista de recebimentos não existe mais');
+  const byE2e = Object.fromEntries(db.prepare('SELECT * FROM pix_receipts').all().map((x) => [x.end_to_end_id, x]));
+  assert.equal(byE2e.E1111.amount_ok, 1);
+  assert.equal(byE2e.E2222.amount_ok, 0, 'valor diferente do cobrado é sinalizado');
+  assert.equal(byE2e.E2222.expected_amount, 10);
 
-  r = await call('POST', `/api/pix/receipts/${byE2e.E2222.id}/refund`, { txPassword: '0000' });
+  // Devolução a partir do lançamento do extrato (endToEndId + dia).
+  const day = new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
+  r = await call('POST', '/api/pix/refund', { endToEndId: 'E9999naoexiste', date: day, txPassword: '1234' });
+  assert.equal(r.status, 404, 'Pix que não está no extrato da conta é recusado');
+  r = await call('POST', '/api/pix/refund', { endToEndId: 'E2222', date: day, txPassword: '0000' });
   assert.equal(r.data.error, 'INVALID_TX_PASSWORD');
-  r = await call('POST', `/api/pix/receipts/${byE2e.E2222.id}/refund`, { amount: 20, txPassword: '1234' });
+  r = await call('POST', '/api/pix/refund', { endToEndId: 'E2222', date: day, amount: 20, txPassword: '1234' });
   assert.equal(r.data.error, 'AMOUNT_TOO_HIGH');
-  r = await call('POST', `/api/pix/receipts/${byE2e.E2222.id}/refund`, { txPassword: '1234', reason: 'MD06' });
+  r = await call('POST', '/api/pix/refund', { endToEndId: 'E2222', date: day, txPassword: '1234', reason: 'MD06' });
   assert.equal(r.status, 200, JSON.stringify(r.data));
   assert.equal(r.data.status, 'PROCESSING');
   const rev = db.prepare('SELECT * FROM pix_reversals WHERE id = ?').get(r.data.id);
@@ -130,14 +136,11 @@ test('onboarding-create: o aviso vincula a conta à proposta pelo clientCode', a
   assert.equal(s.data.account.account, '77700011');
 });
 
-test('conta: bloquear, desbloquear e encerrar (saldo zero) conferindo pela releitura', async () => {
+test('conta: titular não bloqueia nem desbloqueia; encerrar exige saldo zero', async () => {
   await newAccount('153.509.460-56', '11987650131', 'wh4@example.com');
+  // Bloquear e desbloquear ficam só na ferramenta de administração (decisão da usuária, 11/11).
   let r = await call('PUT', '/api/account/status', { action: 'bloquear', reason: 'teste QA', txPassword: '1234' });
-  assert.equal(r.status, 200, JSON.stringify(r.data));
-  assert.equal(r.data.statusAccount, 'BLOQUEADO');
-  assert.equal(r.data.confirmed, true);
-  r = await call('PUT', '/api/account/status', { action: 'desbloquear', reason: 'teste QA', txPassword: '1234' });
-  assert.equal(r.data.statusAccount, 'ATIVO');
+  assert.notEqual(r.status, 200, 'o titular não muda o status da conta');
   await call('POST', '/api/dev/credit', { amount: 1 });
   r = await call('DELETE', '/api/account', { reason: 'teste QA', txPassword: '1234' });
   assert.equal(r.data.error, 'BALANCE_NOT_ZERO');

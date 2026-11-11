@@ -106,9 +106,11 @@ A pasta `data/` está fora do Git. Antes de compartilhar um relatório, confira 
 ## Webhooks do BaaS, gestão de conta, devolução e QR dinâmico (QA de homologação)
 
 - **Avisos da Celcoin** (`src/webhooks.js`): `onboarding-create`, `pix-payment-out`, `pix-payment-in`, `pix-reversal-out` e `pix-reversal-in`. Chegam por `POST /webhooks/celcoin` (responde 200 depois de gravar) ou pela leitura do webhook.site já usado no DDA. Cada aviso é gravado uma vez (entidade + status + `endToEndId`), aplicado pelo `clientCode` e registrado mascarado nas evidências. A consulta de status continua como rede de segurança.
-- **Pix recebido**: `GET /api/pix/receipts`. O recebimento de um QR estático do app é conferido contra o valor cobrado (`amountOk`).
-- **Devolução de Pix recebido**: `POST /api/pix/receipts/:id/refund` (`POST /baas/v2/pix/reverse`), resultado em `GET /api/pix/reversals/:id`.
-- **Conta**: `PUT /api/account/status` (bloquear/desbloquear, `PUT /baas/v2/account/status`) e `DELETE /api/account` (saldo zero, `DELETE /baas/v2/account/close`), ambos com senha de transferência e releitura da conta.
+- **Pix recebido**: aparece no extrato. O recebimento de um QR estático do app é conferido contra o valor cobrado.
+- **Devolução de Pix recebido**: a partir do lançamento do extrato, `POST /api/pix/refund` com `endToEndId` e o dia (`POST /baas/v2/pix/reverse`); o app confere no extrato da Celcoin que é um Pix recebido pela conta. Resultado em `GET /api/pix/reversals/:id`.
+- **Encerrar a conta**: `DELETE /api/account` (saldo zero, `DELETE /baas/v2/account/close`), com senha de transferência e releitura da conta.
+- **Só para quem administra as contas** (não ficam com o titular): bloquear e desbloquear (`tools/celcoin-admin.js conta-status`), listar contas e cadastrar webhooks.
+- **Recebedor de avisos** (`POST /webhooks/celcoin`): fora do modo simulado exige `CELCOIN_WEBHOOK_USER` e `CELCOIN_WEBHOOK_PASSWORD`; sem eles responde 503.
 - **QR dinâmico**: o Copia e Cola carrega o payload pela URL (COB: `/pix/v1/collection/immediate/payload/{url}`; COBV: `/pix/v1/collection/duedate/payload/{url}`) e paga como `DYNAMIC_QRCODE`, com o valor final (multa, juros e desconto já calculados no COBV).
-- **Administração** (`tools/celcoin-admin.js`): listar contas (`fetch-all`) e listar/cadastrar os webhooks do BaaS e do DDA. Os cadastros são escritas no sandbox e só rodam com `--sim`.
+- **Administração** (`tools/celcoin-admin.js`): listar contas (`fetch-all`), bloquear e desbloquear conta (`conta-status`) e listar/cadastrar os webhooks do BaaS e do DDA. Os cadastros são escritas no sandbox e só rodam com `--sim`.
 - Ainda **sem telas**: as rotas acima são do servidor. As telas dependem do Studio e da confirmação da versão final.

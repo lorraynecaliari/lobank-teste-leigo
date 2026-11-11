@@ -147,19 +147,26 @@ function log(n, source, outcome, raw) {
   if (raw) evidence.record({ mode: MODE, method: 'WEBHOOK', path: `aviso do BaaS recebido (${n.entity}) via ${source}`, status: 200, resBody: { tratamento: outcome, evento: raw } });
 }
 
-// Autenticação básica opcional do endpoint (a mesma cadastrada no auth do webhook na Celcoin).
+// Autenticação básica do endpoint (a mesma cadastrada no auth do webhook na Celcoin). Fora do modo simulado ela é
+// obrigatória: sem CELCOIN_WEBHOOK_USER e CELCOIN_WEBHOOK_PASSWORD no .env o recebedor fica desligado (503),
+// porque um endereço público sem senha aceitaria avisos falsos.
+const crypto = require('crypto');
+const same = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && crypto.timingSafeEqual(x, y); };
 function checkAuth(req) {
   const user = process.env.CELCOIN_WEBHOOK_USER, pass = process.env.CELCOIN_WEBHOOK_PASSWORD;
-  if (!user && !pass) return true;
+  if (!user || !pass) return require('./celcoin').MODE === 'mock' ? 'ok' : 'off';
   const h = String(req.headers.authorization || '');
-  if (!h.startsWith('Basic ')) return false;
-  const [u, p] = Buffer.from(h.slice(6), 'base64').toString('utf8').split(':');
-  return u === user && p === pass;
+  if (!h.startsWith('Basic ')) return 'denied';
+  const raw = Buffer.from(h.slice(6), 'base64').toString('utf8');
+  const i = raw.indexOf(':');
+  return i > 0 && same(raw.slice(0, i), user) && same(raw.slice(i + 1), pass) ? 'ok' : 'denied';
 }
 
 // POST /webhooks/celcoin: grava, responde 200 e só então o evento é considerado entregue.
 function endpoint(req, res) {
-  if (!checkAuth(req)) return res.status(401).json({ success: false });
+  const auth = checkAuth(req);
+  if (auth === 'off') return res.status(503).json({ success: false, message: 'Recebedor de avisos desligado: configure CELCOIN_WEBHOOK_USER e CELCOIN_WEBHOOK_PASSWORD.' });
+  if (auth !== 'ok') return res.status(401).json({ success: false });
   const list = Array.isArray(req.body) ? req.body : [req.body];
   const results = list.map((ev) => handle(ev, 'endpoint'));
   res.status(200).json({ success: true, received: results.length });
