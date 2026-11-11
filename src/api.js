@@ -760,7 +760,7 @@ router.get('/bills/:id', auth.requireUser, auth.requireAccount, wrap(async (req,
 // documento; um pedido do app ainda sem evento fica "em processamento".
 const ddaEvents = require('./dda-events');
 const DDA_TERMS_VERSION = 'modelo-termo-adesao-dda (Celcoin)';
-const DDA_PENDING_TIMEOUT_MS = Math.max(60e3, Number(process.env.DDA_PENDING_TIMEOUT_MIN ?? 30) * 60e3);
+const DDA_PENDING_TIMEOUT_MS = Math.max(60e3, Number(process.env.DDA_PENDING_TIMEOUT_MIN ?? 10) * 60e3);
 const DDA_FRIENDLY = {
   CDDA106: 'Já existe um pedido de adesão em andamento para esse documento.',
   CDDA101: 'A Celcoin não aceitou o documento.',
