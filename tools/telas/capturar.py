@@ -64,7 +64,7 @@ def make_shot(p, mod):
         p.screenshot(path=os.path.join(IMG, mod, name))
         route = '#' + p.url.split('#', 1)[1] if '#' in p.url else '/'
         studio = p.evaluate("() => { const m = document.querySelector('main.app'); return m ? m.dataset.studio : '' }") or ''
-        shots.append((mod, name, title, re.sub(r'/\d+$', '/:id', route), studio))
+        shots.append((mod, name, title, re.sub(r'/(\d+|[0-9a-f-]{36})$', '/:id', route), studio))
     return shot
 
 
@@ -313,7 +313,7 @@ def make_shot_into(page, mod, title):
     page.screenshot(path=os.path.join(IMG, mod, name))
     route = '#' + page.url.split('#', 1)[1] if '#' in page.url else '/'
     studio = page.evaluate("() => { const m = document.querySelector('main.app'); return m ? m.dataset.studio : '' }") or ''
-    shots.append((mod, name, title, re.sub(r'/\d+$', '/:id', route), studio))
+    shots.append((mod, name, title, re.sub(r'/(\d+|[0-9a-f-]{36})$', '/:id', route), studio))
 
 
 FLOWS = {'acesso': acesso, 'pj': pj, 'home': home, 'pix': pix, 'copia': copia, 'receber': receber, 'extrato': extrato, 'boleto': boleto, 'dda': dda}
@@ -334,7 +334,7 @@ def all_routes():
 
 def write_md(git_rev):
     shown = {s[3].lstrip('#').split('?')[0] for s in shots}
-    missing = sorted(r for r in all_routes() if r not in shown and r not in ('/', '/cadastro'))
+    missing = sorted(r for r in all_routes() if r not in shown and r not in ('/', '/cadastro', '/dda'))  # '/dda' só redireciona
     out = ['# Telas do LoBank', '',
            f'Gerado por `tools/telas/capturar.py` (branch `app-rodada-0`, commit `{git_rev}`), no **modo simulado**, em 360 × 800.',
            'Os dados nas telas são fictícios. Para atualizar: `python3 tools/telas/capturar.py ../lobank-teste-leigo/docs` (só depois da versão final confirmada).', '',
