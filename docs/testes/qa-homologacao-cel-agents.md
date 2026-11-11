@@ -28,7 +28,7 @@ O discovery encontrou dois produtos, e a usuária escolheu avaliar os dois:
 | BaaS Conta Única | 57 | 0 | 25 | 20 | 12 |
 | DDA | 12 | 0 | 0 | 12 | 0 |
 
-**Por que nenhum item ficou conforme.** O roteiro só aceita como prova uma chamada feita **pela própria aplicação** ao sandbox, com requisição e resposta registradas. Chamada avulsa pelo MCP, Postman ou modo simulado não contam. Nesta auditoria o app não foi executado. Os testes registrados neste log têm o resultado, mas não a requisição e a resposta, e parte deles foi feita pelo MCP antes de o app existir.
+**Por que nenhum item ficou conforme.** O roteiro só aceita como prova uma chamada feita **pela própria aplicação** ao sandbox, com requisição e resposta registradas. Chamada avulsa pelo MCP, por ferramenta externa ou pelo modo simulado não conta. Nesta auditoria o app não foi executado. Os testes registrados neste log têm o resultado, mas não a requisição e a resposta, e parte deles foi feita pelo MCP antes de o app existir.
 
 ### Não conforme (25)
 
@@ -92,4 +92,4 @@ O veredito ("precisa de ação humana") continua certo, porque ainda falta a req
 1. **Rodar o app com o `.env` do sandbox** e repetir os fluxos, guardando a requisição e a resposta mascaradas e o log do servidor. Isso deve fechar a maior parte dos 32 itens que precisam de ação humana.
 2. **Anexar no painel os prints do DDA** (termo, dados e boletos).
 3. **Refazer a consulta das URLs do DDA** (`GET webhook/routes`) e guardar a resposta.
-4. **Decidir se o app vai tratar os webhooks do BaaS.** O túnel ngrok já foi aprovado. Isso resolve a maior parte dos não conformes.
+4. **Decidir se o app vai tratar os webhooks do BaaS.** Isso resolve a maior parte dos não conformes.
