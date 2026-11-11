@@ -265,7 +265,7 @@ test('Minha conta: atualizar dados na Celcoin e trocar senhas', async () => {
   assert.equal(r.data.error, 'INVALID_EMAIL');
 
   r = await call('POST', '/me/passwords', { kind: 'tx', current: 'errada', next: '9999' });
-  assert.equal(r.status, 401);
+  assert.equal(r.status, 422, 'senha errada não derruba a sessão');
   r = await call('POST', '/me/passwords', { kind: 'tx', current: 'senhaForte1', next: '9999' });
   assert.equal(r.status, 200);
   r = await call('POST', '/me/passwords', { kind: 'login', current: 'senhaForte1', next: 'outraSenha2' });
@@ -434,6 +434,8 @@ test('DDA: adesão assíncrona, boletos de teste, detalhe, pagar (linha inválid
   assert.equal(r.data.error, 'INVALID_CODE', 'como no sandbox: a linha dos boletos de teste não é válida');
   r = await call('POST', '/dda/cancel', { txPassword: '0000' });
   assert.equal(r.data.error, 'INVALID_TX_PASSWORD');
+  assert.equal(r.status, 422, 'senha errada não pode mandar para o login (D6)');
+  assert.equal((await call('GET', '/me')).status, 200);
   r = await call('POST', '/dda/cancel', { txPassword: '9999' });
   assert.equal(r.data.status, 'CANCELLING', JSON.stringify(r.data));
   await wait();

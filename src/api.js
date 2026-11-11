@@ -293,7 +293,7 @@ router.get('/me/details', auth.requireUser, (req, res) => {
 // Senhas ficam só no app (a Celcoin não guarda a senha de acesso nem a de transferência).
 router.post('/me/passwords', auth.requireUser, (req, res) => {
   const b = req.body || {};
-  if (!auth.verifySecret(String(b.current || ''), req.user.password_hash)) return bad(res, 'INVALID_CREDENTIALS', 'Senha atual incorreta.', 401);
+  if (!auth.verifySecret(String(b.current || ''), req.user.password_hash)) return bad(res, 'INVALID_CREDENTIALS', 'Senha atual incorreta.', 422);
   if (b.kind === 'login') {
     const p = String(b.next || '');
     if (p.length < 8 || !/[A-Za-z]/.test(p) || !/\d/.test(p)) return bad(res, 'WEAK_PASSWORD', 'A senha precisa ter 8 caracteres ou mais, com letras e números.');
@@ -498,7 +498,7 @@ router.post('/pix/transfer', auth.requireUser, auth.requireAccount, wrap(async (
   if (!lookup || lookup.expires_at < Date.now()) return bad(res, 'LOOKUP_EXPIRED', 'A consulta da chave expirou. Informe a chave de novo.', 410);
   const amount = v.parseAmount(req.body.amount);
   if (!amount) return bad(res, 'INVALID_AMOUNT', 'Valor inválido.');
-  if (!auth.verifySecret(String(req.body.txPassword || ''), req.user.tx_password_hash)) return bad(res, 'INVALID_TX_PASSWORD', 'Senha de transferência incorreta.', 401);
+  if (!auth.verifySecret(String(req.body.txPassword || ''), req.user.tx_password_hash)) return bad(res, 'INVALID_TX_PASSWORD', 'Senha de transferência incorreta.', 422); // 422: a sessão continua válida
   const message = String(req.body.message || '').trim().slice(0, 140) || undefined;
 
   // A Celcoin aceita (200 PROCESSING) mesmo sem saldo e só falha depois; checamos antes para avisar já.
@@ -663,7 +663,7 @@ router.post('/bills/pay', auth.requireUser, auth.requireAccount, wrap(async (req
   if (b.allowChangeValue && ((b.minValue && amount < b.minValue - 0.001) || (b.maxValue && amount > b.maxValue + 0.001))) {
     return bad(res, 'AMOUNT_OUT_OF_RANGE', `Para esse boleto, o valor precisa ficar entre ${brl(b.minValue || 0)} e ${brl(b.maxValue || b.total)}.`);
   }
-  if (!auth.verifySecret(String(req.body.txPassword || ''), req.user.tx_password_hash)) return bad(res, 'INVALID_TX_PASSWORD', 'Senha de transferência incorreta.', 401);
+  if (!auth.verifySecret(String(req.body.txPassword || ''), req.user.tx_password_hash)) return bad(res, 'INVALID_TX_PASSWORD', 'Senha de transferência incorreta.', 422); // 422: a sessão continua válida
   const balance = Number((await celcoin.getBalance(req.account.account)).body.amount) || 0;
   if (balance < amount) return res.status(422).json({ error: 'INSUFFICIENT_BALANCE', message: 'Saldo insuficiente para pagar esse boleto.', balance });
 
@@ -854,7 +854,7 @@ router.post('/dda/subscribe', auth.requireUser, auth.requireAccount, wrap(async 
 }));
 
 router.post('/dda/cancel', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
-  if (!auth.verifySecret(String(req.body.txPassword || ''), req.user.tx_password_hash)) return bad(res, 'INVALID_TX_PASSWORD', 'Senha de transferência incorreta.', 401);
+  if (!auth.verifySecret(String(req.body.txPassword || ''), req.user.tx_password_hash)) return bad(res, 'INVALID_TX_PASSWORD', 'Senha de transferência incorreta.', 422); // 422: a sessão continua válida
   await ddaEvents.sync();
   if (ddaState(req.user).status !== 'ACTIVE') return bad(res, 'NOT_ACTIVE', 'O DDA não está ativo para essa conta.', 409);
   const crid = celcoin.uid('lobank-dda-saida');

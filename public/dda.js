@@ -186,9 +186,16 @@
     if ($('#o-test', s.el)) $('#o-test', s.el).onclick = () => { s.close(); genTest(); };
     $('#o-cancel', s.el).onclick = () => { s.close(); confirmCancel(); };
   }
+  // Mensagem em modal com "Entendi", para a pessoa ler (o toast sumia rápido demais no D5).
+  function notice(title, text) {
+    const s = sheet(`<h2 class="sheet-title">${esc(title)}</h2><p class="sheet-text">${esc(text)}</p><div class="sheet-actions"><button class="btn btn-primary" data-x>Entendi</button></div>`);
+    $('[data-x]', s.el).onclick = () => { s.close(); L.render(); };
+  }
   async function genTest() {
-    try { await api('/dda/test-invoices', { method: 'POST' }); toast('Pedido enviado. Os boletos de teste chegam em alguns instantes.'); setTimeout(() => L.render(), 400); }
-    catch (e) { toast(e.message); }
+    try {
+      await api('/dda/test-invoices', { method: 'POST' });
+      notice('Boletos de teste pedidos', 'A Celcoin vai gerar 3 boletos de teste para o seu documento. Eles costumam chegar em cerca de 1 minuto: use "Atualizar" em Meus boletos para ver.');
+    } catch (e) { notice('Não foi possível gerar', e.message); }
   }
 
   route('/dda/termos-info', (root) => {
@@ -217,11 +224,17 @@
             ${s.canGenerateTest ? '<button class="btn btn-outline" id="test">Gerar boletos de teste (sandbox)</button>' : ''}</div></section>`
         : `<div class="chips dda-chips">${chips.map(([k, t]) => `<button class="chip${k === filter ? ' chip--on' : ''}" data-f="${k}">${t}</button>`).join('')}</div>
           <section class="body-sec dda-list">${list.map(card).join('') || '<p class="row__caption" style="text-align:center">Nenhum boleto nesse filtro.</p>'}</section>`}
+        <div style="display:flex;justify-content:center;align-items:center;gap:8px;padding:4px 24px 8px"><span class="row__caption" id="upd"></span><button class="link-inline" id="refresh">Atualizar</button></div>
         ${s.eventsError ? `<p class="row__caption" style="text-align:center;padding:0 24px">Não conseguimos atualizar agora (${esc(s.eventsError)}). Mostrando o que já tinha chegado.</p>` : ''}</div>
       <footer class="footbar"><button class="btn btn-primary btn--lg" id="pay">Pagar boleto ${I.chevRight}</button></footer>`,
     { studio: empty ? 'c2ec3a50 Meus boletos | Vazia' : '2fa3c1ee Meus boletos | Preenchida' });
     wireBk(root);
     $('#opts').onclick = options;
+    // Atualizar: os avisos são lidos no máximo a cada 10 s, então o botão volta a funcionar depois desse tempo.
+    const hhmm = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const rb = $('#refresh'); rb.disabled = true;
+    rb.onclick = () => L.render();
+    countdown('#upd', queryWaitSec(), (n) => (n > 0 ? `Atualizado às ${hhmm} · de novo em ${n} s` : `Atualizado às ${hhmm}`), () => { const x = $('#refresh'); if (x) x.disabled = false; });
     $('#pay').onclick = () => go('/boleto');
     if ($('#test')) $('#test').onclick = genTest;
     $$('[data-f]').forEach((b) => { b.onclick = () => { state.ddaFilter = b.dataset.f; L.render(); }; });

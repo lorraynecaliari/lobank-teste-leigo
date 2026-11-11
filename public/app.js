@@ -606,6 +606,7 @@
             <button class="shortcut" data-go="/receber"><span class="shortcut-icon">${I.receive}</span><p class="shortcut-label">Cobrar<br>com Pix</p></button>
             <button class="shortcut" data-go="/pix/chaves"><span class="shortcut-icon">${I.key}</span><p class="shortcut-label">Minhas<br>chaves</p></button>
             <button class="shortcut" data-go="/boleto"><span class="shortcut-icon">${I.barcode}</span><p class="shortcut-label">Pagar<br>contas</p></button>
+            <button class="shortcut" data-go="/dda"><span class="shortcut-icon">${I.calendar}</span><p class="shortcut-label">DDA</p></button>
             <button class="shortcut" data-go="/extrato"><span class="shortcut-icon">${I.list}</span><p class="shortcut-label">Extrato</p></button>
           </div></div>
         <button type="button" class="btn-neutral" data-go="/pix">Área Pix ${I.chevRight}</button>
