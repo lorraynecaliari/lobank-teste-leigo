@@ -133,7 +133,7 @@ function correlation(reqBody, resBody) {
   const out = {};
   for (const k of ['clientCode', 'clientRequestId', 'externalTerminal', 'transactionId', 'id', 'endToEndId', 'proposalId', 'onboardingId']) {
     const v = a[k] ?? bb[k] ?? b[k];
-    if (v !== undefined && v !== null && typeof v !== 'object') out[k] = v;
+    if (v !== undefined && v !== null && typeof v !== 'object') out[k] = maskValue(k, v);
   }
   return out;
 }
@@ -169,4 +169,4 @@ function record({ mode, method, path: celPath, reqBody, status, resBody, duratio
   }
 }
 
-module.exports = { ENABLED, DIR, middleware, record, mask, maskPath, normalizeRoute };
+module.exports = { ENABLED, DIR, middleware, record, mask, maskPath, normalizeRoute, correlation };

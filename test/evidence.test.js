@@ -48,6 +48,7 @@ test('rota da Celcoin: conta, e-mail e parâmetros sensíveis mascarados', () =>
     '/baas/v2/pix/dict/entry/external/*****608?key=te***%40celcoin.com.br');
   assert.equal(ev.maskPath('/baas/v2/account/fetch?documentNumber=44334191258'), '/baas/v2/account/fetch?documentNumber=*********58');
   assert.equal(ev.normalizeRoute('GET', '/api/bills/12?x=1'), 'GET /api/bills/:id');
+  assert.equal(ev.correlation({ externalTerminal: '41175621', clientCode: 'c1' }).externalTerminal, '*****621');
   assert.equal(ev.normalizeRoute('DELETE', '/api/pix/keys/fulano%40ex.com'), 'DELETE /api/pix/keys/:chave');
   assert.equal(ev.normalizeRoute('POST', '/api/pix/keys/evp'), 'POST /api/pix/keys/evp');
   assert.equal(ev.mask({ message: 'CPF 443.341.912-58 e CNPJ 46.013.634/0001-80' }).message, 'CPF *********58 e CNPJ ************80');
