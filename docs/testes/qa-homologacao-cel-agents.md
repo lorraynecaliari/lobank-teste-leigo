@@ -87,6 +87,29 @@ O veredito ("precisa de ação humana") continua certo, porque ainda falta a req
   - o Pix entre contas do mesmo tenant não é creditado no destino e não gera `pix-payment-in`;
   - o aviso de saída do DDA da LTDA (13:37) nunca chegou.
 
+## Testes pelo app com evidência (11/11, 19:17–19:30)
+
+Depois da auditoria, o agente rodou os fluxos **pelo próprio app**, ligado na máquina da usuária com `EVIDENCIAS=1` (app `app-rodada-0`, commit `e92ab77`). O app gravou **58 chamadas reais ao sandbox**, todas mascaradas: [relatório](evidencias/evidencias-qa-2026-11-11.md) e [arquivo bruto](evidencias/evidencias-qa-2026-11-11.jsonl). A usuária fez as duas documentoscopias; o resto foi feito pelo agente no navegador do app do Claude.
+
+| Fluxo | Resultado |
+|---|---|
+| Abertura de conta PF | `RESOURCE_CREATED`, conta `0001 / …621` |
+| Abertura de conta PJ LTDA | `RESOURCE_CREATED`, conta `0001 / …639` |
+| Saldo, extrato detalhado, Meus dados e edição (PF e PJ) | ok; `PUT` aceito nas duas |
+| Chave EVP: criar, listar e excluir (PF e PJ) | ok; exclusão conferida pela releitura (404) |
+| Pix por chave (DICT) | R$ 1, `CONFIRMED` |
+| Pix por agência e conta (MANUAL) | R$ 1, `CONFIRMED` |
+| QR estático: gerar (PJ), ler, consultar e pagar (PF) | R$ 1, `CONFIRMED` |
+| Consulta de status do Pix | 4 consultas, todas `CONFIRMED` |
+| DDA: adesão, boletos de teste, lista, detalhe e saída | os 5 avisos chegaram e foram registrados; print da lista em [`print-dda-boletos-2026-11-11.jpg`](evidencias/print-dda-boletos-2026-11-11.jpg) |
+
+**Não fechou com evidência:**
+
+- **Status rejeitado:** o Pix para `testecelbaas@celcoin.com.br`, que a skill indica como não liquidável, foi `CONFIRMED`. O app bloqueia falta de saldo antes de chamar a Celcoin, então não há como provocar um Pix recusado pelo app.
+- **Pagar boleto do DDA:** o `authorize` respondeu `623`, como esperado para boleto de teste.
+- **Crédito de teste** (R$ 100 em cada conta) entrou pelo MCP, fora do app.
+- **Correções nas máscaras** feitas durante a análise: `externalTerminal` (conta usada no `authorize`) e os identificadores da correlação (commits `c66e175` e `dea8302`). Na cópia publicada aqui o campo já está mascarado.
+
 ## Próximos passos
 
 1. **Rodar o app com o `.env` do sandbox** e repetir os fluxos, guardando a requisição e a resposta mascaradas e o log do servidor. Isso deve fechar a maior parte dos 32 itens que precisam de ação humana.
