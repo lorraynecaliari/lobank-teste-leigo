@@ -73,6 +73,7 @@ Regras importantes:
 - Eventos pelo **webhook.site**, lido pelo app.
 - Adesão da **LTDA e da PF**.
 - **Sair do DDA** entra, como item em Minha conta.
+- (13:20) **Um documento por conta:** cada login adere só o próprio documento, mesmo a API aceitando vários documentos por cliente.
 
 ## 6. Construção (commit `cba22f1`, 11/11 12:44)
 
