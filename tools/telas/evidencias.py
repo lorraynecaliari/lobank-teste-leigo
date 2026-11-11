@@ -1,7 +1,7 @@
 """Dados do documento "Evidencias de telas.md": de onde cada tela veio no Studio, o que mudou e por quê.
 
 Fontes: boards do Studio do projeto LoBank (lidos pelo MCP cel_agents em 11/11/2026), comentários
-da usuária no Studio e as decisões registradas em docs/friction-log.md.
+da usuária no Studio e as decisões registradas em docs/testes/friction-log.md.
 
 Ao incluir ou alterar uma tela: acrescente a entrada em ALTERACOES (chave: pasta e título do shot) e,
 se a tela do Studio foi deixada de fora, em FORA_DO_APP.

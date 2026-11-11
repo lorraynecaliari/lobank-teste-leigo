@@ -1,4 +1,4 @@
-"""Captura todas as telas do LoBank no modo simulado e gera o catálogo docs/telas.md.
+"""Captura todas as telas do LoBank no modo simulado e gera o resumo docs/telas/telas.md e o detalhamento docs/telas/Evidencias de telas.md.
 
 Uso (na raiz do app):
     python3 tools/telas/capturar.py <pasta-docs-do-repo-main>
@@ -265,6 +265,10 @@ def boleto(p, ctx, base, shot):
 FLOWS = {'acesso': acesso, 'pj': pj, 'home': home, 'pix': pix, 'copia': copia, 'receber': receber, 'extrato': extrato, 'boleto': boleto}
 
 
+def anchor(title):
+    return re.sub(r'[^a-z0-9à-ú -]', '', title.lower()).replace(' ', '-')
+
+
 def all_routes():
     found = set()
     for f in glob.glob(os.path.join(ROOT, 'public', '*.js')):
@@ -279,24 +283,25 @@ def write_md(git_rev):
     missing = sorted(r for r in all_routes() if r not in shown and r not in ('/', '/cadastro'))
     out = ['# Telas do LoBank', '',
            f'Gerado por `tools/telas/capturar.py` (branch `app-rodada-0`, commit `{git_rev}`), no **modo simulado**, em 360 × 800.',
-           'Os dados nas telas são fictícios. Para atualizar: `python3 tools/telas/capturar.py ../lobank-teste-leigo/docs`.', '',
-           '**Regra:** toda tela nova ou alterada entra no script e este arquivo é gerado de novo no mesmo trabalho.', '']
-    out += ['## Módulos', ''] + [f'- [{t}](#{re.sub(r"[^a-z0-9à-ú -]", "", t.lower()).replace(" ", "-")}) ({sum(1 for s in shots if s[0] == m)} telas)' for m, t in MODULES] + ['']
+           'Os dados nas telas são fictícios. Para atualizar: `python3 tools/telas/capturar.py ../lobank-teste-leigo/docs` (só depois da versão final confirmada).', '',
+           '**Regra:** uma tela nova ou alterada só entra aqui depois que a usuária confirmar que é a versão final daquela tela.', '']
+    out += ['Resumo de todas as telas. O detalhamento de cada uma está em [Evidências de telas](Evidencias%20de%20telas.md).', '']
+    out += ['## Módulos', ''] + [f'- [{t}](#{anchor(t)}) ({sum(1 for s in shots if s[0] == m)} telas)' for m, t in MODULES] + ['']
     for mod, title in MODULES:
         items = [s for s in shots if s[0] == mod]
         out += [f'## {title}', '']
         if not items:
             out += ['_Nenhuma tela capturada neste módulo (ver erros no fim)._', '']; continue
-        out += ['<table>']
+        out += [f'Detalhamento (origem no Studio, alteração e motivo): [Evidências de telas › {title}](Evidencias%20de%20telas.md#{anchor(title)})', '', '<table>']
         for k in range(0, len(items), 3):
             row = items[k:k + 3]
-            out += ['<tr>' + ''.join(f'<td align="center" valign="top" width="33%"><img src="telas/{m}/{f}" width="240" alt="{t}"><br><b>{t}</b><br><code>{r}</code></td>' for m, f, t, r, _ in row) + '</tr>']
+            out += ['<tr>' + ''.join(f'<td align="center" valign="top" width="33%"><img src="{m}/{f}" width="240" alt="{t}"><br><b>{t}</b><br><code>{r}</code></td>' for m, f, t, r, _ in row) + '</tr>']
         out += ['</table>', '']
     out += ['## Rotas sem print', '']
     out += ([f'- `{r}`' for r in missing] or ['Todas as rotas do app aparecem no catálogo.']) + ['']
     if errors:
         out += ['## Erros na captura', ''] + [f'- {e}' for e in errors] + ['']
-    open(os.path.join(DOCS, 'telas.md'), 'w', encoding='utf-8').write('\n'.join(out))
+    open(os.path.join(IMG, 'telas.md'), 'w', encoding='utf-8').write('\n'.join(out))
     return missing
 
 
@@ -319,9 +324,10 @@ def write_evidencias(git_rev):
            f'(branch `app-rodada-0`, commit `{git_rev}`), no **modo simulado** e com dados fictícios.', '',
            'Para cada tela: de qual tela do Studio ela veio (board › tela e o id), **o que foi alterado** em relação ao que '
            'o Studio criou e **o motivo**. No fim de cada tópico ficam as telas do Studio que não entraram no app.', '',
-           'Fontes dos motivos: comentários da usuária no Studio, decisões e testes registrados em `docs/friction-log.md`, '
+           'Fontes dos motivos: comentários da usuária no Studio, decisões e testes registrados em `docs/testes/friction-log.md`, '
            'e regras da API da Celcoin.', '', '## Tópicos', '']
-    out += [f'- [{t}](#{re.sub(r"[^a-z0-9à-ú -]", "", t.lower()).replace(" ", "-")}): pasta `{m}/`' for m, t in MODULES] + ['']
+    out += ['Resumo de todas as telas, três por linha: [telas.md](telas.md).', '']
+    out += [f'- [{t}](#{anchor(t)}): pasta `{m}/`' for m, t in MODULES] + ['']
     for mod, title in MODULES:
         out += [f'## {title}', '', f'Pasta: `{mod}/`', '']
         for k, (m, f, t, r, label) in enumerate([s for s in shots if s[0] == mod], 1):
