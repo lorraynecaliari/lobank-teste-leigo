@@ -8,7 +8,7 @@ Teste de usabilidade do `cel_agents` (Celcoin) com a persona "usuário leigo", u
 
 | Branch | Para quem | Conteúdo |
 |--------|-----------|----------|
-| `main` | Operador | Este README, `docs/roteiro-teste-usuario-leigo.md`, `docs/friction-log.md`, `docs/resumo-rodada-0.md` (resumo da verificação técnica) e `docs/plano-pagamento-de-contas.md` |
+| `main` | Operador | Este README, `docs/roteiro-teste-usuario-leigo.md`, `docs/friction-log.md`, `docs/resumo-rodada-0.md` (resumo da verificação técnica) e `docs/plano-pagamento-de-contas.md`, `docs/telas.md` (print de todas as telas) |
 | `app` | IA testada | Só o `.gitignore`. É onde a IA constrói o app durante o teste |
 
 Os dois branches não compartilham histórico (o `app` é órfão). A IA testada nunca pode ver o `main`: o roteiro diz o que se espera dela, e isso contamina o teste.
