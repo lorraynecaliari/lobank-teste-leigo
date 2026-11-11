@@ -25,8 +25,10 @@ function classify(body) {
 function store(id, receivedAt, body) {
   const c = classify(body);
   if (!c) return;
-  db.prepare('INSERT OR IGNORE INTO dda_events (id, document, type, received_at, data_json) VALUES (?, ?, ?, ?, ?)')
+  const r = db.prepare('INSERT OR IGNORE INTO dda_events (id, document, type, received_at, data_json) VALUES (?, ?, ?, ?, ?)')
     .run(String(id), c.document ? String(c.document).replace(/\D/g, '') : null, c.type, receivedAt, JSON.stringify(body));
+  // Evidência do recebimento: só na primeira vez que o app guarda o aviso.
+  if (r.changes) require('./evidence').record({ mode: MODE, method: 'WEBHOOK', path: `aviso do DDA recebido (${c.type}) via webhook.site`, status: 200, resBody: { recebidoEm: receivedAt, idDoAviso: String(id), body } });
 }
 
 async function fetchWebhookSite() {

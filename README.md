@@ -89,3 +89,16 @@ Fora, por comentário do Studio ou decisão: leitor por câmera, escolha de cont
 | Aderir, ver boletos, pagar e sair | Entrada em Pagar contas ("Meus boletos (DDA)") e em Minha conta; Termos de uso (aceite guardado), Cadastro (dados da conta), Processamento, Sucesso, Erro, Meus boletos (vazia, preenchida, filtros e menu Opções), Detalhe do boleto, Sair do DDA (com senha de transferência) | `POST`/`DELETE /dda-subscription-webservice/v1/subscription/Register`, `POST /dda-serviceinvoice-webservice/v1/invoice/register` (boletos de teste, só sandbox). Os resultados e os boletos chegam por webhook: o app lê do webhook.site em `DDA_WEBHOOK_SITE_TOKEN` (ver `.env.example`). Pagar usa o fluxo do Pagar contas |
 
 No sandbox, os boletos de teste do DDA não podem ser pagos: a Celcoin recusa a linha (822) e o código de barras (623).
+
+## Evidências para o QA do cel_agents
+
+O QA de homologação do cel_agents só aceita como prova uma chamada feita **pelo próprio app** ao sandbox, com requisição, resposta e status HTTP. Para gerar essa prova:
+
+1. No `.env`, acrescente `EVIDENCIAS=1` e reinicie o app (`npm start`). O terminal mostra "Evidências ligadas".
+2. Faça os fluxos no app normalmente. Cada chamada à Celcoin vira uma linha em `data/evidencias/AAAA-MM-DD.jsonl`, com a ação no app que a originou, método e rota, requisição e resposta, status HTTP, duração e os identificadores do fluxo (`clientCode`, `id`, `endToEndId`). Os avisos do DDA recebidos também entram.
+3. Gere o relatório: `node tools/evidencias.js AAAA-MM-DD` (ou `--rota pix` para um fluxo só). Ele fica em `data/evidencias/relatorio-AAAA-MM-DD.md`.
+
+**O que é mascarado:** CPF e CNPJ (só os 2 últimos dígitos), conta (3 últimos), chave Pix, nomes (primeiro nome e iniciais), e-mail, telefone, endereço, data de nascimento e o código Copia e Cola. Token, Client ID/Secret e senhas nunca são gravados; da autenticação fica só o status. Linhas do modo simulado saem marcadas como `mock` e **não valem como evidência**.
+
+A pasta `data/` está fora do Git. Antes de compartilhar um relatório, confira se não há dado pessoal real (os testes usam dados fictícios do sandbox).
+

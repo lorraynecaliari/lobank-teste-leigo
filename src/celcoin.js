@@ -1,6 +1,7 @@
 // Cliente da API Celcoin (sandbox). As credenciais vêm só do ambiente (.env) e
 // nunca são registradas em log nem devolvidas ao navegador.
 const crypto = require('crypto');
+const evidence = require('./evidence');
 
 const BASE_URL = (process.env.CELCOIN_BASE_URL || 'https://sandbox.openfinance.celcoin.dev').replace(/\/$/, '');
 const MODE = (process.env.CELCOIN_MODE || 'sandbox').toLowerCase(); // 'sandbox' ou 'mock'
@@ -31,8 +32,11 @@ async function getToken() {
   form.append('client_id', id);
   form.append('client_secret', secret);
   form.append('grant_type', 'client_credentials');
+  const t0 = Date.now();
   const res = await fetch(`${BASE_URL}/v5/token`, { method: 'POST', body: form });
   const data = await res.json().catch(() => ({}));
+  // Na evidência entra só o status: o corpo tem as credenciais e o token.
+  evidence.record({ mode: MODE, method: 'POST', path: '/v5/token', reqBody: { observacao: 'credenciais omitidas' }, status: res.status, resBody: { observacao: res.ok ? 'token emitido (omitido)' : 'falha na autenticação' }, durationMs: Date.now() - t0 });
   if (!res.ok || !data.access_token) {
     throw new CelcoinError(res.status, 'celcoin_auth_failed', 'Falha ao autenticar na Celcoin (sandbox). Confira as credenciais.');
   }
@@ -94,7 +98,15 @@ async function request(method, path, body) {
 async function rawRequest(method, path, body, attempt = 1) {
   if (MODE === 'mock') {
     // Mesma regra do sandbox: status "ERROR" no corpo vira erro, mesmo com HTTP 200.
-    const data = await require('./celcoin-mock').handle(method, path, body);
+    const t0 = Date.now();
+    let data;
+    try {
+      data = await require('./celcoin-mock').handle(method, path, body);
+    } catch (e) {
+      evidence.record({ mode: MODE, method, path, reqBody: method === 'GET' ? undefined : body, status: e.status, resBody: e.payload, error: e.code || e.message, durationMs: Date.now() - t0 });
+      throw e;
+    }
+    evidence.record({ mode: MODE, method, path, reqBody: method === 'GET' ? undefined : body, status: 200, resBody: data, durationMs: Date.now() - t0 });
     if (data && data.status === 'ERROR') { const { code, message } = extractError(data); throw new CelcoinError(200, code || 'HTTP_200', message, data); }
     return data;
   }
@@ -106,20 +118,25 @@ async function rawRequest(method, path, body, attempt = 1) {
     opts.body = JSON.stringify(body); // objeto JSON serializado uma única vez
   }
   let res;
+  const t0 = Date.now();
+  const reqBody = opts.body !== undefined ? body : undefined;
   try {
     res = await fetch(`${BASE_URL}${path}`, opts);
   } catch (err) {
+    evidence.record({ mode: MODE, method, path, reqBody, error: 'TRANSPORT: sem resposta da Celcoin', durationMs: Date.now() - t0 });
     // Sem nova tentativa imediata: a próxima consulta só sai depois do intervalo de 10 s.
     throw new CelcoinError(502, 'TRANSPORT', 'Não foi possível falar com a Celcoin agora.');
   }
   // Token vencido ou revogado: renova uma única vez (não é repetição de consulta).
   if (res.status === 401 && attempt === 1) {
+    evidence.record({ mode: MODE, method, path, reqBody, status: 401, error: 'token recusado; renovado e chamada repetida uma vez', durationMs: Date.now() - t0 });
     tokenCache = { value: null, expiresAt: 0 };
     return rawRequest(method, path, body, attempt + 1);
   }
   const text = await res.text();
   let data = {};
   try { data = text ? JSON.parse(text) : {}; } catch (_) { data = { raw: text }; }
+  evidence.record({ mode: MODE, method, path, reqBody, status: res.status, resBody: data, durationMs: Date.now() - t0 });
   if (!res.ok || data.status === 'ERROR') {
     const { code, message } = extractError(data);
     throw new CelcoinError(res.status, code || `HTTP_${res.status}`, message, data);
