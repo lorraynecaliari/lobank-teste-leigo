@@ -684,10 +684,21 @@
         <span class="acc-hero__avatar">${esc(L.initials(me.fullName))}</span><p class="acc-hero__name">${esc(me.fullName)}</p><p class="acc-hero__doc">CELCOIN IP S.A. · ${me.personType === 'PJ' ? 'CNPJ' : 'CPF'} ${maskDoc(me.document || '')}</p>
         <div class="acc-hero__meta"><span>Agência ${esc(me.account.branch)}</span><span>Conta ${esc(me.account.account)}</span></div>
         <button class="acc-hero__share" id="share">Compartilhar</button></div>
-      <div class="scroll">${row('keys', I.key, 'Minhas chaves Pix')}${row('pw', I.shield, 'Minhas senhas')}${row('data', I.person, 'Meus dados')}
+      <div class="scroll">${row('keys', I.key, 'Minhas chaves Pix')}${row('dda', I.barcode, 'Débito Direto Autorizado (DDA)')}${row('pw', I.shield, 'Minhas senhas')}${row('data', I.person, 'Meus dados')}
         <div style="padding:16px 24px"><button class="btn btn-ghost acc-out" id="out">Sair do aplicativo</button></div></div>`, { studio: '2d3d03ce Minha conta (só itens que funcionam)' });
     wireBack(root);
     $('#keys').onclick = () => go('/pix/chaves');
+    // DDA: ativo abre as opções (ver boletos ou sair); senão, leva para a adesão.
+    $('#dda').onclick = async () => {
+      let s; try { s = await api('/dda'); } catch (e) { return toast(e.message); }
+      state.dda = s;
+      if (s.status !== 'ACTIVE') return go('/dda');
+      const sh = sheet(`<h2 class="sheet-title">Débito Direto Autorizado</h2><p class="sheet-text">O DDA está ativo para ${state.me.personType === 'PJ' ? 'o seu CNPJ' : 'o seu CPF'}.</p>
+        <div class="sheet-actions"><button class="btn btn-primary" data-v>Ver meus boletos</button><button class="btn btn-outline" data-c style="color:#D93025;border-color:#D93025">Sair do DDA</button><button class="btn btn-ghost" data-x>Voltar</button></div>`);
+      $('[data-x]', sh.el).onclick = sh.close;
+      $('[data-v]', sh.el).onclick = () => { sh.close(); go('/dda/boletos'); };
+      $('[data-c]', sh.el).onclick = () => { sh.close(); window.LoBank.ddaCancel(); };
+    };
     $('#pw').onclick = () => go('/minha-conta/senhas');
     $('#data').onclick = () => go('/minha-conta/dados');
     $('#share').onclick = () => copy(`${me.fullName}\nCELCOIN IP S.A. (ISPB 13935893)\nAgência ${me.account.branch} · Conta ${me.account.account}\n${me.personType === 'PJ' ? 'CNPJ' : 'CPF'} ${fmtDoc(me.document || '')}`);

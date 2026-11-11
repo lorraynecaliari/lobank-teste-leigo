@@ -42,7 +42,8 @@ async function getToken() {
 
 function extractError(data) {
   // Status do boleto (versão 1.2.0) traz o erro dentro de body.error, não na raiz.
-  const e = (data && (data.error || (data.body && data.body.error))) || {};
+  // DDA devolve o erro em "erro" (em português).
+  const e = (data && (data.error || data.erro || (data.body && data.body.error))) || {};
   let code = e.errorCode || e.code || data?.errorCode;
   let message = e.message || data?.message;
   // Copia e Cola devolve JSON escapado dentro de description (code 999 genérico por fora).
@@ -247,7 +248,17 @@ async function billReceipt(clientRequestId, fromBr, toBr) {
   return null;
 }
 
+// ---- DDA -------------------------------------------------------------------------------
+// Tudo assíncrono: a resposta é sempre PROCESSING e o resultado chega por webhook (lido em dda-events.js).
+const ddaSubscribe = (document, clientName, clientRequestId) =>
+  request('POST', '/dda-subscription-webservice/v1/subscription/Register', { document, clientName, clientRequestId });
+const ddaUnsubscribe = (document, clientRequestId) =>
+  request('DELETE', '/dda-subscription-webservice/v1/subscription/Register', { document, clientRequestId });
+// Só no sandbox: gera boletos de teste (no teste de 11/11, 3 boletos por documento).
+const ddaTestInvoices = (documents) => request('POST', '/dda-serviceinvoice-webservice/v1/invoice/register', { document: documents });
+
 module.exports = {
+  ddaSubscribe, ddaUnsubscribe, ddaTestInvoices,
   MODE, BASE_URL, CelcoinError, uid, MIN_QUERY_INTERVAL_MS,
   authorizeBill, payBill, billStatus, billReceipt,
   createNaturalPersonProposal, createLegalPersonProposal, getProposal, fetchAccountPF, fetchAccountPJ, updateAccountPF, updateAccountPJ,

@@ -275,6 +275,31 @@ async function handle(method, path, body) {
       }));
       return { version: '1.0.0', status: 'SUCCESS', body: { totalItems: list.length, webhookDetails: list } };
     }
+    // ---- DDA (como o sandbox em 11/11): resposta PROCESSING e resultado por evento, ~2 s depois.
+    if (p === '/dda-subscription-webservice/v1/subscription/Register' && (method === 'POST' || method === 'DELETE')) {
+      const doc = String(body.document || '').replace(/\D/g, '');
+      if (doc.length !== 11 && doc.length !== 14) throw err(400, 'CDDA101', 'Documento Inválido');
+      const subscriptionId = crypto.randomUUID();
+      const del = method === 'DELETE';
+      const status = del ? (doc === '26817625025' ? 'Inactive_failed' : 'Inactive') : (doc === '26817625025' ? 'Error' : 'Created');
+      if (!del) ddaState.active.delete(doc);
+      ddaPush({ document: doc, clientRequestId: body.clientRequestId, subscriptionId, clientName: body.clientName || 'Mock Client', status,
+        error: status === 'Error' ? [{ ErrorCode: 'CDDA101', ErrorMessage: 'Ocorreu um erro inesperado' }] : null }, () => {
+        if (status === 'Created') ddaState.active.add(doc);
+        if (status === 'Inactive') ddaState.active.delete(doc);
+      });
+      return { status: 201, body: { document: doc, clientRequestId: body.clientRequestId, responseDate: new Date().toISOString(), status: 'PROCESSING', subscriptionId } };
+    }
+    if (method === 'POST' && p === '/dda-serviceinvoice-webservice/v1/invoice/register') {
+      const docs = body.document || [];
+      if (docs.length > 20) throw err(400, 'CDDA115', 'A requisição possui um limite de até 20 documentos');
+      const out = docs.map((d) => {
+        const ok = ddaState.active.has(d) && d !== '71929784007';
+        if (ok) for (let k = 0; k < 3; k++) ddaPush(ddaInvoice(d, k));
+        return { document: d, status: ok ? 'Success' : 'Fail' };
+      });
+      return { status: 200, body: out };
+    }
     if (method === 'POST' && p === '/pix/v1/brcode/static') {
       return { transactionId: Date.now(), emvqrcps: `00020126580014br.gov.bcb.pix0136${body.key}5204000053039865802BR5913MOCK LOBANK6009SAO PAULO62070503***6304ABCD`, transactionIdentification: '***' };
     }
@@ -290,4 +315,37 @@ function devCredit(account, amount) {
   return true;
 }
 
-module.exports = { handle, approveDocumentscopy, devCredit, state };
+// ---- eventos do DDA simulados (o app lê como leria do webhook.site)
+const ddaState = { events: [], active: new Set(), seq: 0 };
+function ddaPush(body, onReady) {
+  ddaState.events.push({ id: `mock-dda-${++ddaState.seq}`, readyAt: Date.now() + 1500, body, onReady, done: false });
+}
+// Boleto de teste, no formato do sandbox; o 2º já está vencido e o 3º com a linha de 48 números, como em 11/11.
+function ddaInvoice(doc, k) {
+  const today = new Date(Date.now() - 3 * 3600e3);
+  const due = new Date(today.getTime() + (k === 1 ? -2 : 1) * 864e5).toISOString().slice(0, 10);
+  const value = [11341, 8507, 93040][k];
+  return { registerData: {
+    addresseeBank: { assignor: '', ispb: 43520091, code: '124' },
+    originalBeneficiary: { personType: 'J', documentNumber: '87201417000109', name: ['Escola Aprender Ltda', 'Condominio Edificio Sol', 'Seguros Bem Estar S.A.'][k], fantasyName: '' },
+    payer: { personType: doc.length === 14 ? 'J' : 'F', documentNumber: doc, name: 'Pagador Simulado', fantasyName: '' },
+    dueDate: `${due}T00:00:00`, dueDateRegister: `${today.toISOString().slice(0, 10)}T12:00:00`, hasDiscount: false, hasInterest: true, description: 'Fixed DueDate',
+    originalValue: value, calculatedAmount: value,
+    digitable: k === 2 ? '273918702728289954911078320595024406309764603298' : '52795885665913414879687308882619506303199330113',
+    barCode: '52795063031993301135885659134148798730888261', status: 'Aberto',
+    paymentSituation: 'Boleto de pagamento encontrado na base centralizada e cliente beneficiário apto',
+    transactionId: crypto.randomUUID(), ourNumber: String(1e8 + ddaState.seq), speciesCode: '2', overdueDate: `${due}T00:00:00`,
+    paymentType: 3, blockedPayment: false, partialPayment: false, allowanceAmount: 0,
+    interest: { date: `${due}T00:00:00`, code: '1', description: 'Value (Calendar days)', amount: 95 },
+    fine: { date: `${due}T00:00:00`, code: '2', description: 'Percentage', amount: 200 },
+    discounts: [{ date: null, code: '0', description: 'Exempt', amount: 0 }],
+  } };
+}
+function ddaEvents() {
+  const now = Date.now();
+  const ready = ddaState.events.filter((e) => e.readyAt <= now);
+  for (const e of ready) if (!e.done) { e.done = true; if (e.onReady) e.onReady(); }
+  return ready.map((e) => ({ id: e.id, at: new Date(e.readyAt).toISOString().replace('T', ' ').slice(0, 19), body: e.body }));
+}
+
+module.exports = { handle, approveDocumentscopy, devCredit, state, ddaEvents };

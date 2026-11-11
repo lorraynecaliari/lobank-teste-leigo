@@ -400,3 +400,51 @@ test('Boleto: falhas vistas no sandbox em 10/11 (dados incompletos e falha com d
   r = await call('GET', '/statement?from=2026-11-01&to=2026-11-08');
   assert.equal(r.data.error, 'PERIOD_TOO_LONG');
 });
+
+test('DDA: adesão assíncrona, boletos de teste, detalhe, pagar (linha inválida) e saída', async () => {
+  cookie = '';
+  let r = await call('POST', '/auth/login', { document: '90830166173', password: 'outraSenha2' });
+  assert.equal(r.status, 200);
+  const wait = () => new Promise((ok) => setTimeout(ok, 1700));
+  r = await call('GET', '/dda');
+  assert.equal(r.data.status, 'NONE');
+  r = await call('POST', '/dda/subscribe', {});
+  assert.equal(r.data.error, 'TERMS_REQUIRED');
+  r = await call('POST', '/dda/subscribe', { accept: true, email: 'a@example.com', phone: '11987650051', cep: '01001000' });
+  assert.equal(r.data.status, 'PROCESSING', JSON.stringify(r.data));
+  r = await call('GET', '/dda');
+  assert.equal(r.data.status, 'PROCESSING');
+  r = await call('POST', '/dda/subscribe', { accept: true });
+  assert.equal(r.data.error, 'IN_PROGRESS');
+  await wait();
+  r = await call('GET', '/dda');
+  assert.equal(r.data.status, 'ACTIVE');
+  assert.equal(r.data.invoices.length, 0);
+  r = await call('POST', '/dda/test-invoices');
+  assert.equal(r.data.ok, true, JSON.stringify(r.data));
+  await wait();
+  r = await call('GET', '/dda');
+  assert.equal(r.data.invoices.length, 3, 'a Celcoin gera 3 boletos por documento');
+  assert.deepEqual(r.data.invoices.map((i) => i.amount).sort((a, b) => a - b), [85.07, 113.41, 930.4], 'valores em centavos');
+  assert.ok(r.data.invoices.some((i) => i.situation === 'VENCIDO'));
+  const inv = r.data.invoices.find((i) => i.situation === 'PENDENTE');
+  r = await call('GET', '/dda/invoices/' + inv.id);
+  assert.equal(r.data.beneficiary, inv.beneficiary);
+  r = await call('POST', '/bills/authorize', { code: inv.digitable });
+  assert.equal(r.data.error, 'INVALID_CODE', 'como no sandbox: a linha dos boletos de teste não é válida');
+  r = await call('POST', '/dda/cancel', { txPassword: '0000' });
+  assert.equal(r.data.error, 'INVALID_TX_PASSWORD');
+  r = await call('POST', '/dda/cancel', { txPassword: '9999' });
+  assert.equal(r.data.status, 'CANCELLING', JSON.stringify(r.data));
+  await wait();
+  r = await call('GET', '/dda');
+  assert.equal(r.data.status, 'NONE');
+});
+
+test('DDA: classificação dos eventos (o webhook não diz o tipo)', () => {
+  const { classify } = require('../src/dda-events');
+  assert.equal(classify({ subscriptionId: 'x', status: 'Created', document: '1' }).type, 'SUBSCRIPTION');
+  assert.equal(classify({ subscriptionId: 'x', status: 'Inactive_failed', document: '1' }).type, 'DELETION');
+  assert.equal(classify({ registerData: { payer: { documentNumber: '1' } } }).type, 'INVOICE');
+  assert.equal(classify({ entity: 'pix-payment-out' }), null);
+});

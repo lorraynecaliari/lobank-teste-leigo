@@ -341,3 +341,21 @@ button.row { width: 100%; border: 0; background: none; padding: 0; text-align: l
 .acc-hero__share { width: 100%; padding: 14px 24px; border: 0; border-radius: 999px; background: #220b64; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
 .acc-row { padding: 16px 24px !important; border-bottom: 1px solid var(--line) !important; }
 .acc-out { color: #e63d3d !important; }
+
+/* DDA */
+.dda-check { display: flex; align-items: center; gap: 12px; padding: 12px 0; font-size: 15px; font-weight: 500; cursor: pointer; }
+.dda-check input { width: 22px; height: 22px; accent-color: var(--studio-primary-color); }
+.dda-chips { flex-wrap: nowrap; overflow-x: auto; padding: 0 24px 16px; }
+.chip--on { background: var(--studio-primary-color); color: #fff; }
+.dda-list { gap: 12px; }
+.dda-card { display: flex; flex-direction: column; gap: 12px; width: 100%; padding: 16px; border: 1px solid #ededed; border-radius: var(--studio-border-radius); background: #fff; text-align: left; cursor: pointer; font-family: inherit; color: inherit; }
+.dda-card__top, .dda-card__bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dda-card__payee { font-size: 16px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px; }
+.dda-card__line { border-top: 1px solid #ededed; }
+.dda-card__amount { font-size: 18px; font-weight: 700; }
+.dda-card__due { font-size: 12px; color: var(--muted, #6f6b82); }
+.dda-badge { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.dda-badge--warn { background: #fff7e5; color: #b95a00; }
+.dda-badge--ok { background: #eafff4; color: #008355; }
+.dda-badge--err { background: #ffeaea; color: #b22323; }
+.dda-badge--off { background: #f2f2f2; color: #6f6b82; }

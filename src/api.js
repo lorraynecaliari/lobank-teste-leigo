@@ -612,6 +612,7 @@ const num = (x) => (x == null || x === '' ? null : Number(x));
 const BILL_FRIENDLY = {
   822: 'Esse código de boleto não é válido. Confira os números e tente de novo.',
   620: 'O banco emissor do boleto não respondeu agora. Espere alguns minutos e tente de novo.',
+  623: 'O valor deste boleto passa do limite de R$ 1.000.000,00 por pagamento.',
   PCE020: 'A Celcoin não conseguiu concluir o pagamento.',
   PCE048: 'A consulta do boleto no banco emissor não foi encontrada na hora de pagar.',
   PCE088: 'Esse pagamento passa do limite de pagamentos da conta. Tente um valor menor ou fale com o suporte.',
@@ -752,6 +753,126 @@ router.get('/bills/:id', auth.requireUser, auth.requireAccount, wrap(async (req,
     }
   }
   res.json(billView(t));
+}));
+
+// ---------------------------------------------------------------- DDA (Débito Direto Autorizado)
+// Adesão, saída e boletos chegam só por evento (dda-events.js). O status vem do último evento do
+// documento; um pedido do app ainda sem evento fica "em processamento".
+const ddaEvents = require('./dda-events');
+const DDA_TERMS_VERSION = 'modelo-termo-adesao-dda (Celcoin)';
+const DDA_FRIENDLY = {
+  CDDA106: 'Já existe um pedido de adesão em andamento para esse documento.',
+  CDDA101: 'A Celcoin não aceitou o documento.',
+  CDDA115: 'Limite de documentos por pedido.',
+};
+// Adesão e saída só correm em dia útil, das 6h às 22h (horário de Brasília); fora disso ficam para o próximo dia útil.
+function ddaInWindow(ms = Date.now()) {
+  const br = new Date(ms - 3 * 3600e3);
+  const wd = br.getUTCDay(), h = br.getUTCHours();
+  return wd >= 1 && wd <= 5 && h >= 6 && h < 22;
+}
+const cents = (n) => Math.round(Number(n) || 0) / 100;
+const PAID = /liquida/i;
+function ddaInvoiceView(e, paidCodes) {
+  const r = e.body.registerData || {};
+  const due = r.dueDate ? String(r.dueDate).slice(0, 10) : null;
+  const st = String(r.status || '');
+  const situation = (paidCodes.has(r.digitable) || paidCodes.has(r.barCode)) ? 'PAGO' : PAID.test(st) ? 'PAGO'
+    : /^aberto/i.test(st) ? (due && due < ymdBr(Date.now()) ? 'VENCIDO' : 'PENDENTE') : 'CANCELADO';
+  const ben = r.originalBeneficiary || {};
+  return {
+    id: r.transactionId || e.id, situation, celcoinStatus: st, paymentSituation: r.paymentSituation || null,
+    beneficiary: ben.fantasyName || ben.name || 'Beneficiário', beneficiaryDoc: ben.documentNumber || null,
+    bankCode: r.addresseeBank && r.addresseeBank.code, dueDate: due, registeredAt: r.dueDateRegister || null,
+    amount: cents(r.calculatedAmount || r.originalValue), originalValue: cents(r.originalValue),
+    fine: r.fine ? { code: r.fine.code, description: r.fine.description, amount: r.fine.amount, date: r.fine.date } : null,
+    interest: r.interest ? { code: r.interest.code, description: r.interest.description, amount: r.interest.amount, date: r.interest.date } : null,
+    discount: (r.discounts || []).find((d) => d.code && d.code !== '0') || null,
+    digitable: r.digitable || null, barCode: r.barCode || null, ourNumber: r.ourNumber || null,
+    blocked: !!r.blockedPayment, receivedAt: e.received_at,
+  };
+}
+function ddaState(user) {
+  const doc = user.document;
+  const evs = [...ddaEvents.events(doc, 'SUBSCRIPTION'), ...ddaEvents.events(doc, 'DELETION')].sort((a, b) => a.received_at.localeCompare(b.received_at));
+  const last = evs[evs.length - 1];
+  const req = db.prepare('SELECT * FROM dda_requests WHERE document = ? ORDER BY id DESC LIMIT 1').get(doc);
+  const forReq = req && evs.find((e) => e.body.clientRequestId === req.client_request_id);
+  let status = 'NONE', error = null, deleteFailed = false;
+  if (req && !forReq) status = req.kind === 'SUBSCRIBE' ? 'PROCESSING' : 'CANCELLING';
+  else if (last) {
+    const st = String(last.body.status).toUpperCase();
+    if (st === 'CREATED') status = 'ACTIVE';
+    else if (st === 'ERROR') { status = 'ERROR'; error = (last.body.error && last.body.error[0]) || null; }
+    else if (st === 'INACTIVE') status = 'NONE';
+    else if (st === 'INACTIVE_FAILED') { status = 'ACTIVE'; deleteFailed = true; }
+  }
+  return { status, error: error && { code: error.ErrorCode || error.errorCode, message: DDA_FRIENDLY[error.ErrorCode] || error.ErrorMessage || error.message },
+    deleteFailed, request: req ? { kind: req.kind, at: req.created_at } : null, since: last && String(last.body.status).toUpperCase() === 'CREATED' ? last.received_at : null };
+}
+function ddaInvoices(user) {
+  const paid = new Set();
+  for (const t of db.prepare("SELECT counterpart_json FROM transactions WHERE user_id = ? AND kind = 'BILL' AND status = 'CONFIRMED'").all(user.id)) {
+    const c = JSON.parse(t.counterpart_json); if (c.digitable) paid.add(c.digitable); if (c.barCode) paid.add(c.barCode);
+  }
+  const byId = new Map();
+  for (const e of ddaEvents.events(user.document, 'INVOICE')) { const v = ddaInvoiceView(e, paid); byId.set(v.id, v); } // o último evento do boleto vale
+  return [...byId.values()].sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)));
+}
+
+router.get('/dda', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
+  const sync = await ddaEvents.sync();
+  const st = ddaState(req.user);
+  const invoices = st.status === 'ACTIVE' ? ddaInvoices(req.user) : [];
+  res.json({ ...st, inWindow: ddaInWindow(), configured: sync.configured, eventsError: sync.error || null, invoices,
+    canGenerateTest: celcoin.MODE === 'mock' || /sandbox/.test(celcoin.BASE_URL) });
+}));
+
+router.post('/dda/subscribe', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
+  if (req.body.accept !== true) return bad(res, 'TERMS_REQUIRED', 'Para aderir, é preciso aceitar o termo de adesão do DDA.');
+  await ddaEvents.sync();
+  const st = ddaState(req.user);
+  if (st.status === 'ACTIVE') return bad(res, 'ALREADY_ACTIVE', 'O DDA já está ativo para essa conta.', 409);
+  if (st.status === 'PROCESSING' || st.status === 'CANCELLING') return bad(res, 'IN_PROGRESS', 'Já existe um pedido do DDA em andamento. Aguarde o retorno da Celcoin.', 409);
+  const crid = celcoin.uid('lobank-dda');
+  const contact = { email: String(req.body.email || '').trim(), phone: v.onlyDigits(req.body.phone), cep: v.onlyDigits(req.body.cep) };
+  try {
+    const r = await celcoin.ddaSubscribe(req.user.document, req.user.full_name, crid);
+    db.prepare("INSERT INTO dda_requests (user_id, document, kind, client_request_id, subscription_id, terms_version, terms_accepted_at, contact_json) VALUES (?, ?, 'SUBSCRIBE', ?, ?, ?, datetime('now'), ?)")
+      .run(req.user.id, req.user.document, crid, r.body && r.body.subscriptionId, DDA_TERMS_VERSION, JSON.stringify(contact));
+  } catch (e) {
+    if (e instanceof celcoin.CelcoinError && DDA_FRIENDLY[e.code]) return bad(res, e.code, DDA_FRIENDLY[e.code], 422);
+    throw e;
+  }
+  res.json({ status: 'PROCESSING', inWindow: ddaInWindow() });
+}));
+
+router.post('/dda/cancel', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
+  if (!auth.verifySecret(String(req.body.txPassword || ''), req.user.tx_password_hash)) return bad(res, 'INVALID_TX_PASSWORD', 'Senha de transferência incorreta.', 401);
+  await ddaEvents.sync();
+  if (ddaState(req.user).status !== 'ACTIVE') return bad(res, 'NOT_ACTIVE', 'O DDA não está ativo para essa conta.', 409);
+  const crid = celcoin.uid('lobank-dda-saida');
+  const r = await celcoin.ddaUnsubscribe(req.user.document, crid);
+  db.prepare("INSERT INTO dda_requests (user_id, document, kind, client_request_id, subscription_id) VALUES (?, ?, 'DELETE', ?, ?)")
+    .run(req.user.id, req.user.document, crid, r.body && r.body.subscriptionId);
+  res.json({ status: 'CANCELLING', inWindow: ddaInWindow() });
+}));
+
+// Só sandbox: pede à Celcoin boletos de teste para o documento da conta.
+router.post('/dda/test-invoices', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
+  await ddaEvents.sync();
+  if (ddaState(req.user).status !== 'ACTIVE') return bad(res, 'NOT_ACTIVE', 'Ative o DDA antes de gerar boletos de teste.', 409);
+  const r = await celcoin.ddaTestInvoices([req.user.document]);
+  const ok = ((r.body || [])[0] || {}).status === 'Success';
+  if (!ok) return bad(res, 'TEST_INVOICE_FAIL', 'A Celcoin não gerou boletos para esse documento.', 422);
+  res.json({ ok: true });
+}));
+
+router.get('/dda/invoices/:id', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
+  await ddaEvents.sync();
+  const inv = ddaInvoices(req.user).find((i) => i.id === req.params.id);
+  if (!inv) return bad(res, 'NOT_FOUND', 'Boleto não encontrado.', 404);
+  res.json(inv);
 }));
 
 // ---------------------------------------------------------------- modo simulado

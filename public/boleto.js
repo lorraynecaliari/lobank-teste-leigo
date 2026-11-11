@@ -38,13 +38,15 @@
       <div class="scroll"><section class="intro"><h1 class="intro__title">Pagar <strong>boleto</strong></h1><p class="intro__desc">Como você quer informar o boleto?</p></section>
         <section class="body-sec"><div class="card">
           ${opt('type', I.barcode, 'Digitar código', 'Os números acima do código de barras')}<span class="divider"></span>
-          ${opt('pix', I.copy, 'Pix Copia e Cola', 'Quando o boleto traz um código Pix')}
+          ${opt('pix', I.copy, 'Pix Copia e Cola', 'Quando o boleto traz um código Pix')}<span class="divider"></span>
+          ${opt('dda', I.list, 'Meus boletos (DDA)', 'Boletos emitidos no seu documento')}
         </div>
         <p class="row__caption" style="text-align:center;margin-top:8px">Tem um leitor de código de barras USB ou bluetooth? Escolha <strong>Digitar código</strong> e use o leitor no campo.</p></section></div>`,
     { studio: 'e742f777 Formas de Pagamento (sem leitor por câmera e sem Abrir PDF)' });
     wireBk(root);
     $('#type').onclick = () => go('/boleto/codigo');
     $('#pix').onclick = () => go('/pix/copia-e-cola');
+    $('#dda').onclick = () => go('/dda');
   });
 
   // ============================================================ Digitar código manualmente

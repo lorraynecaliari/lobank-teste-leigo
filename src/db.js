@@ -86,6 +86,27 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   failures INTEGER NOT NULL DEFAULT 0,
   locked_until INTEGER NOT NULL DEFAULT 0
 );
+
+-- DDA: pedidos de adesão/saída feitos pelo app (com o aceite do termo) e eventos recebidos.
+CREATE TABLE IF NOT EXISTS dda_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  document TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('SUBSCRIBE','DELETE')),
+  client_request_id TEXT NOT NULL UNIQUE,
+  subscription_id TEXT,
+  terms_version TEXT,
+  terms_accepted_at TEXT,
+  contact_json TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS dda_events (
+  id TEXT PRIMARY KEY,                    -- id do evento na origem (webhook.site ou simulado)
+  document TEXT,
+  type TEXT NOT NULL,                     -- SUBSCRIPTION | DELETION | INVOICE
+  received_at TEXT NOT NULL,
+  data_json TEXT NOT NULL
+);
 `);
 
 module.exports = db;
