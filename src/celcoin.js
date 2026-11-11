@@ -41,7 +41,8 @@ async function getToken() {
 }
 
 function extractError(data) {
-  const e = (data && data.error) || {};
+  // Status do boleto (versão 1.2.0) traz o erro dentro de body.error, não na raiz.
+  const e = (data && (data.error || (data.body && data.body.error))) || {};
   let code = e.errorCode || e.code || data?.errorCode;
   let message = e.message || data?.message;
   // Copia e Cola devolve JSON escapado dentro de description (code 999 genérico por fora).
@@ -90,7 +91,12 @@ async function request(method, path, body) {
 }
 
 async function rawRequest(method, path, body, attempt = 1) {
-  if (MODE === 'mock') return require('./celcoin-mock').handle(method, path, body);
+  if (MODE === 'mock') {
+    // Mesma regra do sandbox: status "ERROR" no corpo vira erro, mesmo com HTTP 200.
+    const data = await require('./celcoin-mock').handle(method, path, body);
+    if (data && data.status === 'ERROR') { const { code, message } = extractError(data); throw new CelcoinError(200, code || 'HTTP_200', message, data); }
+    return data;
+  }
   const token = await getToken();
   const headers = { Authorization: `Bearer ${token}`, accept: 'application/json' };
   const opts = { method, headers };

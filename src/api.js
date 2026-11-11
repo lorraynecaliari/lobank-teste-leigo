@@ -579,6 +579,9 @@ const brTs = (ms) => new Date(ms - 3 * 3600e3).toISOString().slice(0, 19); // ho
 const num = (x) => (x == null || x === '' ? null : Number(x));
 const BILL_FRIENDLY = {
   822: 'Esse código de boleto não é válido. Confira os números e tente de novo.',
+  620: 'O banco emissor do boleto não respondeu agora. Espere alguns minutos e tente de novo.',
+  PCE020: 'A Celcoin não conseguiu concluir o pagamento.',
+  PCE048: 'A consulta do boleto no banco emissor não foi encontrada na hora de pagar.',
   PCE088: 'Esse pagamento passa do limite de pagamentos da conta. Tente um valor menor ou fale com o suporte.',
 };
 
@@ -589,12 +592,14 @@ router.post('/bills/authorize', auth.requireUser, auth.requireAccount, wrap(asyn
   let r;
   try { r = await celcoin.authorizeBill(req.account.account, code); }
   catch (e) {
-    if (e instanceof celcoin.CelcoinError && BILL_FRIENDLY[e.code]) return bad(res, e.code === '822' ? 'INVALID_CODE' : e.code, BILL_FRIENDLY[e.code], 422);
+    if (e instanceof celcoin.CelcoinError && BILL_FRIENDLY[e.code]) return bad(res, e.code === '822' ? 'INVALID_CODE' : String(e.code), BILL_FRIENDLY[e.code], e.code === '620' ? 503 : 422);
     throw e;
   }
   const rd = r.registerData || {};
-  const total = num(rd.totalUpdated) || num(r.value);
-  if (!total || !r.transactionId) return bad(res, 'AUTHORIZE_FAILED', 'Não conseguimos ler esse boleto agora. Tente de novo em instantes.', 502);
+  const total = num(rd.totalUpdated);
+  // Sem registerData a CIP não respondeu de verdade (no sandbox, 10/11 19:23: vencimento de 2022, sem mínimo e máximo,
+  // e o pagamento terminou em PCE048 com o valor debitado). Não deixa pagar com dados incompletos.
+  if (!total || !r.transactionId) return bad(res, 'AUTHORIZE_INCOMPLETE', 'O banco emissor não devolveu os dados completos desse boleto. Espere alguns minutos e tente de novo.', 503);
   const due = rd.dueDateRegister || r.dueDate || null;
   const today = ymdBr(Date.now());
   const bill = {
@@ -653,13 +658,14 @@ router.post('/bills/pay', auth.requireUser, auth.requireAccount, wrap(async (req
 function billView(t) {
   const c = JSON.parse(t.counterpart_json);
   return {
-    id: t.id, status: t.status, amount: t.amount, createdAt: t.created_at, clientCode: t.client_code, celcoinId: t.celcoin_id, bill: { ...c, receipt: undefined },
-    receipt: c.receipt || null,
+    id: t.id, status: t.status, amount: t.amount, createdAt: t.created_at, clientCode: t.client_code, celcoinId: t.celcoin_id,
+    bill: { ...c, receipt: undefined, debitOnError: undefined, debitChecked: undefined },
+    receipt: c.receipt || null, debitOnError: c.debitOnError || null, debitChecked: !!c.debitChecked, errorCode: t.error_code || null,
     errorMessage: t.status === 'ERROR' ? (BILL_FRIENDLY[t.error_code] || FRIENDLY[t.error_code] || t.message || 'O pagamento não foi concluído.') : null,
   };
 }
 
-router.get('/bills/:id', auth.requireUser, wrap(async (req, res) => {
+router.get('/bills/:id', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
   const t = db.prepare("SELECT * FROM transactions WHERE id = ? AND user_id = ? AND kind = 'BILL'").get(Number(req.params.id), req.user.id);
   if (!t) return bad(res, 'NOT_FOUND', 'Pagamento não encontrado.', 404);
   if (t.status === 'PROCESSING' || t.status === 'UNKNOWN') {
@@ -667,10 +673,10 @@ router.get('/bills/:id', auth.requireUser, wrap(async (req, res) => {
       const s = await celcoin.billStatus(t.client_code);
       const st = s.status;
       if (st && st !== t.status && ['CONFIRMED', 'ERROR', 'PROCESSING'].includes(st)) {
-        const code = s.error ? s.error.errorCode : null;
+        const er = s.error || (s.body && s.body.error) || null;
         db.prepare("UPDATE transactions SET status = ?, error_code = ?, message = ?, celcoin_id = COALESCE(celcoin_id, ?), updated_at = datetime('now') WHERE id = ?")
-          .run(st, code, s.error ? s.error.message : null, s.body && s.body.id, t.id);
-        Object.assign(t, { status: st, error_code: code, message: s.error ? s.error.message : null });
+          .run(st, er && er.errorCode, er && er.message, s.body && s.body.id, t.id);
+        Object.assign(t, { status: st, error_code: er && er.errorCode, message: er && er.message });
       }
     } catch (e) {
       if (e.code === 'TRANSPORT' || e.status === 429 || e.status === 404 || e.status >= 500) { /* segue em processamento */ }
@@ -680,8 +686,23 @@ router.get('/bills/:id', auth.requireUser, wrap(async (req, res) => {
       } else throw e;
     }
   }
-  // Recibo oficial: só depois de confirmado e só até achar (fica guardado no app).
   const c = JSON.parse(t.counterpart_json);
+  // Falha com dinheiro preso: no sandbox (10/11), dois pagamentos terminaram em ERROR (PCE020, PCE048) e o valor
+  // continuou debitado no extrato. Então o app confere o extrato em vez de afirmar que nada foi debitado.
+  if (t.status === 'ERROR' && t.client_code) {
+    const day = t.created_at.slice(0, 10);
+    try {
+      const mv = await celcoin.getMovements(req.account.account, day, ymdBr(Date.now()));
+      const list = (mv.body && mv.body.movements) || [];
+      const hit = list.find((m) => m.clientCode === t.client_code && m.balanceType === 'DEBIT');
+      const back = list.find((m) => m.clientCode === t.client_code && m.balanceType === 'CREDIT');
+      c.debitOnError = hit && !back ? { amount: hit.amount, status: hit.status, at: hit.createDate } : null;
+      c.debitChecked = true;
+    } catch (_) { c.debitChecked = false; }
+    t.counterpart_json = JSON.stringify(c);
+    db.prepare('UPDATE transactions SET counterpart_json = ? WHERE id = ?').run(t.counterpart_json, t.id);
+  }
+  // Recibo oficial: só depois de confirmado e só até achar (fica guardado no app).
   if (t.status === 'CONFIRMED' && !c.receipt) {
     const created = Date.parse(t.created_at.replace(' ', 'T') + 'Z');
     try {

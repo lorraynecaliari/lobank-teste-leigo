@@ -365,3 +365,23 @@ test('Pagamento de contas: massa de teste, valor travado/intervalo, saldo, statu
   }
   assert.equal(big.data.total, 1500);
 });
+
+test('Boleto: falhas vistas no sandbox em 10/11 (dados incompletos e falha com débito)', async () => {
+  cookie = '';
+  let r = await call('POST', '/auth/login', { document: '90830166173', password: 'outraSenha2' });
+  assert.equal(r.status, 200);
+  // 19:23: authorize sem registerData (vencimento 2022, sem mínimo e máximo). O app não deixa pagar.
+  r = await call('POST', '/bills/authorize', { code: '1'.repeat(47) });
+  assert.equal(r.data.error, 'AUTHORIZE_INCOMPLETE');
+  // 19:05: status ERROR (PCE020, dentro de body.error) com o valor ainda debitado no extrato.
+  r = await call('POST', '/bills/authorize', { code: '2'.repeat(47) });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  r = await call('POST', '/bills/pay', { lookupId: r.data.lookupId, amount: 50, txPassword: '9999' });
+  const id = r.data.txId;
+  await new Promise((ok) => setTimeout(ok, 1700));
+  r = await call('GET', '/bills/' + id);
+  assert.equal(r.data.status, 'ERROR');
+  assert.equal(r.data.errorCode, 'PCE020', 'código lido de body.error, não HTTP_200');
+  assert.match(r.data.errorMessage, /não conseguiu concluir/);
+  assert.equal(r.data.debitOnError.amount, 50);
+});

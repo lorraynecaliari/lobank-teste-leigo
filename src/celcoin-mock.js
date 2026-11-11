@@ -49,6 +49,9 @@ const BILLS = {
   '34198862666531252277792218900006890430000039322': { assignor: 'ITAU UNIBANCO S.A.', recipient: 'BENEFICIARIO AMBIENTE HOMOLOGACAO', value: 393.22, original: 436.92, discount: 43.70, total: 393.22 },
   '00190000090100159000700117369173390420000098888': { assignor: 'BANCO DO BRASIL S.A.', recipient: 'BENEFICIARIO AMBIENTE HOMOLOGACAO', value: 988.88, original: 957.24, fine: 28.71, interest: 1.98, total: 987.93, overdue: true },
   '23790124009217400000702005449802190400000191577': { assignor: 'BANCO BRADESCO S.A.', recipient: 'BENEFICIARIO AMBIENTE HOMOLOGACAO', value: 1915.77, original: 1915.77, fine: 19.15, total: 1934.92, overdue: true },
+  // Só no simulado: reproduzem o que o sandbox fez em 10/11 (19:05 e 19:23).
+  '11111111111111111111111111111111111111111111111': { assignor: 'BANCO SIMULADO', degraded: true, value: 322.02 },
+  '22222222222222222222222222222222222222222222222': { assignor: 'BANCO SIMULADO', recipient: 'FALHA COM DEBITO', value: 50, original: 50, total: 50, failDebited: true },
   '34191570070404695481642042200008290440000032202': { assignor: 'ITAU UNIBANCO S.A.', recipient: 'BENEFICIARIO AMBIENTE HOMOLOGACAO', value: 322.02, original: 322.02, interest: 1.22, total: 323.24, allow: true, min: 305.92, max: 338.12 },
 };
 
@@ -187,6 +190,10 @@ async function handle(method, path, body) {
         const moves = state.movements.get(acc) || [];
         const bal = moves.reduce((s, m) => s + (m.balanceType === 'CREDIT' ? m.amount : -m.amount), 0);
         if (bal < pay.amount) { pay.status = 'ERROR'; pay.errorCode = 'CBE123'; }
+        else if (pay.failDebited) {
+          pay.status = 'ERROR'; pay.errorCode = 'PCE020';
+          moves.push({ id: pay.id, clientCode: pay.clientRequestId, description: 'PAGAMENTO DE CONTAS', createDate: now(), amount: pay.amount, status: 'Saldo Bloqueado', balanceType: 'DEBIT', movementType: 'BILLPAYMENT' });
+        }
         else { pay.status = 'CONFIRMED'; moves.push({ id: pay.id, clientCode: pay.clientCode, description: 'pix', createDate: now(), amount: pay.amount, balanceType: 'DEBIT', movementType: 'PIXPAYMENTOUT' }); }
       }
       const out = { status: pay.status, body: { id: pay.id, amount: pay.amount, endToEndId: pay.endToEndId, creditParty: pay.creditParty } };
@@ -202,6 +209,7 @@ async function handle(method, path, body) {
       const transactionId = Math.floor(Math.random() * 1e9);
       state.bills = state.bills || new Map();
       state.bills.set(transactionId, m);
+      if (m.degraded) return { assignor: m.assignor, transactionId, digitable: code, value: m.value, dueDate: '2022-07-12T00:00:00', registerData: null, errorCode: '000', message: null, status: 0 };
       return { assignor: m.assignor, transactionId, digitable: m.digitable || code, value: m.value, type: 2, errorCode: '000', message: null, status: 0,
         initeHour: '07:00', endHour: '20:00', settleDate: today,
         registerData: { recipient: m.recipient, documentRecipient: '87754347000108', payer: 'PAGADOR AMBIENTE DE HOMOLOGACA', documentPayer: '69844780144',
@@ -212,7 +220,8 @@ async function handle(method, path, body) {
       if (!body.clientRequestId || !body.transactionIdAuthorize || !body.account) throw err(400, 'CBE001', 'Campos obrigatórios ausentes.');
       const id = crypto.randomUUID();
       state.billPays = state.billPays || new Map();
-      state.billPays.set(body.clientRequestId, { ...body, id, status: 'PROCESSING', at: Date.now() });
+      const auth = (state.bills || new Map()).get(body.transactionIdAuthorize) || {};
+      state.billPays.set(body.clientRequestId, { ...body, id, status: 'PROCESSING', at: Date.now(), failDebited: !!auth.failDebited });
       return { version: '1.0.0', status: 'PROCESSING', body: { id, clientRequestId: body.clientRequestId, amount: body.amount, transactionIdAuthorize: body.transactionIdAuthorize, barCodeInfo: body.barCodeInfo } };
     }
     if (method === 'GET' && p === '/baas/v2/billpayment/status') {
@@ -222,14 +231,19 @@ async function handle(method, path, body) {
         const moves = state.movements.get(pay.account) || [];
         const bal = moves.reduce((s, m) => s + (m.balanceType === 'CREDIT' ? m.amount : -m.amount), 0);
         if (bal < pay.amount) { pay.status = 'ERROR'; pay.errorCode = 'CBE123'; }
+        else if (pay.failDebited) {
+          pay.status = 'ERROR'; pay.errorCode = 'PCE020';
+          moves.push({ id: pay.id, clientCode: pay.clientRequestId, description: 'PAGAMENTO DE CONTAS', createDate: now(), amount: pay.amount, status: 'Saldo Bloqueado', balanceType: 'DEBIT', movementType: 'BILLPAYMENT' });
+        }
         else {
           pay.status = 'CONFIRMED'; pay.paidAt = now();
           moves.push({ id: pay.id, clientCode: pay.clientRequestId, description: 'PAGAMENTO DE CONTAS', createDate: pay.paidAt, amount: pay.amount, status: 'Saldo Bloqueado', balanceType: 'DEBIT', movementType: 'BILLPAYMENT' });
         }
       }
       // Igual ao sandbox: o status confirmado não traz recibo.
-      const out = { version: '1.0.0', status: pay.status, body: { id: pay.id, clientRequestId: pay.clientRequestId, amount: pay.amount, paymentDate: pay.paidAt || null, hasOccurrence: false } };
-      if (pay.errorCode) out.error = { errorCode: pay.errorCode, message: 'Saldo insuficiente.' };
+      // Como o sandbox (versão 1.2.0): o erro vem dentro de body.error.
+      const out = { version: '1.2.0', status: pay.status, body: { id: pay.id, clientRequestId: pay.clientRequestId, amount: pay.amount, paymentDate: pay.paidAt || null, hasOccurrence: false } };
+      if (pay.errorCode) out.body.error = { errorCode: pay.errorCode, message: pay.errorCode === 'PCE020' ? 'Falha ao realizar o pagamento por motivos desconhecidos. Tente novamente' : 'Saldo insuficiente.' };
       return out;
     }
     if (method === 'GET' && p === '/baas/v2/webhook/replay/billpayment/details') {

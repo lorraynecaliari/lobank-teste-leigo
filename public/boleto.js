@@ -22,6 +22,10 @@
   const brDay = (s) => (s ? String(s).slice(0, 10).split('-').reverse().join('/') : '—');
   // Código longo: rótulo em cima e número embaixo, para não quebrar o rótulo em três linhas.
   const codeRow = (d) => `<div style="display:flex;flex-direction:column;gap:2px;font-size:14px;line-height:21px"><span style="color:var(--muted)">Código do boleto</span><span style="font-weight:600;color:var(--ink-2);word-break:break-word">${esc(fmtLine(d || ''))}</span></div>`;
+  // Depois de uma falha, o app diz o que o extrato mostra, sem prometer que nada foi debitado.
+  const moneyNote = (t) => (t.debitOnError
+    ? `<strong>Atenção:</strong> ${money(t.debitOnError.amount)} aparece debitado no seu extrato (${esc(t.debitOnError.status || 'bloqueado')}). Não pague de novo antes de resolver: guarde o ID ${esc(t.clientCode)}.`
+    : t.debitChecked ? 'Conferimos o extrato: nenhum valor foi debitado.' : 'Confira o extrato para ver se algum valor foi debitado.');
   const docLabel = (d) => (d ? `${onlyDigits(d).length === 14 ? 'CNPJ' : 'CPF'}: ${maskDoc(onlyDigits(d))}` : '');
 
   // ============================================================ Formas de Pagamento
@@ -195,7 +199,7 @@
       const st = t ? t.status : 'WAITING';
       const who = t ? `${money(t.amount)} para ${esc(t.bill.name || 'o beneficiário')}` : '';
       const view = st === 'CONFIRMED' ? { b: 'ok', i: I.ok, title: 'Pagamento concluído!', desc: who, studio: 'Pagamento concluído' }
-        : st === 'ERROR' ? { b: 'err', i: I.err, title: 'Falha no pagamento', desc: esc(t.errorMessage || 'O pagamento não foi concluído.') + '<br>Nenhum valor foi debitado.', studio: 'Falha no pagamento' }
+        : st === 'ERROR' ? { b: 'err', i: I.err, title: 'Falha no pagamento', desc: esc(t.errorMessage || 'O pagamento não foi concluído.') + '<br>' + moneyNote(t), studio: 'Falha no pagamento' }
           : st === 'UNKNOWN' ? { b: 'wait', i: I.spinner, title: 'Confirmando com a Celcoin', desc: 'A conexão caiu no envio. Não pague de novo: estamos confirmando se o pagamento foi feito.', studio: 'novo:pagamento-em-processamento' }
             : { b: 'wait', i: I.spinner, title: 'Pagamento em processamento', desc: who || 'Aguardando a confirmação da Celcoin.', studio: 'novo:pagamento-em-processamento' };
       const waiting = st === 'WAITING' || st === 'PROCESSING' || st === 'UNKNOWN';
@@ -206,7 +210,7 @@
         ${stopped ? '<p class="result__desc" style="font-size:13px">A Celcoin ainda não confirmou. Você pode consultar de novo ou ver o comprovante pendente.</p>' : ''}</div></div>
         <div class="actions">${st === 'CONFIRMED' || stopped ? '<button class="btn btn-primary" id="rc">' + (st === 'CONFIRMED' ? 'Ver comprovante' : 'Ver comprovante pendente') + '</button>' : ''}
           ${stopped ? '<button class="btn btn-outline" id="again">Consultar de novo</button>' : ''}
-          ${st === 'ERROR' ? '<button class="btn btn-primary" id="retry">Tentar de novo</button>' : ''}
+          ${st === 'ERROR' && !t.debitOnError ? '<button class="btn btn-primary" id="retry">Tentar de novo</button>' : ''}${st === 'ERROR' && t.debitOnError ? '<button class="btn btn-primary" id="rc">Ver detalhes</button>' : ''}
           <button class="btn ${st === 'CONFIRMED' || stopped || st === 'ERROR' ? 'btn-ghost' : 'btn-primary'}" id="home">Voltar ao início</button></div>`, { studio: view.studio });
       $('#home').onclick = () => go('/home');
       if ($('#rc')) $('#rc').onclick = () => go('/boleto/comprovante/' + id);
@@ -231,13 +235,14 @@
     const pending = t.status === 'PROCESSING' || t.status === 'UNKNOWN';
     const row = (k, val) => `<div class="receipt__row"><span>${k}</span><span>${val}</span></div>`;
     root.innerHTML = frame(`${header()}
-      <div class="scroll"><section class="intro"><h1 class="intro__title intro__title--sm">${pending ? 'Pagamento pendente' : 'Comprovante de pagamento'}</h1><p class="intro__desc">${fmtDateTime(t.createdAt + 'Z')}</p></section>
+      <div class="scroll"><section class="intro"><h1 class="intro__title intro__title--sm">${pending ? 'Pagamento pendente' : t.status === 'ERROR' ? 'Pagamento não concluído' : 'Comprovante de pagamento'}</h1><p class="intro__desc">${fmtDateTime(t.createdAt + 'Z')}</p></section>
         <section class="body-sec">
           ${pending ? '<div class="info-box info-box--warn"><span class="info-box-bar"></span><span class="info-box-text">A Celcoin ainda está processando esse pagamento. O comprovante definitivo aparece quando ele for confirmado.</span></div>' : ''}
+          ${t.status === 'ERROR' ? `<div class="info-box info-box--warn"><span class="info-box-bar"></span><span class="info-box-text">${esc(t.errorMessage || '')} ${moneyNote(t)}</span></div>` : ''}
           ${confirmed && !r ? '<div class="info-box"><span class="info-box-bar"></span><span class="info-box-text" id="rcw">Pagamento confirmado. O recibo oficial da Celcoin chega em instantes.</span></div>' : ''}
           <div class="card"><div class="receipt">
             ${row('Situação', confirmed ? 'Pago' : t.status === 'ERROR' ? 'Não concluído' : 'Em processamento')}
-            ${row('Valor pago', money(t.amount))}
+            ${row(confirmed ? 'Valor pago' : 'Valor', money(t.amount))}
             ${row('Beneficiário', esc(c.name || ''))}
             ${c.document ? row('Documento', esc(docLabel(c.document).replace(/^\w+: /, ''))) : ''}
             ${c.assignor ? row('Banco emissor', esc(c.assignor)) : ''}
@@ -258,7 +263,7 @@
           ${confirmed && !r ? '<p class="result__timer" id="timer" aria-live="polite" style="text-align:center"></p>' : ''}
         </section></div>
       <footer class="footbar" style="display:flex;flex-direction:column;gap:8px">${confirmed && !r ? '<button class="btn btn-outline btn--lg" id="again" disabled>Buscar recibo</button>' : ''}<button class="btn btn-primary btn--lg" id="share">Copiar comprovante</button><button class="btn btn-ghost" id="home">Voltar ao início</button></footer>`,
-    { studio: pending ? 'Comprovante | Pagamento pendente' : 'Comprovante de pagamento' });
+    { studio: pending ? 'Comprovante | Pagamento pendente' : t.status === 'ERROR' ? 'Comprovante (falha)' : 'Comprovante de pagamento' });
     wireBk(root);
     $('#home').onclick = () => go('/home');
     $('#share').onclick = () => copy(r && r.formatted ? r.formatted.replace(/\r/g, '')
