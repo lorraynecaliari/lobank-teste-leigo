@@ -111,7 +111,8 @@
   // ============================================================ Processamento (0feb0a07) — adesão ou saída
   route('/dda/processando', async (root) => {
     if (!(await needAccount())) return;
-    const WAIT = queryWaitSec(), MAX = 6;
+    // A Celcoin leva cerca de 1 minuto para confirmar a adesão ou a saída: espera 30 s entre consultas (pedido da usuária).
+    const WAIT = Math.max(30, queryWaitSec()), MAX = 6;
     let tries = 0, s = state.dda;
     const paint = () => {
       const leaving = s && s.status === 'CANCELLING';
@@ -132,7 +133,7 @@
       try { s = state.dda = await loadDda(); } catch (e) { if (e.status === 401) return; toast(e.message); }
       if (s && s.status === 'ACTIVE') return go(s.deleteFailed ? '/dda/boletos' : '/dda/sucesso');
       if (s && s.status === 'ERROR') return go('/dda/erro');
-      if (s && s.status === 'NONE') { toast('Você saiu do DDA.'); return go('/home'); }
+      if (s && s.status === 'NONE') return go('/dda/desativado');
       paint();
     };
     if (state.ddaJustSent) { state.ddaJustSent = false; paint(); } else query();
@@ -146,6 +147,15 @@
     { studio: 'b138a51b Aderir ao DDA | Cadastro | Sucesso' });
     $('#go').onclick = () => go('/dda/boletos');
     $('#home').onclick = () => go('/home');
+  });
+  // Saída confirmada: mesma tela do "DDA ativado", para quem ainda estava esperando a resposta.
+  route('/dda/desativado', (root) => {
+    root.innerHTML = frame(`<div class="scroll"><div class="result" style="margin-top:96px"><span class="result__badge result__badge--ok" style="width:72px;height:72px">${I.ok}</span>
+      <h1 class="result__title">DDA desativado</h1><p class="result__desc">A Celcoin confirmou a sua saída. Os boletos emitidos no seu documento não aparecem mais no app. Você pode ativar de novo quando quiser.</p></div></div>
+      <div class="actions"><button class="btn btn-primary" id="home">Voltar ao início</button><button class="btn btn-ghost" id="again">Ativar de novo</button></div>`,
+    { studio: 'novo:dda-desativado (modelo b138a51b Sucesso)' });
+    $('#home').onclick = () => go('/home');
+    $('#again').onclick = () => go('/dda/termos');
   });
   route('/dda/erro', async (root) => {
     const s = state.dda || (await loadDda().catch(() => null)) || {};
