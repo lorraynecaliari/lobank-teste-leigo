@@ -18,7 +18,7 @@ const app = require('../server');
 
 test('máscaras: documento, conta, chave, nome, contato, endereço e segredos', () => {
   const m = ev.mask({
-    documentNumber: '44334191258', taxId: '46013634000180', account: '41174608', key: 'testepix@celcoin.com.br',
+    documentNumber: '44334191258', externalTerminal: '41175621', taxId: '46013634000180', account: '41174608', key: 'testepix@celcoin.com.br',
     fullName: 'Ana Responsável Teste', email: 'ana.ltda@gmail.com', phoneNumber: '+5531975144531',
     birthDate: '15-03-1990', address: { street: 'Alameda Xingu', number: '100', city: 'Barueri' },
     access_token: 'abc', client_secret: 'xyz', pwd: 'teste', remittanceInformation: 'pago a 44334191258',
@@ -26,6 +26,7 @@ test('máscaras: documento, conta, chave, nome, contato, endereço e segredos', 
   });
   assert.equal(m.documentNumber, '*********58');
   assert.equal(m.taxId, '************80');
+  assert.equal(m.externalTerminal, '*****621'); // conta usada como terminal no authorize do boleto
   assert.equal(m.account, '*****608');
   assert.equal(m.key, 'te***@celcoin.com.br');
   assert.equal(m.fullName, 'Ana R. T.');

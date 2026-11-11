@@ -35,7 +35,7 @@ function middleware(req, res, next) {
 // ---- Máscaras -----------------------------------------------------------------
 const SECRET_KEYS = /^(authorization|access_token|token|client_secret|client_id|password|pwd|login|secret|senha|txpassword|cookie)$/i;
 const DOC_KEYS = /^(documentnumber|taxid|ownertaxid|cpf|cnpj|document|payerdocument|payertaxid|recipientdocument|documento|documentos)$/i;
-const ACCOUNT_KEYS = /^(account|accountnumber|conta)$/i;
+const ACCOUNT_KEYS = /^(account|accountnumber|conta|externalterminal)$/i;
 const NAME_KEYS = /^(name|fullname|mothername|socialname|businessname|tradingname|tradename|fantasyname|clientname|payername|recipientname|beneficiaryname|nome)$/i;
 const EMAIL_KEYS = /email/i;
 const PHONE_KEYS = /(phone|contactnumber|telefone)/i;
