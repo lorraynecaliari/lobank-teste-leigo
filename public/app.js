@@ -971,7 +971,7 @@
   });
 
   // ============================================================ EXTRATO (Wallet | Extrato + Detalhes)
-  const MOV = { PIXPAYMENTOUT: 'Pix enviado', PIXPAYMENTIN: 'Pix recebido', ENTRYCREDIT: 'Crédito em conta', ENTRYDEBIT: 'Débito em conta', BILLPAYMENT: 'Pagamento de conta' };
+  const MOV = { PIXPAYMENTOUT: 'Pix enviado', PIXPAYMENTIN: 'Pix recebido', ENTRYCREDIT: 'Crédito em conta', ENTRYDEBIT: 'Débito em conta', BILLPAYMENT: 'Pagamento de conta', BALANCEGAP: 'Diferença de saldo' };
   route('/extrato', async (root) => {
     if (!(await loadMe())) return go('/login');
     if (!state.me.account) return go('/validacao');

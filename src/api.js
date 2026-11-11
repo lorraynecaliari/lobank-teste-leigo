@@ -324,10 +324,30 @@ router.get('/statement', auth.requireUser, auth.requireAccount, wrap(async (req,
   if (span < 1) return bad(res, 'INVALID_PERIOD', 'A data inicial precisa ser anterior à final.');
   if (span > STATEMENT_MAX_DAYS) return bad(res, 'PERIOD_TOO_LONG', `O extrato pode ser consultado em períodos de até ${STATEMENT_MAX_DAYS} dias.`);
   const data = await celcoin.getMovements(req.account.account, from, to);
-  const moves = ((data.body && data.body.movements) || []).map((m) => ({
-    id: m.id, clientCode: m.clientCode, date: m.createDate, amount: Number(m.amount) || 0,
-    direction: m.balanceType === 'CREDIT' ? 'in' : 'out', type: m.movementType, description: m.description, status: m.status,
-  }));
+  const brlTxt = (n) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const STATUS = { CONFIRMED: 'Concluído', PROCESSING: 'Em processamento', ERROR: 'Não concluído' };
+  const moves = ((data.body && data.body.movements) || []).map((m) => {
+    const a = m.additionalInformation || {};
+    const party = m.balanceType === 'CREDIT' ? a.debitParty : a.creditParty; // Pix: quem pagou ou quem recebeu
+    return {
+      id: m.id, clientCode: m.clientCode, date: String(m.createDate || '').replace(/Z$/, ''), // horário de Brasília, apesar do "Z"
+      amount: Number(m.amount) || 0, direction: m.balanceType === 'CREDIT' ? 'in' : 'out', type: m.movementType,
+      description: m.description || null, status: STATUS[m.status] || m.status, counterpart: (party && party.name) || null,
+      endToEndId: a.endToEndId || null, balanceBefore: num(a.oldBalance), balanceAfter: num(a.currentBalance),
+    };
+  });
+  // Saldo que muda sem lançamento: no sandbox (11/11), R$ 1.309,95 de dois boletos recusados saíram do saldo
+  // sem aparecer no extrato detalhado. O app mostra a diferença em vez de esconder.
+  // A Celcoin devolve do mais novo para o mais antigo; a ordem dela é a da cadeia de saldo (horários podem empatar).
+  const chain = moves.filter((m) => m.balanceBefore != null && m.balanceAfter != null).reverse();
+  const gaps = [];
+  for (let k = 1; k < chain.length; k++) {
+    const diff = Math.round((chain[k].balanceBefore - chain[k - 1].balanceAfter) * 100) / 100;
+    if (Math.abs(diff) >= 0.01) {
+      gaps.push({ id: `gap-${chain[k].id}`, date: chain[k - 1].date, amount: Math.abs(diff), direction: diff > 0 ? 'in' : 'out', type: 'BALANCEGAP',
+        description: `O saldo foi de ${brlTxt(chain[k - 1].balanceAfter)} para ${brlTxt(chain[k].balanceBefore)} sem lançamento no extrato da Celcoin`, status: 'Sem lançamento', gap: true });
+    }
+  }
   // Pix enviados que ainda não liquidaram aparecem como "em processamento", sem afetar o total.
   const known = new Set(moves.map((m) => m.clientCode));
   const pending = db.prepare("SELECT * FROM transactions WHERE user_id = ? AND status IN ('PROCESSING','UNKNOWN') ORDER BY id DESC").all(req.user.id)
@@ -337,8 +357,20 @@ router.get('/statement', auth.requireUser, auth.requireAccount, wrap(async (req,
   const txByCode = new Map(db.prepare('SELECT id, kind, client_code, counterpart_json FROM transactions WHERE user_id = ?').all(req.user.id).map((t) => [t.client_code, t]));
   for (const m of moves) {
     const t = txByCode.get(m.clientCode);
-    if (t) { m.txId = t.id; m.kind = t.kind; m.counterpart = JSON.parse(t.counterpart_json).name; }
+    if (t) { m.txId = t.id; m.kind = t.kind; m.counterpart = m.counterpart || JSON.parse(t.counterpart_json).name; }
   }
+  // Diferença depois do último lançamento: compara com o saldo de agora (só no período que termina hoje e sem
+  // pagamento em processamento, que ainda pode lançar).
+  if (chain.length && to === ymdBr(Date.now()) && !pending.length) {
+    const lastOne = chain[chain.length - 1];
+    const now = Number((await celcoin.getBalance(req.account.account)).body.amount);
+    const diff = Math.round((now - lastOne.balanceAfter) * 100) / 100;
+    if (Number.isFinite(now) && Math.abs(diff) >= 0.01) {
+      moves.unshift({ id: 'gap-now', date: lastOne.date, amount: Math.abs(diff), direction: diff > 0 ? 'in' : 'out', type: 'BALANCEGAP',
+        description: `O saldo foi de ${brlTxt(lastOne.balanceAfter)} para ${brlTxt(now)} sem lançamento no extrato da Celcoin`, status: 'Sem lançamento', gap: true });
+    }
+  }
+  for (const g of gaps) moves.splice(moves.findIndex((m) => `gap-${m.id}` === g.id) + 1, 0, g); // logo abaixo do lançamento seguinte
   res.json({ from, to, movements: [...pending, ...moves] });
 }));
 
@@ -692,7 +724,7 @@ router.get('/bills/:id', auth.requireUser, auth.requireAccount, wrap(async (req,
   if (t.status === 'ERROR' && t.client_code) {
     const day = t.created_at.slice(0, 10);
     try {
-      const mv = await celcoin.getMovements(req.account.account, day, ymdBr(Date.now()));
+      const mv = await celcoin.getMovementsSimple(req.account.account, day, ymdBr(Date.now()));
       const list = (mv.body && mv.body.movements) || [];
       const hit = list.find((m) => m.clientCode === t.client_code && m.balanceType === 'DEBIT');
       const back = list.find((m) => m.clientCode === t.client_code && m.balanceType === 'CREDIT');

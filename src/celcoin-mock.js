@@ -136,6 +136,25 @@ async function handle(method, path, body) {
       const amount = moves.reduce((s, m) => s + (m.balanceType === 'CREDIT' ? m.amount : -m.amount), 0);
       return { status: 'SUCCESS', body: { amount } };
     }
+    if (method === 'GET' && p === '/baas/v2/wallet/power-movement') {
+      // Como o sandbox: saldo antes e depois, status CONFIRMED, "Z" no horário de Brasília, paginado,
+      // e boleto recusado com débito fica de fora (mas mexe no saldo).
+      const acc = q.get('Account');
+      const from = q.get('DateFrom'), to = q.get('DateTo');
+      if ((Date.parse(to) - Date.parse(from)) / 864e5 > 6) throw err(400, 'CBE376', 'Consulta conta não permitida. Diferença entre dateFrom e dateTo não pode ultrapassar 7 dias.');
+      let bal = 0;
+      const out = [];
+      for (const m of state.movements.get(acc) || []) {
+        const old = bal; bal = Math.round((bal + (m.balanceType === 'CREDIT' ? m.amount : -m.amount)) * 100) / 100;
+        if (m.hiddenInPower) continue;
+        out.push({ id: m.id, clientCode: m.clientCode, description: m.movementType.startsWith('ENTRY') ? m.description : null, createDate: `${m.createDate}Z`, amount: m.amount,
+          status: 'CONFIRMED', balanceType: m.balanceType, movementType: m.movementType, additionalInformation: { oldBalance: old, currentBalance: bal, ...(m.extra || {}) } });
+      }
+      out.reverse();
+      const page = Number(q.get('Page') || 1), per = Number(q.get('LimitPerPage') || 50);
+      return { status: 'SUCCESS', version: '2.0.0', totalItems: out.length, currentPage: page, limitPerPage: per, totalPages: Math.max(1, Math.ceil(out.length / per)),
+        body: { account: acc, movements: out.slice((page - 1) * per, page * per) } };
+    }
     if (method === 'GET' && p === '/baas-walletreports/v1/wallet/movement') {
       const acc = q.get('Account');
       return { status: 'SUCCESS', body: { account: acc, movements: (state.movements.get(acc) || []).slice().reverse() } };
@@ -192,7 +211,7 @@ async function handle(method, path, body) {
         if (bal < pay.amount) { pay.status = 'ERROR'; pay.errorCode = 'CBE123'; }
         else if (pay.failDebited) {
           pay.status = 'ERROR'; pay.errorCode = 'PCE020';
-          moves.push({ id: pay.id, clientCode: pay.clientRequestId, description: 'PAGAMENTO DE CONTAS', createDate: now(), amount: pay.amount, status: 'Saldo Bloqueado', balanceType: 'DEBIT', movementType: 'BILLPAYMENT' });
+          moves.push({ id: pay.id, clientCode: pay.clientRequestId, description: 'PAGAMENTO DE CONTAS', createDate: now(), amount: pay.amount, status: 'Saldo Bloqueado', balanceType: 'DEBIT', movementType: 'BILLPAYMENT', hiddenInPower: true });
         }
         else { pay.status = 'CONFIRMED'; moves.push({ id: pay.id, clientCode: pay.clientCode, description: 'pix', createDate: now(), amount: pay.amount, balanceType: 'DEBIT', movementType: 'PIXPAYMENTOUT' }); }
       }
@@ -233,7 +252,7 @@ async function handle(method, path, body) {
         if (bal < pay.amount) { pay.status = 'ERROR'; pay.errorCode = 'CBE123'; }
         else if (pay.failDebited) {
           pay.status = 'ERROR'; pay.errorCode = 'PCE020';
-          moves.push({ id: pay.id, clientCode: pay.clientRequestId, description: 'PAGAMENTO DE CONTAS', createDate: now(), amount: pay.amount, status: 'Saldo Bloqueado', balanceType: 'DEBIT', movementType: 'BILLPAYMENT' });
+          moves.push({ id: pay.id, clientCode: pay.clientRequestId, description: 'PAGAMENTO DE CONTAS', createDate: now(), amount: pay.amount, status: 'Saldo Bloqueado', balanceType: 'DEBIT', movementType: 'BILLPAYMENT', hiddenInPower: true });
         }
         else {
           pay.status = 'CONFIRMED'; pay.paidAt = now();

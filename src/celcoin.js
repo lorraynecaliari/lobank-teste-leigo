@@ -156,7 +156,23 @@ const updateAccountPJ = (account, cnpj, payload) =>
 const getBalance = (account) =>
   request('GET', `/baas/v2/wallet/balance?Account=${encodeURIComponent(account)}`);
 
-const getMovements = (account, dateFrom, dateTo) =>
+// Extrato detalhado (power-movement, v2.0.0): status CONFIRMED/PROCESSING/ERROR, saldo antes e depois e
+// additionalInformation (partes do Pix, recibo do boleto). Paginado (Page, LimitPerPage) e até 7 dias.
+// Atenção: createDate vem com "Z", mas é horário de Brasília (Pix pago às 17:32 aparece como 17:32Z).
+async function getMovements(account, dateFrom, dateTo) {
+  const all = [];
+  let page = 1, pages = 1;
+  do {
+    const data = await request('GET', `/baas/v2/wallet/power-movement?Account=${encodeURIComponent(account)}&DateFrom=${dateFrom}&DateTo=${dateTo}&Page=${page}&LimitPerPage=100`);
+    all.push(...((data.body && data.body.movements) || []));
+    pages = Math.min(Number(data.totalPages) || 1, 20);
+    page++;
+  } while (page <= pages);
+  return { body: { movements: all } };
+}
+// Extrato simples (walletreports). Fica só para conferir débito de boleto com erro: no sandbox (11/11), os
+// pagamentos com ERROR aparecem aqui ("Saldo Bloqueado"), mas não aparecem no power-movement.
+const getMovementsSimple = (account, dateFrom, dateTo) =>
   request('GET', `/baas-walletreports/v1/wallet/movement?Account=${encodeURIComponent(account)}&DateFrom=${dateFrom}&DateTo=${dateTo}`);
 
 // ---- Chaves Pix --------------------------------------------------------------
@@ -236,6 +252,6 @@ module.exports = {
   authorizeBill, payBill, billStatus, billReceipt,
   createNaturalPersonProposal, createLegalPersonProposal, getProposal, fetchAccountPF, fetchAccountPJ, updateAccountPF, updateAccountPJ,
   decodeEmv, listParticipants,
-  getBalance, getMovements, listKeys, createEvpKey, deleteKey,
+  getBalance, getMovements, getMovementsSimple, listKeys, createEvpKey, deleteKey,
   lookupKey, pixPayment, pixPaymentStatus, createStaticQr,
 };

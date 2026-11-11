@@ -384,4 +384,19 @@ test('Boleto: falhas vistas no sandbox em 10/11 (dados incompletos e falha com d
   assert.equal(r.data.errorCode, 'PCE020', 'código lido de body.error, não HTTP_200');
   assert.match(r.data.errorMessage, /não conseguiu concluir/);
   assert.equal(r.data.debitOnError.amount, 50);
+
+  // Extrato detalhado: o boleto recusado some da lista, mas o saldo mudou. O app mostra a diferença.
+  await call('POST', '/dev/credit', { amount: 5 }); // lançamento depois do débito escondido, como no sandbox
+  r = await call('GET', '/statement');
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.ok(!r.data.movements.some((m) => m.clientCode && m.type === 'BILLPAYMENT' && m.amount === 50 && !m.gap));
+  const gap = r.data.movements.find((m) => m.type === 'BALANCEGAP');
+  assert.ok(gap, 'diferença de saldo sem lançamento');
+  assert.equal(gap.amount, 50);
+  assert.equal(gap.direction, 'out');
+  const ok = r.data.movements.find((m) => m.type === 'BILLPAYMENT');
+  assert.equal(ok.status, 'Concluído');
+  assert.ok(!/Z$/.test(ok.date), 'horário de Brasília sem o Z');
+  r = await call('GET', '/statement?from=2026-11-01&to=2026-11-08');
+  assert.equal(r.data.error, 'PERIOD_TOO_LONG');
 });
