@@ -1,6 +1,6 @@
 # Telas do LoBank
 
-Gerado por `tools/telas/capturar.py` (branch `app-rodada-0`, commit `84ad845`), no **modo simulado**, em 360 × 800.
+Gerado por `tools/telas/capturar.py` (branch `app-rodada-0`, commit `dbfee48`), no **modo simulado**, em 360 × 800.
 Os dados nas telas são fictícios. Para atualizar: `python3 tools/telas/capturar.py ../lobank-teste-leigo/docs` (só depois da versão final confirmada).
 
 **Regra:** uma tela nova ou alterada só entra aqui depois que a usuária confirmar que é a versão final daquela tela.
@@ -17,6 +17,7 @@ Resumo de todas as telas. O detalhamento de cada uma está em [Evidências de te
 - [Receber (QR Code)](#receber-qr-code) (6 telas)
 - [Extrato](#extrato) (8 telas)
 - [Pagamento de contas (boleto)](#pagamento-de-contas-boleto) (15 telas)
+- [DDA (Débito Direto Autorizado)](#dda-débito-direto-autorizado) (19 telas)
 
 ## Acesso e cadastro PF
 
@@ -109,6 +110,20 @@ Detalhamento (origem no Studio, alteração e motivo): [Evidências de telas ›
 <tr><td align="center" valign="top" width="33%"><img src="boleto/07-informar-valor-fora-do-intervalo.png" width="240" alt="Informar valor: fora do intervalo"><br><b>Informar valor: fora do intervalo</b><br><code>#/boleto/valor</code></td><td align="center" valign="top" width="33%"><img src="boleto/08-confirmar-valor.png" width="240" alt="Confirmar valor"><br><b>Confirmar valor</b><br><code>#/boleto/confirmar</code></td><td align="center" valign="top" width="33%"><img src="boleto/09-senha-de-transferencia.png" width="240" alt="Senha de transferência"><br><b>Senha de transferência</b><br><code>#/boleto/confirmar</code></td></tr>
 <tr><td align="center" valign="top" width="33%"><img src="boleto/10-pagamento-em-processamento.png" width="240" alt="Pagamento em processamento"><br><b>Pagamento em processamento</b><br><code>#/boleto/pagamento/:id</code></td><td align="center" valign="top" width="33%"><img src="boleto/11-pagamento-concluido.png" width="240" alt="Pagamento concluído"><br><b>Pagamento concluído</b><br><code>#/boleto/pagamento/:id</code></td><td align="center" valign="top" width="33%"><img src="boleto/12-comprovante-do-boleto.png" width="240" alt="Comprovante do boleto"><br><b>Comprovante do boleto</b><br><code>#/boleto/comprovante/:id</code></td></tr>
 <tr><td align="center" valign="top" width="33%"><img src="boleto/13-falha-no-pagamento-com-valor-debitado.png" width="240" alt="Falha no pagamento com valor debitado"><br><b>Falha no pagamento com valor debitado</b><br><code>#/boleto/pagamento/:id</code></td><td align="center" valign="top" width="33%"><img src="boleto/14-comprovante-pagamento-nao-concluido.png" width="240" alt="Comprovante: pagamento não concluído"><br><b>Comprovante: pagamento não concluído</b><br><code>#/boleto/comprovante/:id</code></td><td align="center" valign="top" width="33%"><img src="boleto/15-saldo-insuficiente.png" width="240" alt="Saldo insuficiente"><br><b>Saldo insuficiente</b><br><code>#/boleto/saldo-insuficiente</code></td></tr>
+</table>
+
+## DDA (Débito Direto Autorizado)
+
+Detalhamento (origem no Studio, alteração e motivo): [Evidências de telas › DDA (Débito Direto Autorizado)](Evidencias%20de%20telas.md#dda-débito-direto-autorizado)
+
+<table>
+<tr><td align="center" valign="top" width="33%"><img src="dda/01-ative-o-dda-termos.png" width="240" alt="Ative o DDA (termos)"><br><b>Ative o DDA (termos)</b><br><code>#/dda/termos</code></td><td align="center" valign="top" width="33%"><img src="dda/02-confira-seus-dados.png" width="240" alt="Confira seus dados"><br><b>Confira seus dados</b><br><code>#/dda/cadastro</code></td><td align="center" valign="top" width="33%"><img src="dda/03-ativando-o-dda.png" width="240" alt="Ativando o DDA"><br><b>Ativando o DDA</b><br><code>#/dda/processando</code></td></tr>
+<tr><td align="center" valign="top" width="33%"><img src="dda/04-dda-ativado.png" width="240" alt="DDA ativado"><br><b>DDA ativado</b><br><code>#/dda/sucesso</code></td><td align="center" valign="top" width="33%"><img src="dda/05-meus-boletos-vazia.png" width="240" alt="Meus boletos (vazia)"><br><b>Meus boletos (vazia)</b><br><code>#/dda/boletos</code></td><td align="center" valign="top" width="33%"><img src="dda/06-boletos-de-teste-pedidos.png" width="240" alt="Boletos de teste pedidos"><br><b>Boletos de teste pedidos</b><br><code>#/dda/boletos</code></td></tr>
+<tr><td align="center" valign="top" width="33%"><img src="dda/07-meus-boletos.png" width="240" alt="Meus boletos"><br><b>Meus boletos</b><br><code>#/dda/boletos</code></td><td align="center" valign="top" width="33%"><img src="dda/08-filtro-vencidos.png" width="240" alt="Filtro: vencidos"><br><b>Filtro: vencidos</b><br><code>#/dda/boletos</code></td><td align="center" valign="top" width="33%"><img src="dda/09-opcoes.png" width="240" alt="Opções"><br><b>Opções</b><br><code>#/dda/boletos</code></td></tr>
+<tr><td align="center" valign="top" width="33%"><img src="dda/10-sobre-o-dda.png" width="240" alt="Sobre o DDA"><br><b>Sobre o DDA</b><br><code>#/dda/termos-info</code></td><td align="center" valign="top" width="33%"><img src="dda/11-detalhe-do-boleto.png" width="240" alt="Detalhe do boleto"><br><b>Detalhe do boleto</b><br><code>#/dda/boleto/:id</code></td><td align="center" valign="top" width="33%"><img src="dda/12-pagar-codigo-nao-reconhecido.png" width="240" alt="Pagar: código não reconhecido"><br><b>Pagar: código não reconhecido</b><br><code>#/dda/boleto/:id</code></td></tr>
+<tr><td align="center" valign="top" width="33%"><img src="dda/13-minha-conta-dda-ativo.png" width="240" alt="Minha conta: DDA ativo"><br><b>Minha conta: DDA ativo</b><br><code>#/minha-conta</code></td><td align="center" valign="top" width="33%"><img src="dda/14-sair-do-dda-senha-incorreta.png" width="240" alt="Sair do DDA: senha incorreta"><br><b>Sair do DDA: senha incorreta</b><br><code>#/minha-conta</code></td><td align="center" valign="top" width="33%"><img src="dda/15-saindo-do-dda.png" width="240" alt="Saindo do DDA"><br><b>Saindo do DDA</b><br><code>#/dda/processando</code></td></tr>
+<tr><td align="center" valign="top" width="33%"><img src="dda/16-dda-desativado.png" width="240" alt="DDA desativado"><br><b>DDA desativado</b><br><code>#/dda/desativado</code></td><td align="center" valign="top" width="33%"><img src="dda/17-erro-na-adesao.png" width="240" alt="Erro na adesão"><br><b>Erro na adesão</b><br><code>#/dda/erro</code></td><td align="center" valign="top" width="33%"><img src="dda/18-nao-conseguimos-confirmar-o-dda.png" width="240" alt="Não conseguimos confirmar o DDA"><br><b>Não conseguimos confirmar o DDA</b><br><code>#/dda/indisponivel</code></td></tr>
+<tr><td align="center" valign="top" width="33%"><img src="dda/19-sem-confirmacao-da-celcoin.png" width="240" alt="Sem confirmação da Celcoin"><br><b>Sem confirmação da Celcoin</b><br><code>#/dda/sem-resposta</code></td></tr>
 </table>
 
 ## Rotas sem print

@@ -1,6 +1,6 @@
 # Evidências de telas
 
-Print de cada tela do LoBank, separado pelas pastas desta pasta `telas/`. Gerado por `tools/telas/capturar.py` (branch `app-rodada-0`, commit `84ad845`), no **modo simulado** e com dados fictícios.
+Print de cada tela do LoBank, separado pelas pastas desta pasta `telas/`. Gerado por `tools/telas/capturar.py` (branch `app-rodada-0`, commit `dbfee48`), no **modo simulado** e com dados fictícios.
 
 Para cada tela: de qual tela do Studio ela veio (board › tela e o id), **o que foi alterado** em relação ao que o Studio criou e **o motivo**. No fim de cada tópico ficam as telas do Studio que não entraram no app.
 
@@ -18,6 +18,7 @@ Resumo de todas as telas, três por linha: [telas.md](telas.md).
 - [Receber (QR Code)](#receber-qr-code): pasta `receber/`
 - [Extrato](#extrato): pasta `extrato/`
 - [Pagamento de contas (boleto)](#pagamento-de-contas-boleto): pasta `boleto/`
+- [DDA (Débito Direto Autorizado)](#dda-débito-direto-autorizado): pasta `dda/`
 
 ## Acesso e cadastro PF
 
@@ -434,7 +435,7 @@ Pasta: `home/`
 
 - **Rota:** `#/home`
 - **Origem no Studio:** Wallet › Home (`82e58028`)
-- **Alterado em relação ao Studio:** Sem cartão de crédito, "Solicitar crédito" e atalhos que não funcionam; atalhos reorganizados.
+- **Alterado em relação ao Studio:** Sem cartão de crédito, "Solicitar crédito" e atalhos que não funcionam; ações rápidas em 2 linhas de 3.
 - **Motivo:** comentário no Studio: "Não deve ter a parte de cartão de credito nem solicitar um credito"; e a regra "mostrar só o que funciona".
 
 ### 2. Home
@@ -443,8 +444,8 @@ Pasta: `home/`
 
 - **Rota:** `#/home`
 - **Origem no Studio:** Wallet › Home (`82e58028`)
-- **Alterado em relação ao Studio:** Atalhos: Fazer Pix, Cobrar com Pix, Minhas chaves, Pagar contas e Extrato.
-- **Motivo:** Mesma regra; "Pagar contas" entrou com o módulo de boleto.
+- **Alterado em relação ao Studio:** Ações rápidas: Fazer Pix, Cobrar com Pix, Minhas chaves, Pagar contas, DDA e Extrato.
+- **Motivo:** "Pagar contas" entrou com o módulo de boleto e "DDA" a pedido da usuária (11/11, 13:02); com 6 ações, elas foram para 2 linhas.
 
 ### 3. Fazer Pix: escolher forma
 
@@ -470,8 +471,8 @@ Pasta: `home/`
 
 - **Rota:** `#/minha-conta`
 - **Origem no Studio:** Wallet › Minha conta (`2d3d03ce`)
-- **Alterado em relação ao Studio:** Só Minhas chaves, Minhas senhas, Meus dados e Sair.
-- **Motivo:** Saíram Gestão de usuário, Limites, Tarifas, DDA, Dúvidas e Cancelar conta: não há API usada para eles.
+- **Alterado em relação ao Studio:** Só Minhas chaves, Débito Direto Autorizado (DDA), Minhas senhas, Meus dados e Sair.
+- **Motivo:** Saíram Gestão de usuário, Limites, Tarifas, Dúvidas e Cancelar conta: não há API usada para eles. O DDA voltou com o módulo de DDA, e é por ele que se sai do DDA (decisão da usuária).
 
 ### 6. Meus dados
 
@@ -897,7 +898,7 @@ Pasta: `boleto/`
 
 - **Rota:** `#/boleto`
 - **Origem no Studio:** Pagamento de Contas › Formas de Pagamento (`e742f777`)
-- **Alterado em relação ao Studio:** Só "Digitar código" e "Pix Copia e Cola"; dica para leitor USB ou bluetooth.
+- **Alterado em relação ao Studio:** Só "Digitar código", "Pix Copia e Cola" e "Meus boletos (DDA)"; dica para leitor USB ou bluetooth.
 - **Motivo:** Leitores por câmera: comentário no Studio: "Não deve essa função"; "Abrir PDF" retirado por decisão da usuária.
 
 ### 2. Digitar código (incompleto)
@@ -1036,3 +1037,184 @@ Pasta: `boleto/`
 | Pagamento de Contas › Confirmar Valor › Agendamento (`94e36ffe`) | Agendamento retirado por decisão da usuária. |
 | Pagamento de Contas › Pagamento agendado (`034d1958`) | Agendamento retirado por decisão da usuária. |
 | Pagamento de Contas › Comprovante de pagamento › Pagamento agendado (`b548a175`) | Agendamento retirado por decisão da usuária. |
+
+## DDA (Débito Direto Autorizado)
+
+Pasta: `dda/`
+
+### 1. Ative o DDA (termos)
+
+<img src="dda/01-ative-o-dda-termos.png" width="260" alt="Ative o DDA (termos)">
+
+- **Rota:** `#/dda/termos`
+- **Origem no Studio:** DDA › Aderir ao DDA › Termos de uso (`b86afc13`)
+- **Alterado em relação ao Studio:** Resumo do que o DDA mostra, link para o termo de adesão da Celcoin e aceite obrigatório (botão só libera depois do aceite).
+- **Motivo:** A Celcoin exige coletar e guardar o aceite do termo; o app grava data, hora e versão.
+
+### 2. Confira seus dados
+
+<img src="dda/02-confira-seus-dados.png" width="260" alt="Confira seus dados">
+
+- **Rota:** `#/dda/cadastro`
+- **Origem no Studio:** DDA › Aderir ao DDA › Cadastro (`12b7e262`)
+- **Alterado em relação ao Studio:** Os campos vêm com os dados da conta; nome e documento não podem ser editados.
+- **Motivo:** A adesão usa o documento da conta (decisão da usuária: um documento por conta). A API só recebe documento e nome; e-mail, telefone e CEP ficam guardados com o aceite.
+
+### 3. Ativando o DDA
+
+<img src="dda/03-ativando-o-dda.png" width="260" alt="Ativando o DDA">
+
+- **Rota:** `#/dda/processando`
+- **Origem no Studio:** DDA › Aderir ao DDA › Cadastro › Processamento (`0feb0a07`)
+- **Alterado em relação ao Studio:** Contagem de 30 s entre consultas e aviso de que pode levar até 10 minutos.
+- **Motivo:** A adesão é assíncrona e só responde por aviso; a usuária pediu 30 s porque a Celcoin leva cerca de 1 minuto.
+
+### 4. DDA ativado
+
+<img src="dda/04-dda-ativado.png" width="260" alt="DDA ativado">
+
+- **Rota:** `#/dda/sucesso`
+- **Origem no Studio:** DDA › Aderir ao DDA › Cadastro › Sucesso (`b138a51b`)
+- **Alterado em relação ao Studio:** Botão "Ver meus boletos".
+- **Motivo:** Leva direto à lista depois da adesão.
+
+### 5. Meus boletos (vazia)
+
+<img src="dda/05-meus-boletos-vazia.png" width="260" alt="Meus boletos (vazia)">
+
+- **Rota:** `#/dda/boletos`
+- **Origem no Studio:** DDA › Meus boletos › Vazia (`c2ec3a50`)
+- **Alterado em relação ao Studio:** Botão "Gerar boletos de teste (sandbox)" e "Atualizar" com a hora da última leitura.
+- **Motivo:** No sandbox, os boletos só existem se forem gerados; os avisos são lidos a cada 10 s, então a lista precisa de atualização manual.
+
+### 6. Boletos de teste pedidos
+
+<img src="dda/06-boletos-de-teste-pedidos.png" width="260" alt="Boletos de teste pedidos">
+
+- **Rota:** `#/dda/boletos`
+- **Origem no Studio:** DDA › Meus boletos › Vazia (`c2ec3a50`)
+- **Alterado em relação ao Studio:** Modal novo com "Entendi".
+- **Motivo:** A mensagem sumia rápido demais (D5, pedido da usuária).
+
+### 7. Meus boletos
+
+<img src="dda/07-meus-boletos.png" width="260" alt="Meus boletos">
+
+- **Rota:** `#/dda/boletos`
+- **Origem no Studio:** DDA › Meus boletos › Preenchida (`2fa3c1ee`)
+- **Alterado em relação ao Studio:** Mesmos filtros e cartões do Studio; valores convertidos de centavos; "Atualizar" a cada 10 s.
+- **Motivo:** Os avisos da Celcoin trazem os valores em centavos e vários boletos por documento.
+
+### 8. Filtro: vencidos
+
+<img src="dda/08-filtro-vencidos.png" width="260" alt="Filtro: vencidos">
+
+- **Rota:** `#/dda/boletos`
+- **Origem no Studio:** DDA › Meus boletos › Preenchida (`2fa3c1ee`)
+- **Alterado em relação ao Studio:** "Vencido" é calculado pelo app (boleto em aberto com vencimento passado).
+- **Motivo:** O aviso traz só o status "Aberto"; não há status de vencido.
+
+### 9. Opções
+
+<img src="dda/09-opcoes.png" width="260" alt="Opções">
+
+- **Rota:** `#/dda/boletos`
+- **Origem no Studio:** DDA › Meus boletos › Preenchida (`2fa3c1ee`)
+- **Alterado em relação ao Studio:** Igual ao menu do Studio, com "Gerar boletos de teste (sandbox)" a mais.
+- **Motivo:** Mesmo motivo do botão de teste.
+
+### 10. Sobre o DDA
+
+<img src="dda/10-sobre-o-dda.png" width="260" alt="Sobre o DDA">
+
+- **Rota:** `#/dda/termos-info`
+- **Origem no Studio:** Tela nova, não existe no Studio (no modelo de DDA › Meus boletos › Preenchida (`2fa3c1ee`))
+- **Alterado em relação ao Studio:** Tela nova para o item "Sobre o DDA" do menu.
+- **Motivo:** O Studio tem o item, mas não a tela.
+
+### 11. Detalhe do boleto
+
+<img src="dda/11-detalhe-do-boleto.png" width="260" alt="Detalhe do boleto">
+
+- **Rota:** `#/dda/boleto/:id`
+- **Origem no Studio:** DDA › Meus boletos › Detalhe do boleto (`b45f3550`)
+- **Alterado em relação ao Studio:** Juros e multa traduzidos pelos códigos da Celcoin; situação na Celcoin e "Copiar código".
+- **Motivo:** O aviso traz só códigos e números; a tabela de códigos está no guia "Sobre DDA".
+
+### 12. Pagar: código não reconhecido
+
+<img src="dda/12-pagar-codigo-nao-reconhecido.png" width="260" alt="Pagar: código não reconhecido">
+
+- **Rota:** `#/dda/boleto/:id`
+- **Origem no Studio:** DDA › Meus boletos › Detalhe do boleto (`b45f3550`)
+- **Alterado em relação ao Studio:** Mensagem no próprio detalhe.
+- **Motivo:** No sandbox, os boletos de teste do DDA não podem ser pagos (822 pela linha, 623 pelo código de barras); decisão da usuária: fluxo real mostrando o erro.
+
+### 13. Minha conta: DDA ativo
+
+<img src="dda/13-minha-conta-dda-ativo.png" width="260" alt="Minha conta: DDA ativo">
+
+- **Rota:** `#/minha-conta`
+- **Origem no Studio:** Wallet › Minha conta (`2d3d03ce`)
+- **Alterado em relação ao Studio:** Modal novo com "Ver meus boletos" e "Sair do DDA".
+- **Motivo:** Decisão da usuária: sair do DDA pelo Minha conta.
+
+### 14. Sair do DDA: senha incorreta
+
+<img src="dda/14-sair-do-dda-senha-incorreta.png" width="260" alt="Sair do DDA: senha incorreta">
+
+- **Rota:** `#/minha-conta`
+- **Origem no Studio:** Wallet › Minha conta (`2d3d03ce`)
+- **Alterado em relação ao Studio:** Confirmação com senha de transferência; senha errada mostra a mensagem sem sair da sessão.
+- **Motivo:** No D6, a senha errada mandava para o login.
+
+### 15. Saindo do DDA
+
+<img src="dda/15-saindo-do-dda.png" width="260" alt="Saindo do DDA">
+
+- **Rota:** `#/dda/processando`
+- **Origem no Studio:** DDA › Aderir ao DDA › Cadastro › Processamento (`0feb0a07`)
+- **Alterado em relação ao Studio:** Processamento do Studio aplicado à saída, com 30 s entre consultas.
+- **Motivo:** A saída também é assíncrona.
+
+### 16. DDA desativado
+
+<img src="dda/16-dda-desativado.png" width="260" alt="DDA desativado">
+
+- **Rota:** `#/dda/desativado`
+- **Origem no Studio:** Tela nova, não existe no Studio (no modelo de DDA › Aderir ao DDA › Cadastro › Sucesso (`b138a51b`))
+- **Alterado em relação ao Studio:** Tela nova no modelo de "DDA ativado".
+- **Motivo:** Pedido da usuária: avisar quem ainda estava esperando a resposta.
+
+### 17. Erro na adesão
+
+<img src="dda/17-erro-na-adesao.png" width="260" alt="Erro na adesão">
+
+- **Rota:** `#/dda/erro`
+- **Origem no Studio:** DDA › Aderir ao DDA › Cadastro › Erro (`4e85d7cd`)
+- **Alterado em relação ao Studio:** Mostra o código de erro da Celcoin e "Tentar de novo".
+- **Motivo:** Massa de teste da Celcoin: CPF 26817625025 simula adesão com erro (CDDA101).
+
+### 18. Não conseguimos confirmar o DDA
+
+<img src="dda/18-nao-conseguimos-confirmar-o-dda.png" width="260" alt="Não conseguimos confirmar o DDA">
+
+- **Rota:** `#/dda/indisponivel`
+- **Origem no Studio:** Tela nova, não existe no Studio (no modelo de DDA › Aderir ao DDA › Cadastro › Erro (`4e85d7cd`))
+- **Alterado em relação ao Studio:** Tela nova: aparece quando os avisos não podem ser lidos e não há nada guardado.
+- **Motivo:** No D1, sem o token do webhook.site, o app mostrava "Ative o DDA" para uma conta já ativa.
+
+### 19. Sem confirmação da Celcoin
+
+<img src="dda/19-sem-confirmacao-da-celcoin.png" width="260" alt="Sem confirmação da Celcoin">
+
+- **Rota:** `#/dda/sem-resposta`
+- **Origem no Studio:** Tela nova, não existe no Studio (no modelo de DDA › Aderir ao DDA › Cadastro › Erro (`4e85d7cd`))
+- **Alterado em relação ao Studio:** Tela nova: pedido sem aviso depois do prazo (10 min no app; 1 min nesta captura), com "Pedir de novo".
+- **Motivo:** A saída da LTDA em 11/11 nunca teve aviso e a Celcoin não tem consulta de status (decisão da usuária).
+
+### Telas do Studio que não entraram no app
+
+| Tela do Studio | Motivo |
+|---|---|
+| DDA › EXCLUIR (`46b9c2d6`) | Tela chamada "EXCLUIR" no board, sem comentário; o HTML não foi lido. O menu Opções de Meus boletos já traz "Cancelar DDA". |
