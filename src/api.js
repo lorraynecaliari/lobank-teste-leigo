@@ -810,6 +810,7 @@ function ddaState(user) {
   return { status, error: error && { code: error.ErrorCode || error.errorCode, message: DDA_FRIENDLY[error.ErrorCode] || error.ErrorMessage || error.message },
     deleteFailed, request: req ? { kind: req.kind, at: req.created_at } : null, since: last && String(last.body.status).toUpperCase() === 'CREATED' ? last.received_at : null };
 }
+const ddaHasEvents = (doc) => !!db.prepare('SELECT 1 FROM dda_events WHERE document = ? LIMIT 1').get(doc);
 function ddaInvoices(user) {
   const paid = new Set();
   for (const t of db.prepare("SELECT counterpart_json FROM transactions WHERE user_id = ? AND kind = 'BILL' AND status = 'CONFIRMED'").all(user.id)) {
@@ -824,14 +825,19 @@ router.get('/dda', auth.requireUser, auth.requireAccount, wrap(async (req, res) 
   const sync = await ddaEvents.sync();
   const st = ddaState(req.user);
   const invoices = st.status === 'ACTIVE' ? ddaInvoices(req.user) : [];
-  res.json({ ...st, inWindow: ddaInWindow(), configured: sync.configured, eventsError: sync.error || null, invoices,
+  // Sem conseguir ler os avisos e sem nada guardado, "sem DDA" não é confiável: pode já estar ativo.
+  const unknown = !sync.ok && st.status === 'NONE' && !st.request && !ddaHasEvents(req.user.document);
+  res.json({ ...st, status: unknown ? 'UNKNOWN' : st.status, inWindow: ddaInWindow(), configured: sync.configured, eventsError: sync.error || null, invoices,
     canGenerateTest: celcoin.MODE === 'mock' || /sandbox/.test(celcoin.BASE_URL) });
 }));
 
 router.post('/dda/subscribe', auth.requireUser, auth.requireAccount, wrap(async (req, res) => {
   if (req.body.accept !== true) return bad(res, 'TERMS_REQUIRED', 'Para aderir, é preciso aceitar o termo de adesão do DDA.');
-  await ddaEvents.sync();
+  const sync = await ddaEvents.sync();
   const st = ddaState(req.user);
+  if (!sync.ok && st.status === 'NONE' && !ddaHasEvents(req.user.document)) {
+    return bad(res, 'EVENTS_UNAVAILABLE', `Não conseguimos confirmar se o DDA já está ativo (${sync.error}). Tente de novo em instantes.`, 503);
+  }
   if (st.status === 'ACTIVE') return bad(res, 'ALREADY_ACTIVE', 'O DDA já está ativo para essa conta.', 409);
   if (st.status === 'PROCESSING' || st.status === 'CANCELLING') return bad(res, 'IN_PROGRESS', 'Já existe um pedido do DDA em andamento. Aguarde o retorno da Celcoin.', 409);
   const crid = celcoin.uid('lobank-dda');

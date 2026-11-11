@@ -9,6 +9,7 @@ const TOKEN = (process.env.DDA_WEBHOOK_SITE_TOKEN || '').trim();
 const INTERVAL = Math.max(0, Number(process.env.DDA_EVENTS_INTERVAL_MS ?? process.env.CELCOIN_MIN_QUERY_INTERVAL_MS ?? 10000));
 let lastSync = 0;
 let lastError = null;
+let inflight = null;
 
 // Os eventos não dizem o tipo: adesão e saída têm o mesmo formato e só o status muda.
 function classify(body) {
@@ -47,10 +48,16 @@ async function sync() {
     for (const e of require('./celcoin-mock').ddaEvents()) store(e.id, e.at, e.body);
     return { ok: true, configured: true };
   }
-  if (!TOKEN) return { ok: false, configured: false, error: 'DDA_WEBHOOK_SITE_TOKEN não configurado' };
-  if (Date.now() - lastSync < INTERVAL) return { ok: !lastError, configured: true, error: lastError };
-  lastSync = Date.now();
-  try { await fetchWebhookSite(); lastError = null; } catch (e) { lastError = e.message; }
+  if (!TOKEN) return { ok: false, configured: false, error: 'DDA_WEBHOOK_SITE_TOKEN não configurado no .env' };
+  // Uma leitura em andamento é esperada por quem chegar depois (antes, a 2ª chamada lia o banco
+  // antes de a 1ª terminar e podia ver "sem DDA").
+  if (inflight) await inflight;
+  else if (Date.now() - lastSync >= INTERVAL) {
+    lastSync = Date.now();
+    inflight = fetchWebhookSite().then(() => { lastError = null; }, (e) => { lastError = e.message; lastSync = 0; }) // erro não fica guardado por 10 s
+      .finally(() => { inflight = null; });
+    await inflight;
+  }
   return { ok: !lastError, configured: true, error: lastError };
 }
 

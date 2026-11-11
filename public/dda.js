@@ -34,8 +34,22 @@
     try {
       const s = await loadDda();
       state.dda = s;
-      go(s.status === 'ACTIVE' ? '/dda/boletos' : s.status === 'PROCESSING' || s.status === 'CANCELLING' ? '/dda/processando' : s.status === 'ERROR' ? '/dda/erro' : '/dda/termos');
+      go(s.status === 'ACTIVE' ? '/dda/boletos' : s.status === 'PROCESSING' || s.status === 'CANCELLING' ? '/dda/processando'
+        : s.status === 'ERROR' ? '/dda/erro' : s.status === 'UNKNOWN' ? '/dda/indisponivel' : '/dda/termos');
     } catch (e) { toast(e.message); go('/home'); }
+  });
+
+  // ============================================================ Sem conseguir ler os avisos do DDA (tela nova)
+  route('/dda/indisponivel', (root) => {
+    const s = state.dda || {};
+    root.innerHTML = frame(`<div class="scroll"><div class="result" style="margin-top:96px"><span class="result__badge result__badge--err" style="width:72px;height:72px">${I.err}</span>
+      <h1 class="result__title">Não conseguimos confirmar o seu DDA agora</h1>
+      <p class="result__desc">Os avisos do DDA não puderam ser lidos, então não dá para saber se ele já está ativo. Tente de novo em instantes.</p>
+      ${s.eventsError ? `<p class="result__desc" style="font-size:12px">Detalhe: ${esc(s.eventsError)}</p>` : ''}</div></div>
+      <div class="actions"><button class="btn btn-primary" id="again">Tentar de novo</button><button class="btn btn-ghost" id="home">Voltar ao início</button></div>`,
+    { studio: 'novo:dda-indisponivel (modelo 4e85d7cd Erro)' });
+    $('#again').onclick = () => go('/dda');
+    $('#home').onclick = () => go('/home');
   });
 
   // ============================================================ Termos de uso (b86afc13)
@@ -87,7 +101,10 @@
       try {
         await api('/dda/subscribe', { method: 'POST', body: { accept: true, email: $('#em').value, phone: $('#ph').value, cep: $('#cep').value } });
         state.ddaAccept = false; state.ddaJustSent = true; go('/dda/processando');
-      } catch (e) { setLoading($('#go'), false); toast(e.message); }
+      } catch (e) {
+        setLoading($('#go'), false); toast(e.message);
+        if (e.data && e.data.error === 'ALREADY_ACTIVE') { state.ddaAccept = false; go('/dda/boletos'); }
+      }
     };
   });
 
