@@ -62,7 +62,8 @@ def make_shot(p, mod):
         os.makedirs(os.path.join(IMG, mod), exist_ok=True)
         p.screenshot(path=os.path.join(IMG, mod, name))
         route = '#' + p.url.split('#', 1)[1] if '#' in p.url else '/'
-        shots.append((mod, name, title, re.sub(r'/\d+$', '/:id', route)))
+        studio = p.evaluate("() => { const m = document.querySelector('main.app'); return m ? m.dataset.studio : '' }") or ''
+        shots.append((mod, name, title, re.sub(r'/\d+$', '/:id', route), studio))
     return shot
 
 
@@ -289,7 +290,7 @@ def write_md(git_rev):
         out += ['<table>']
         for k in range(0, len(items), 3):
             row = items[k:k + 3]
-            out += ['<tr>' + ''.join(f'<td align="center" valign="top" width="33%"><img src="telas/{m}/{f}" width="240" alt="{t}"><br><b>{t}</b><br><code>{r}</code></td>' for m, f, t, r in row) + '</tr>']
+            out += ['<tr>' + ''.join(f'<td align="center" valign="top" width="33%"><img src="telas/{m}/{f}" width="240" alt="{t}"><br><b>{t}</b><br><code>{r}</code></td>' for m, f, t, r, _ in row) + '</tr>']
         out += ['</table>', '']
     out += ['## Rotas sem print', '']
     out += ([f'- `{r}`' for r in missing] or ['Todas as rotas do app aparecem no catálogo.']) + ['']
@@ -297,6 +298,45 @@ def write_md(git_rev):
         out += ['## Erros na captura', ''] + [f'- {e}' for e in errors] + ['']
     open(os.path.join(DOCS, 'telas.md'), 'w', encoding='utf-8').write('\n'.join(out))
     return missing
+
+
+def origem(label):
+    """Tela(s) do Studio citadas no data-studio da tela (ids de 8 caracteres)."""
+    from evidencias import STUDIO
+    ids = [i for i in re.findall(r'\b([0-9a-f]{8})\b', label) if i in STUDIO]
+    links = [f'{STUDIO[i][0]} › {STUDIO[i][1]} (`{i}`)' for i in ids]
+    if label.startswith('novo') or not ids:
+        return 'Tela nova, não existe no Studio' + (f' (no modelo de {", ".join(links)})' if links else '')
+    return '; '.join(links)
+
+
+def write_evidencias(git_rev):
+    sys.path.insert(0, os.path.dirname(__file__))
+    from evidencias import ALTERACOES, FORA_DO_APP, STUDIO
+    pend = []
+    out = ['# Evidências de telas', '',
+           f'Print de cada tela do LoBank, separado pelas pastas desta pasta `telas/`. Gerado por `tools/telas/capturar.py` '
+           f'(branch `app-rodada-0`, commit `{git_rev}`), no **modo simulado** e com dados fictícios.', '',
+           'Para cada tela: de qual tela do Studio ela veio (board › tela e o id), **o que foi alterado** em relação ao que '
+           'o Studio criou e **o motivo**. No fim de cada tópico ficam as telas do Studio que não entraram no app.', '',
+           'Fontes dos motivos: comentários da usuária no Studio, decisões e testes registrados em `docs/friction-log.md`, '
+           'e regras da API da Celcoin.', '', '## Tópicos', '']
+    out += [f'- [{t}](#{re.sub(r"[^a-z0-9à-ú -]", "", t.lower()).replace(" ", "-")}): pasta `{m}/`' for m, t in MODULES] + ['']
+    for mod, title in MODULES:
+        out += [f'## {title}', '', f'Pasta: `{mod}/`', '']
+        for k, (m, f, t, r, label) in enumerate([s for s in shots if s[0] == mod], 1):
+            alt, mot = ALTERACOES.get((m, t), (None, None))
+            if alt is None:
+                pend.append(f'{m}/{t}'); alt, mot = ('_Sem registro: incluir em tools/telas/evidencias.py._', '—')
+            out += [f'### {k}. {t}', '', f'<img src="{m}/{f}" width="260" alt="{t}">', '',
+                    f'- **Rota:** `{r}`', f'- **Origem no Studio:** {origem(label)}',
+                    f'- **Alterado em relação ao Studio:** {alt}', f'- **Motivo:** {mot}', '']
+        fora = FORA_DO_APP.get(mod, [])
+        if fora:
+            out += ['### Telas do Studio que não entraram no app', '', '| Tela do Studio | Motivo |', '|---|---|']
+            out += [f'| {STUDIO[i][0]} › {STUDIO[i][1]} (`{i}`) | {motivo} |' for i, motivo in fora] + ['']
+    open(os.path.join(IMG, 'Evidencias de telas.md'), 'w', encoding='utf-8').write('\n'.join(out))
+    return pend
 
 
 def main():
@@ -324,7 +364,8 @@ def main():
         print(f'{len(shots)} telas em {os.environ["SO_MODULO"]}; erros: {errors}'); return
     rev = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], cwd=ROOT, capture_output=True, text=True).stdout.strip() or '?'
     missing = write_md(rev)
-    print(f'{len(shots)} telas; rotas sem print: {missing}; erros: {errors}')
+    pend = write_evidencias(rev)
+    print(f'{len(shots)} telas; rotas sem print: {missing}; erros: {errors}; sem texto de evidência: {pend}')
 
 
 if __name__ == '__main__':

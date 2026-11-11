@@ -41,7 +41,7 @@
           ${opt('pix', I.copy, 'Pix Copia e Cola', 'Quando o boleto traz um código Pix')}
         </div>
         <p class="row__caption" style="text-align:center;margin-top:8px">Tem um leitor de código de barras USB ou bluetooth? Escolha <strong>Digitar código</strong> e use o leitor no campo.</p></section></div>`,
-    { studio: 'Formas de Pagamento (sem leitor por câmera e sem Abrir PDF)' });
+    { studio: 'e742f777 Formas de Pagamento (sem leitor por câmera e sem Abrir PDF)' });
     wireBk(root);
     $('#type').onclick = () => go('/boleto/codigo');
     $('#pix').onclick = () => go('/pix/copia-e-cola');
@@ -59,7 +59,7 @@
           <button type="button" class="link-inline" id="paste">${I.copy} Colar da área de transferência</button>
           ${state.mode === 'mock' ? '<p class="keyfield__alt">Modo simulado: use as linhas da massa de teste da Celcoin.</p>' : ''}
         </section></div>
-      <footer class="footbar"><button class="btn btn-primary btn--lg" id="next" disabled>Continuar</button></footer>`, { studio: 'Digitar código manualmente' });
+      <footer class="footbar"><button class="btn btn-primary btn--lg" id="next" disabled>Continuar</button></footer>`, { studio: '38cf65a5 Digitar código manualmente' });
     wireBk(root);
     const code = $('#code'), next = $('#next'), er = $('#er'), box = $('#box'), cnt = $('#cnt');
     const showErr = (msg) => { box.classList.add('is-error'); er.textContent = msg; er.classList.remove('hidden'); };
@@ -99,7 +99,7 @@
         <section class="body-sec"><div class="amount-input"><span>R$</span><input id="amt" inputmode="numeric" placeholder="0,00" value="${esc(b.amount.toFixed(2).replace('.', ','))}"/></div>
           <p class="keyfield__err hidden" id="er"></p>
           <div class="info-box"><span class="info-box-bar"></span><span class="info-box-text">Esse boleto aceita valores de <strong>${money(i.minValue || 0)}</strong> a <strong>${money(i.maxValue || i.total)}</strong>. O valor atualizado é ${money(i.total)}.</span></div></section></div>
-      <footer class="footbar"><button class="btn btn-primary btn--lg" id="next">Continuar</button></footer>`, { studio: 'Informar valor (sem data)' });
+      <footer class="footbar"><button class="btn btn-primary btn--lg" id="next">Continuar</button></footer>`, { studio: 'f9d7afdc Informar valor (sem data)' });
     wireBk(root);
     const amt = $('#amt'), next = $('#next'), er = $('#er');
     const val = () => parseMoney(amt.value) || 0;
@@ -198,8 +198,8 @@
     const paint = (t) => {
       const st = t ? t.status : 'WAITING';
       const who = t ? `${money(t.amount)} para ${esc(t.bill.name || 'o beneficiário')}` : '';
-      const view = st === 'CONFIRMED' ? { b: 'ok', i: I.ok, title: 'Pagamento concluído!', desc: who, studio: 'Pagamento concluído' }
-        : st === 'ERROR' ? { b: 'err', i: I.err, title: 'Falha no pagamento', desc: esc(t.errorMessage || 'O pagamento não foi concluído.') + '<br>' + moneyNote(t), studio: 'Falha no pagamento' }
+      const view = st === 'CONFIRMED' ? { b: 'ok', i: I.ok, title: 'Pagamento concluído!', desc: who, studio: '96d29742 Pagamento concluído' }
+        : st === 'ERROR' ? { b: 'err', i: I.err, title: 'Falha no pagamento', desc: esc(t.errorMessage || 'O pagamento não foi concluído.') + '<br>' + moneyNote(t), studio: '5b258936 Falha no pagamento' }
           : st === 'UNKNOWN' ? { b: 'wait', i: I.spinner, title: 'Confirmando com a Celcoin', desc: 'A conexão caiu no envio. Não pague de novo: estamos confirmando se o pagamento foi feito.', studio: 'novo:pagamento-em-processamento' }
             : { b: 'wait', i: I.spinner, title: 'Pagamento em processamento', desc: who || 'Aguardando a confirmação da Celcoin.', studio: 'novo:pagamento-em-processamento' };
       const waiting = st === 'WAITING' || st === 'PROCESSING' || st === 'UNKNOWN';
@@ -263,7 +263,7 @@
           ${confirmed && !r ? '<p class="result__timer" id="timer" aria-live="polite" style="text-align:center"></p>' : ''}
         </section></div>
       <footer class="footbar" style="display:flex;flex-direction:column;gap:8px">${confirmed && !r ? '<button class="btn btn-outline btn--lg" id="again" disabled>Buscar recibo</button>' : ''}<button class="btn btn-primary btn--lg" id="share">Copiar comprovante</button><button class="btn btn-ghost" id="home">Voltar ao início</button></footer>`,
-    { studio: pending ? 'Comprovante | Pagamento pendente' : t.status === 'ERROR' ? 'Comprovante (falha)' : 'Comprovante de pagamento' });
+    { studio: pending ? 'b4e95469 Comprovante | Pagamento pendente' : t.status === 'ERROR' ? '26e3d931 Comprovante (estado de falha, novo)' : '26e3d931 Comprovante de pagamento' });
     wireBk(root);
     $('#home').onclick = () => go('/home');
     $('#share').onclick = () => copy(r && r.formatted ? r.formatted.replace(/\r/g, '')
