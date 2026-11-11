@@ -81,3 +81,11 @@ Fora, por comentário do Studio ou decisão: leitor por câmera, escolha de cont
 - **Webhook:** rodando em `localhost`, a Celcoin não consegue chamar o app. O desfecho do Pix vem pela consulta de status.
 - **Pix recebido:** no sandbox, em 10/11/2026, um Pix recebido apareceu na consulta de recebimentos, mas **não** no saldo nem no extrato da conta. O app mostra o que o extrato da Celcoin devolve.
 - **Fonte Inter:** servida localmente (`@fontsource/inter`), porque a URL de fonte do Studio só funciona dentro do Studio.
+
+## DDA (Débito Direto Autorizado)
+
+| Fluxo | Telas | Integração Celcoin |
+|---|---|---|
+| Aderir, ver boletos, pagar e sair | Entrada em Pagar contas ("Meus boletos (DDA)") e em Minha conta; Termos de uso (aceite guardado), Cadastro (dados da conta), Processamento, Sucesso, Erro, Meus boletos (vazia, preenchida, filtros e menu Opções), Detalhe do boleto, Sair do DDA (com senha de transferência) | `POST`/`DELETE /dda-subscription-webservice/v1/subscription/Register`, `POST /dda-serviceinvoice-webservice/v1/invoice/register` (boletos de teste, só sandbox). Os resultados e os boletos chegam por webhook: o app lê do webhook.site em `DDA_WEBHOOK_SITE_TOKEN` (ver `.env.example`). Pagar usa o fluxo do Pagar contas |
+
+No sandbox, os boletos de teste do DDA não podem ser pagos: a Celcoin recusa a linha (822) e o código de barras (623).
