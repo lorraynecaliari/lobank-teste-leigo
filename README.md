@@ -8,14 +8,14 @@ Teste de usabilidade do `cel_agents` (Celcoin) com a persona "usuário leigo", u
 
 | Branch | Para quem | Conteúdo |
 |--------|-----------|----------|
-| `main` | Operador | Este README, `docs/roteiro-teste-usuario-leigo.md`, `docs/friction-log.md`, `docs/resumo-rodada-0.md` (resumo da verificação técnica) e `docs/plano-pagamento-de-contas.md`, `docs/telas.md` (print de todas as telas), `docs/telas/Evidencias de telas.md` (origem no Studio, alteração e motivo de cada tela) |
+| `main` | Operador | Este README, `docs/testes/roteiro-teste-usuario-leigo.md`, `docs/testes/friction-log.md`, `docs/testes/resumo-rodada-0.md` (resumo da verificação técnica) e `docs/planos/plano-pagamento-de-contas.md`, `docs/telas/telas.md` (resumo de todas as telas), `docs/telas/Evidencias de telas.md` (origem no Studio, alteração e motivo de cada tela) |
 | `app` | IA testada | Só o `.gitignore`. É onde a IA constrói o app durante o teste |
 
 Os dois branches não compartilham histórico (o `app` é órfão). A IA testada nunca pode ver o `main`: o roteiro diz o que se espera dela, e isso contamina o teste.
 
 ## Antes de cada rodada
 
-1. Leia `docs/roteiro-teste-usuario-leigo.md` e preencha a seção "Retrato antes do teste" do `docs/friction-log.md`.
+1. Leia `docs/testes/roteiro-teste-usuario-leigo.md` e preencha a seção "Retrato antes do teste" do `docs/testes/friction-log.md`.
 2. Crie a pasta de teste clonando **só** o branch `app`:
 
    ```bash
@@ -33,7 +33,7 @@ Os dois branches não compartilham histórico (o `app` é órfão). A IA testada
 ## Durante a rodada
 
 - Rode os prompts na ordem, copiados sem edição.
-- Registre cada evento no `docs/friction-log.md` do `main`, num clone separado do operador. Não registre na pasta de teste.
+- Registre cada evento no `docs/testes/friction-log.md` do `main`, num clone separado do operador. Não registre na pasta de teste.
 
 ## Como abrir e testar o app
 
@@ -90,4 +90,4 @@ O app só existe depois que a IA testada o constrói (P3), no branch `app`. Dura
    ```
 
 2. Faça commit e push do que a IA construiu no branch `app`. Se for repetir o teste, use um branch novo por rodada (ex.: `app-rodada-2`, criado a partir do commit inicial do `app`).
-3. Faça commit do `docs/friction-log.md` preenchido no `main`.
+3. Faça commit do `docs/testes/friction-log.md` preenchido no `main`.

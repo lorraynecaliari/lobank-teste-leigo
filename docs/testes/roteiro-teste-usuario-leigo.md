@@ -15,7 +15,7 @@ Faça isto **fora** da sessão de teste, para não contaminar a IA:
 ## Regras do teste (leia antes de rodar)
 
 1. **Sessão limpa.** A IA testada roda num clone **só do branch `app`**, que tem apenas o `.gitignore` (veja o README). Ela nunca pode ver este roteiro, o friction-log nem o branch `main`, porque eles revelam o que é esperado dela. Sessão nova, sem CLAUDE.md, sem memória e sem skills além da skill oficial `cel-agents`. Se a skill estiver instalada, ela tem que ser a original da Celcoin, sem edição. Em apps com memória (app do Claude), use um chat sem memória ou com a memória desligada, e fora de Projects. Cada prompt é copiado **sem edição**.
-2. **Não ajude a IA.** Se ela errar, não corrija com o que você sabe. Responda só o que um leigo responderia ("não sei, decide você"). Cada intervenção sua vira uma linha em `docs/friction-log.md`, com o motivo.
+2. **Não ajude a IA.** Se ela errar, não corrija com o que você sabe. Responda só o que um leigo responderia ("não sei, decide você"). Cada intervenção sua vira uma linha em `docs/testes/friction-log.md`, com o motivo.
 3. **Não use termos técnicos.** Os prompts não citam MCP, API, sandbox, abertura de conta nem Pix. Se a IA chegar sozinha a esses termos, isso é resultado do teste.
 4. **Registre tudo** no modelo do fim deste arquivo: tempo até a primeira coisa funcionando, número de tentativas, erros de ferramenta, momentos em que a IA inventou algo ou fingiu que funcionou.
 5. **Segredos.** Client ID e Secret nunca vão para o repositório, para o log, para o chat ou para o .docx. Use `.env` (já está no `.gitignore`). Se a IA mostrar um segredo no chat ou num log, isso é falha grave: registre o fato, sem copiar o valor.
@@ -236,7 +236,7 @@ Me resume, em linguagem simples, o que deu certo, o que não deu e o que eu prec
 
 ---
 
-## Modelo de registro (`docs/friction-log.md`)
+## Modelo de registro (`docs/testes/friction-log.md`)
 
 Uma linha por evento:
 

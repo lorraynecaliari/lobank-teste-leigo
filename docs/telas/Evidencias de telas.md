@@ -1,12 +1,14 @@
 # Evidências de telas
 
-Print de cada tela do LoBank, separado pelas pastas desta pasta `telas/`. Gerado por `tools/telas/capturar.py` (branch `app-rodada-0`, commit `02b26a3`), no **modo simulado** e com dados fictícios.
+Print de cada tela do LoBank, separado pelas pastas desta pasta `telas/`. Gerado por `tools/telas/capturar.py` (branch `app-rodada-0`, commit `84ad845`), no **modo simulado** e com dados fictícios.
 
 Para cada tela: de qual tela do Studio ela veio (board › tela e o id), **o que foi alterado** em relação ao que o Studio criou e **o motivo**. No fim de cada tópico ficam as telas do Studio que não entraram no app.
 
-Fontes dos motivos: comentários da usuária no Studio, decisões e testes registrados em `docs/friction-log.md`, e regras da API da Celcoin.
+Fontes dos motivos: comentários da usuária no Studio, decisões e testes registrados em `docs/testes/friction-log.md`, e regras da API da Celcoin.
 
 ## Tópicos
+
+Resumo de todas as telas, três por linha: [telas.md](telas.md).
 
 - [Acesso e cadastro PF](#acesso-e-cadastro-pf): pasta `acesso/`
 - [Cadastro PJ (MEI e LTDA)](#cadastro-pj-mei-e-ltda): pasta `pj/`
