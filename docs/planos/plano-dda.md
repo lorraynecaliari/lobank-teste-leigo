@@ -74,7 +74,7 @@ Regras importantes:
 - Adesão da **LTDA e da PF**.
 - **Sair do DDA** entra, como item em Minha conta.
 
-## 6. Construção (commit `cba22f1`, 11/11 13:05)
+## 6. Construção (commit `cba22f1`, 11/11 12:44)
 
 - **Receber os eventos:** registrar os 3 webhooks do DDA no webhook.site que já usamos. O app lê os eventos pela API do webhook.site, no máximo a cada 10 s, e guarda o estado da adesão e os boletos no banco local.
 - **Entrada:** "Meus boletos (DDA)" em Pagar contas e "Débito Direto Autorizado (DDA)" em Minha conta. Sem adesão, abre os Termos.
