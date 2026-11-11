@@ -770,6 +770,22 @@
     try { const b = await api('/balance'); state.pix.balance = b.amount; $('#bal').textContent = money(b.amount); } catch (_) { $('#bal').textContent = 'indisponível'; }
   });
 
+  // QR Code dinâmico (Copia e Cola de uma cobrança): mostra o tipo da cobrança e, na com vencimento (COBV), o
+  // vencimento e a composição do valor que a Celcoin calculou (multa, juros, desconto e abatimento).
+  function chargeCard(l, total) {
+    if (!l || l.qrType !== 'DYNAMIC') return '';
+    const num = (x) => { const n = Number(x && typeof x === 'object' ? x.value : x); return Number.isFinite(n) && n !== 0 ? n : null; };
+    const b = l.breakdown || {};
+    const line = (label, v, sign) => (v == null ? '' : `<div class="receipt__row"><span>${label}</span><span>${sign || ''}${money(v)}</span></div>`);
+    const due = l.dueDate ? String(l.dueDate).slice(0, 10).split('-').reverse().join('/') : null;
+    return `<div class="group"><span class="group__title">Cobrança</span><div class="card"><div class="receipt">
+      <div class="receipt__row"><span>Tipo</span><span>${l.cobKind === 'COBV' ? 'Cobrança com vencimento' : 'Cobrança imediata'}</span></div>
+      ${due ? `<div class="receipt__row"><span>Vencimento</span><span>${due}</span></div>` : ''}
+      ${line('Valor original', num(b.original))}${line('Multa', num(b.fine), '+ ')}${line('Juros', num(b.interest), '+ ')}${line('Desconto', num(b.discount), '− ')}${line('Abatimento', num(b.abatement), '− ')}
+      <span class="divider"></span><div class="receipt__row"><span>Total a pagar</span><span>${money(total)}</span></div></div>
+      <p class="row__caption" style="margin-top:8px">Valores calculados pela Celcoin a partir da cobrança${l.cobKind === 'COBV' ? ', na data de hoje' : ''}.</p></div></div>`;
+  }
+
   // Studio: "Transferir | Chave Pix | Revisão e saldo" (lido). Retirados: "Favoritar contato" (sem favoritos nesta fase) e "Pagar hoje" como opção (sem agendamento).
   route('/pix/transferir/revisao', async (root) => {
     const p = state.pix;
@@ -777,8 +793,9 @@
     root.innerHTML = frame(`<header class="hdr hdr--wl"><button class="hdr__icon" id="bk" aria-label="Voltar">${I.chevLeft}</button><span class="logo">${LOGO('#7664FA', 104)}</span><span class="hdr__icon"></span></header>
       <div class="scroll"><section class="intro"><h1 class="intro__title">Ok, <strong>ficou tudo certo</strong>?</h1><p class="intro__desc">Saldo disponível <strong id="bal">${p.balance != null ? money(p.balance) : '…'}</strong></p></section>
         <section class="body-sec">
-          <div><div class="amount__label">Você está transferindo</div><div class="amount__row"><span class="amount__value">${money(p.amount)}</span>${p.lookup.amountLocked ? '' : `<button class="amount__edit" id="edit" aria-label="Editar valor">${I.edit}</button>`}</div>${p.lookup.amountLocked ? '<p class="row__caption" style="margin-top:4px">Valor definido no código Pix</p>' : ''}</div>
+          <div><div class="amount__label">Você está transferindo</div><div class="amount__row"><span class="amount__value">${money(p.amount)}</span>${p.lookup.amountLocked ? '' : `<button class="amount__edit" id="edit" aria-label="Editar valor">${I.edit}</button>`}</div>${p.lookup.amountLocked ? `<p class="row__caption" style="margin-top:4px">${p.lookup.qrType === 'DYNAMIC' ? 'Valor definido na cobrança' : 'Valor definido no código Pix'}</p>` : ''}</div>
           <div class="group"><span class="group__title">Para</span><div class="card">${recipientCard(p.lookup)}</div></div>
+          ${chargeCard(p.lookup, p.amount)}
           <div class="group"><span class="group__title">Pagamento</span><div class="card">
             <div class="row"><span class="row__icon row__icon--soft">${I.calendar}</span><div class="row__info"><span class="row__label">Pagar hoje</span></div></div><span class="divider"></span>
             <button class="row" id="msg"><span class="row__icon row__icon--soft">${I.chat}</span><div class="row__info"><span class="row__label" id="msgl">${p.message ? esc(p.message) : 'Escrever mensagem'}</span></div><span class="row__chevron">${I.chevRight}</span></button><span class="divider"></span>

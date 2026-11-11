@@ -368,7 +368,7 @@
   route('/pix/copia-e-cola', async (root) => {
     if (!(await needAccount())) return;
     root.innerHTML = frame(`${header()}
-      <div class="scroll"><section class="intro"><h1 class="intro__title intro__title--sm">Pagar com Pix Copia e Cola</h1><p class="intro__desc">Cole o código que você recebeu. Ele começa com 000201.</p></section>
+      <div class="scroll"><section class="intro"><h1 class="intro__title intro__title--sm">Pagar com Pix Copia e Cola</h1><p class="intro__desc">Cole o código que você recebeu. Ele começa com 000201. Vale para QR Code estático e para cobranças (QR Code dinâmico), imediatas ou com vencimento.</p></section>
         <section class="keyfield"><span class="keyfield__label">Código Pix</span>
           <div class="keyfield__input keyfield__input--area" id="box"><textarea id="emv" rows="5" autocomplete="off" spellcheck="false" placeholder="00020126...">${esc((state.emv && state.emv.code) || '')}</textarea></div>
           <p class="keyfield__err hidden" id="er"></p>

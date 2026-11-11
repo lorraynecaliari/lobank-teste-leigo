@@ -1035,6 +1035,20 @@ if (celcoin.MODE === 'mock') {
   router.post('/dev/credit', auth.requireUser, auth.requireAccount, (req, res) => {
     res.json({ ok: mock.devCredit(req.account.account, v.parseAmount(req.body.amount) || 1000) });
   });
+  // Cobrança dinâmica simulada (COB ou COBV) e o código Copia e Cola dela, para testar a tela sem leitor de QR.
+  router.post('/dev/dynamic-qr', auth.requireUser, (req, res) => {
+    const crc = (str) => { let c = 0xFFFF; for (const ch of Buffer.from(str, 'utf8')) { c ^= ch << 8; for (let i = 0; i < 8; i++) c = (c & 0x8000) ? ((c << 1) ^ 0x1021) & 0xFFFF : (c << 1) & 0xFFFF; } return c.toString(16).toUpperCase().padStart(4, '0'); };
+    const f = (id, val) => `${id}${String(val.length).padStart(2, '0')}${val}`;
+    const cobv = req.body.kind === 'COBV';
+    const url = `qrcode-h.pix.celcoin.com.br/pixqrcode/v2/${cobv ? 'cobv/' : ''}${crypto.randomBytes(6).toString('hex')}`;
+    mock.registerDynamicQr(url, () => (cobv
+      ? { status: 'ACTIVE', key: 'fc048fc5-925f-405d-bfd7-8d3117f9f53c', transactionIdentification: `cobv${crypto.randomBytes(12).toString('hex')}`,
+        amount: { original: 100, fine: 2, interest: 0.5, discount: 1, abatement: 0, final: 101.5, canModifyFinalAmount: false }, calendar: { dueDate: '2026-11-10' } }
+      : { status: 'ACTIVE', key: 'fc048fc5-925f-405d-bfd7-8d3117f9f53c', transactionIdentification: `cob${crypto.randomBytes(12).toString('hex')}`,
+        amount: { original: 25, final: 25, canModifyFinalAmount: false }, calendar: { expiration: 3600 } }));
+    const base = f('00', '01') + f('01', '12') + f('26', f('00', 'br.gov.bcb.pix') + f('25', url)) + f('52', '0000') + f('53', '986') + f('58', 'BR') + f('59', 'Cobrador Teste') + f('60', 'Barueri') + f('62', f('05', '***')) + '6304';
+    res.json({ emv: base + crc(base) });
+  });
   router.post('/dev/pix-in', auth.requireUser, auth.requireAccount, (req, res) => {
     const payer = { name: 'Douglas Assis de Oliveira', taxId: '52998224725', bank: '18236120', branch: '0001', account: '840474112', accountType: 'TRAN' };
     res.json({ endToEndId: mock.devPixIn(req.account.account, v.parseAmount(req.body.amount) || 90, payer) });
