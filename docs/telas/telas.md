@@ -1,6 +1,6 @@
 # Telas do LoBank
 
-Gerado por `tools/telas/capturar.py` (branch `app-rodada-0`, commit `dbfee48`), no **modo simulado**, em 360 × 800.
+Gerado por `tools/telas/capturar.py` (branch `app-rodada-0`, commit `dde35ed`), no **modo simulado**, em 360 × 800.
 Os dados nas telas são fictícios. Para atualizar: `python3 tools/telas/capturar.py ../lobank-teste-leigo/docs` (só depois da versão final confirmada).
 
 **Regra:** uma tela nova ou alterada só entra aqui depois que a usuária confirmar que é a versão final daquela tela.
@@ -11,13 +11,14 @@ Resumo de todas as telas. O detalhamento de cada uma está em [Evidências de te
 
 - [Acesso e cadastro PF](#acesso-e-cadastro-pf) (22 telas)
 - [Cadastro PJ (MEI e LTDA)](#cadastro-pj-mei-e-ltda) (20 telas)
-- [Home e Minha conta](#home-e-minha-conta) (7 telas)
+- [Home e Minha conta](#home-e-minha-conta) (10 telas)
 - [Pix: chaves e envio por chave](#pix-chaves-e-envio-por-chave) (13 telas)
-- [Pix Copia e Cola e transferência por agência e conta](#pix-copia-e-cola-e-transferência-por-agência-e-conta) (11 telas)
+- [Pix Copia e Cola e transferência por agência e conta](#pix-copia-e-cola-e-transferência-por-agência-e-conta) (13 telas)
 - [Receber (QR Code)](#receber-qr-code) (6 telas)
 - [Extrato](#extrato) (8 telas)
 - [Pagamento de contas (boleto)](#pagamento-de-contas-boleto) (15 telas)
 - [DDA (Débito Direto Autorizado)](#dda-débito-direto-autorizado) (19 telas)
+- [Devolução de Pix](#devolução-de-pix) (9 telas)
 
 ## Acesso e cadastro PF
 
@@ -55,7 +56,8 @@ Detalhamento (origem no Studio, alteração e motivo): [Evidências de telas ›
 <table>
 <tr><td align="center" valign="top" width="33%"><img src="home/01-home-sem-saldo.png" width="240" alt="Home sem saldo"><br><b>Home sem saldo</b><br><code>#/home</code></td><td align="center" valign="top" width="33%"><img src="home/02-home.png" width="240" alt="Home"><br><b>Home</b><br><code>#/home</code></td><td align="center" valign="top" width="33%"><img src="home/03-fazer-pix-escolher-forma.png" width="240" alt="Fazer Pix: escolher forma"><br><b>Fazer Pix: escolher forma</b><br><code>#/home</code></td></tr>
 <tr><td align="center" valign="top" width="33%"><img src="home/04-menu.png" width="240" alt="Menu"><br><b>Menu</b><br><code>#/home</code></td><td align="center" valign="top" width="33%"><img src="home/05-minha-conta.png" width="240" alt="Minha conta"><br><b>Minha conta</b><br><code>#/minha-conta</code></td><td align="center" valign="top" width="33%"><img src="home/06-meus-dados.png" width="240" alt="Meus dados"><br><b>Meus dados</b><br><code>#/minha-conta/dados</code></td></tr>
-<tr><td align="center" valign="top" width="33%"><img src="home/07-minhas-senhas.png" width="240" alt="Minhas senhas"><br><b>Minhas senhas</b><br><code>#/minha-conta/senhas</code></td></tr>
+<tr><td align="center" valign="top" width="33%"><img src="home/07-minhas-senhas.png" width="240" alt="Minhas senhas"><br><b>Minhas senhas</b><br><code>#/minha-conta/senhas</code></td><td align="center" valign="top" width="33%"><img src="home/08-cancelar-minha-conta.png" width="240" alt="Cancelar minha conta"><br><b>Cancelar minha conta</b><br><code>#/minha-conta</code></td><td align="center" valign="top" width="33%"><img src="home/09-cancelar-conta-saldo-nao-zerado.png" width="240" alt="Cancelar conta: saldo não zerado"><br><b>Cancelar conta: saldo não zerado</b><br><code>#/minha-conta</code></td></tr>
+<tr><td align="center" valign="top" width="33%"><img src="home/10-conta-encerrada.png" width="240" alt="Conta encerrada"><br><b>Conta encerrada</b><br><code>#/conta-encerrada</code></td></tr>
 </table>
 
 ## Pix: chaves e envio por chave
@@ -76,9 +78,10 @@ Detalhamento (origem no Studio, alteração e motivo): [Evidências de telas ›
 
 <table>
 <tr><td align="center" valign="top" width="33%"><img src="copia/01-copia-e-cola.png" width="240" alt="Copia e Cola"><br><b>Copia e Cola</b><br><code>#/pix/copia-e-cola</code></td><td align="center" valign="top" width="33%"><img src="copia/02-copia-e-cola-codigo-invalido.png" width="240" alt="Copia e Cola: código inválido"><br><b>Copia e Cola: código inválido</b><br><code>#/pix/copia-e-cola</code></td><td align="center" valign="top" width="33%"><img src="copia/03-revisao-com-valor-do-qr-code.png" width="240" alt="Revisão com valor do QR Code"><br><b>Revisão com valor do QR Code</b><br><code>#/pix/transferir/revisao</code></td></tr>
-<tr><td align="center" valign="top" width="33%"><img src="copia/04-agencia-e-conta-banco.png" width="240" alt="Agência e conta: banco"><br><b>Agência e conta: banco</b><br><code>#/transferir/conta</code></td><td align="center" valign="top" width="33%"><img src="copia/05-agencia-e-conta-buscar-banco.png" width="240" alt="Agência e conta: buscar banco"><br><b>Agência e conta: buscar banco</b><br><code>#/transferir/conta</code></td><td align="center" valign="top" width="33%"><img src="copia/06-agencia-e-conta-dados-vazio.png" width="240" alt="Agência e conta: dados (vazio)"><br><b>Agência e conta: dados (vazio)</b><br><code>#/transferir/conta/dados</code></td></tr>
-<tr><td align="center" valign="top" width="33%"><img src="copia/07-agencia-e-conta-dados.png" width="240" alt="Agência e conta: dados"><br><b>Agência e conta: dados</b><br><code>#/transferir/conta/dados</code></td><td align="center" valign="top" width="33%"><img src="copia/08-agencia-e-conta-minha-conta.png" width="240" alt="Agência e conta: minha conta"><br><b>Agência e conta: minha conta</b><br><code>#/transferir/conta/dados</code></td><td align="center" valign="top" width="33%"><img src="copia/09-agencia-e-conta-tipo-de-conta.png" width="240" alt="Agência e conta: tipo de conta"><br><b>Agência e conta: tipo de conta</b><br><code>#/transferir/conta/tipo</code></td></tr>
-<tr><td align="center" valign="top" width="33%"><img src="copia/10-agencia-e-conta-revisao.png" width="240" alt="Agência e conta: revisão"><br><b>Agência e conta: revisão</b><br><code>#/pix/transferir/revisao</code></td><td align="center" valign="top" width="33%"><img src="copia/11-comprovante-por-agencia-e-conta.png" width="240" alt="Comprovante por agência e conta"><br><b>Comprovante por agência e conta</b><br><code>#/comprovante/:id</code></td></tr>
+<tr><td align="center" valign="top" width="33%"><img src="copia/04-revisao-de-cobranca-com-vencimento.png" width="240" alt="Revisão de cobrança com vencimento"><br><b>Revisão de cobrança com vencimento</b><br><code>#/pix/transferir/revisao</code></td><td align="center" valign="top" width="33%"><img src="copia/05-revisao-de-cobranca-imediata.png" width="240" alt="Revisão de cobrança imediata"><br><b>Revisão de cobrança imediata</b><br><code>#/pix/transferir/revisao</code></td><td align="center" valign="top" width="33%"><img src="copia/06-agencia-e-conta-banco.png" width="240" alt="Agência e conta: banco"><br><b>Agência e conta: banco</b><br><code>#/transferir/conta</code></td></tr>
+<tr><td align="center" valign="top" width="33%"><img src="copia/07-agencia-e-conta-buscar-banco.png" width="240" alt="Agência e conta: buscar banco"><br><b>Agência e conta: buscar banco</b><br><code>#/transferir/conta</code></td><td align="center" valign="top" width="33%"><img src="copia/08-agencia-e-conta-dados-vazio.png" width="240" alt="Agência e conta: dados (vazio)"><br><b>Agência e conta: dados (vazio)</b><br><code>#/transferir/conta/dados</code></td><td align="center" valign="top" width="33%"><img src="copia/09-agencia-e-conta-dados.png" width="240" alt="Agência e conta: dados"><br><b>Agência e conta: dados</b><br><code>#/transferir/conta/dados</code></td></tr>
+<tr><td align="center" valign="top" width="33%"><img src="copia/10-agencia-e-conta-minha-conta.png" width="240" alt="Agência e conta: minha conta"><br><b>Agência e conta: minha conta</b><br><code>#/transferir/conta/dados</code></td><td align="center" valign="top" width="33%"><img src="copia/11-agencia-e-conta-tipo-de-conta.png" width="240" alt="Agência e conta: tipo de conta"><br><b>Agência e conta: tipo de conta</b><br><code>#/transferir/conta/tipo</code></td><td align="center" valign="top" width="33%"><img src="copia/12-agencia-e-conta-revisao.png" width="240" alt="Agência e conta: revisão"><br><b>Agência e conta: revisão</b><br><code>#/pix/transferir/revisao</code></td></tr>
+<tr><td align="center" valign="top" width="33%"><img src="copia/13-comprovante-por-agencia-e-conta.png" width="240" alt="Comprovante por agência e conta"><br><b>Comprovante por agência e conta</b><br><code>#/comprovante/:id</code></td></tr>
 </table>
 
 ## Receber (QR Code)
@@ -124,6 +127,16 @@ Detalhamento (origem no Studio, alteração e motivo): [Evidências de telas ›
 <tr><td align="center" valign="top" width="33%"><img src="dda/13-minha-conta-dda-ativo.png" width="240" alt="Minha conta: DDA ativo"><br><b>Minha conta: DDA ativo</b><br><code>#/minha-conta</code></td><td align="center" valign="top" width="33%"><img src="dda/14-sair-do-dda-senha-incorreta.png" width="240" alt="Sair do DDA: senha incorreta"><br><b>Sair do DDA: senha incorreta</b><br><code>#/minha-conta</code></td><td align="center" valign="top" width="33%"><img src="dda/15-saindo-do-dda.png" width="240" alt="Saindo do DDA"><br><b>Saindo do DDA</b><br><code>#/dda/processando</code></td></tr>
 <tr><td align="center" valign="top" width="33%"><img src="dda/16-dda-desativado.png" width="240" alt="DDA desativado"><br><b>DDA desativado</b><br><code>#/dda/desativado</code></td><td align="center" valign="top" width="33%"><img src="dda/17-erro-na-adesao.png" width="240" alt="Erro na adesão"><br><b>Erro na adesão</b><br><code>#/dda/erro</code></td><td align="center" valign="top" width="33%"><img src="dda/18-nao-conseguimos-confirmar-o-dda.png" width="240" alt="Não conseguimos confirmar o DDA"><br><b>Não conseguimos confirmar o DDA</b><br><code>#/dda/indisponivel</code></td></tr>
 <tr><td align="center" valign="top" width="33%"><img src="dda/19-sem-confirmacao-da-celcoin.png" width="240" alt="Sem confirmação da Celcoin"><br><b>Sem confirmação da Celcoin</b><br><code>#/dda/sem-resposta</code></td></tr>
+</table>
+
+## Devolução de Pix
+
+Detalhamento (origem no Studio, alteração e motivo): [Evidências de telas › Devolução de Pix](Evidencias%20de%20telas.md#devolução-de-pix)
+
+<table>
+<tr><td align="center" valign="top" width="33%"><img src="devolucao/01-recebimento-pix.png" width="240" alt="Recebimento Pix"><br><b>Recebimento Pix</b><br><code>#/devolucao</code></td><td align="center" valign="top" width="33%"><img src="devolucao/02-comprovante-do-pix-recebido.png" width="240" alt="Comprovante do Pix recebido"><br><b>Comprovante do Pix recebido</b><br><code>#/devolucao</code></td><td align="center" valign="top" width="33%"><img src="devolucao/03-devolver-pix.png" width="240" alt="Devolver Pix"><br><b>Devolver Pix</b><br><code>#/devolucao/valor</code></td></tr>
+<tr><td align="center" valign="top" width="33%"><img src="devolucao/04-devolver-pix-preenchido.png" width="240" alt="Devolver Pix: preenchido"><br><b>Devolver Pix: preenchido</b><br><code>#/devolucao/valor</code></td><td align="center" valign="top" width="33%"><img src="devolucao/05-resumo-da-devolucao.png" width="240" alt="Resumo da devolução"><br><b>Resumo da devolução</b><br><code>#/devolucao/resumo</code></td><td align="center" valign="top" width="33%"><img src="devolucao/06-senha-da-devolucao.png" width="240" alt="Senha da devolução"><br><b>Senha da devolução</b><br><code>#/devolucao/resumo</code></td></tr>
+<tr><td align="center" valign="top" width="33%"><img src="devolucao/07-devolucao-em-processamento.png" width="240" alt="Devolução em processamento"><br><b>Devolução em processamento</b><br><code>#/devolucao/resultado/:id</code></td><td align="center" valign="top" width="33%"><img src="devolucao/08-devolucao-concluida.png" width="240" alt="Devolução concluída"><br><b>Devolução concluída</b><br><code>#/devolucao/resultado/:id</code></td><td align="center" valign="top" width="33%"><img src="devolucao/09-comprovante-de-devolucao.png" width="240" alt="Comprovante de devolução"><br><b>Comprovante de devolução</b><br><code>#/devolucao/resultado/:id</code></td></tr>
 </table>
 
 ## Rotas sem print

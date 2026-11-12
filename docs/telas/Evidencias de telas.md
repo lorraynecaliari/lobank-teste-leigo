@@ -1,6 +1,6 @@
 # Evidências de telas
 
-Print de cada tela do LoBank, separado pelas pastas desta pasta `telas/`. Gerado por `tools/telas/capturar.py` (branch `app-rodada-0`, commit `dbfee48`), no **modo simulado** e com dados fictícios.
+Print de cada tela do LoBank, separado pelas pastas desta pasta `telas/`. Gerado por `tools/telas/capturar.py` (branch `app-rodada-0`, commit `dde35ed`), no **modo simulado** e com dados fictícios.
 
 Para cada tela: de qual tela do Studio ela veio (board › tela e o id), **o que foi alterado** em relação ao que o Studio criou e **o motivo**. No fim de cada tópico ficam as telas do Studio que não entraram no app.
 
@@ -19,6 +19,7 @@ Resumo de todas as telas, três por linha: [telas.md](telas.md).
 - [Extrato](#extrato): pasta `extrato/`
 - [Pagamento de contas (boleto)](#pagamento-de-contas-boleto): pasta `boleto/`
 - [DDA (Débito Direto Autorizado)](#dda-débito-direto-autorizado): pasta `dda/`
+- [Devolução de Pix](#devolução-de-pix): pasta `devolucao/`
 
 ## Acesso e cadastro PF
 
@@ -471,8 +472,8 @@ Pasta: `home/`
 
 - **Rota:** `#/minha-conta`
 - **Origem no Studio:** Wallet › Minha conta (`2d3d03ce`)
-- **Alterado em relação ao Studio:** Só Minhas chaves, Débito Direto Autorizado (DDA), Minhas senhas, Meus dados e Sair.
-- **Motivo:** Saíram Gestão de usuário, Limites, Tarifas, Dúvidas e Cancelar conta: não há API usada para eles. O DDA voltou com o módulo de DDA, e é por ele que se sai do DDA (decisão da usuária).
+- **Alterado em relação ao Studio:** Só Minhas chaves, Débito Direto Autorizado (DDA), Minhas senhas, Meus dados, Cancelar minha conta e Sair.
+- **Motivo:** Saíram Gestão de usuário, Limites, Tarifas e Dúvidas: não há API usada para eles. O DDA voltou com o módulo de DDA, e é por ele que se sai do DDA (decisão da usuária). "Cancelar minha conta" voltou em 11/11 para encerrar a conta na Celcoin (decisão da usuária).
 
 ### 6. Meus dados
 
@@ -491,6 +492,33 @@ Pasta: `home/`
 - **Origem no Studio:** Tela nova, não existe no Studio (no modelo de Wallet › Minha conta (`2d3d03ce`))
 - **Alterado em relação ao Studio:** Tela nova, no visual do Minha conta.
 - **Motivo:** O item existe no Minha conta do Studio, mas a tela não.
+
+### 8. Cancelar minha conta
+
+<img src="home/08-cancelar-minha-conta.png" width="260" alt="Cancelar minha conta">
+
+- **Rota:** `#/minha-conta`
+- **Origem no Studio:** Tela nova, não existe no Studio
+- **Alterado em relação ao Studio:** Modal novo com motivo e senha de transferência.
+- **Motivo:** O Studio tem o item "Cancelar minha conta", mas não a tela; a Celcoin pede o motivo no encerramento (decisão da usuária: fica em Minha conta).
+
+### 9. Cancelar conta: saldo não zerado
+
+<img src="home/09-cancelar-conta-saldo-nao-zerado.png" width="260" alt="Cancelar conta: saldo não zerado">
+
+- **Rota:** `#/minha-conta`
+- **Origem no Studio:** Tela nova, não existe no Studio
+- **Alterado em relação ao Studio:** A recusa mostra o saldo atual no próprio modal.
+- **Motivo:** A Celcoin só encerra conta com saldo zerado.
+
+### 10. Conta encerrada
+
+<img src="home/10-conta-encerrada.png" width="260" alt="Conta encerrada">
+
+- **Rota:** `#/conta-encerrada`
+- **Origem no Studio:** Tela nova, não existe no Studio
+- **Alterado em relação ao Studio:** Tela nova no modelo de resultado, com "Ir para o login".
+- **Motivo:** Depois do encerramento a sessão termina; não há tela no Studio.
 
 ## Pix: chaves e envio por chave
 
@@ -640,8 +668,8 @@ Pasta: `copia/`
 
 - **Rota:** `#/pix/copia-e-cola`
 - **Origem no Studio:** Tela nova, não existe no Studio (no modelo de Transferir › Chave Pix › Informar chave (`5196768b`))
-- **Alterado em relação ao Studio:** Tela nova, no modelo de "Informar chave".
-- **Motivo:** O Studio não tem tela de pagar com Pix Copia e Cola.
+- **Alterado em relação ao Studio:** Tela nova, no modelo de "Informar chave"; o texto cita QR Code estático e cobranças (dinâmico).
+- **Motivo:** O Studio não tem tela de pagar com Pix Copia e Cola; o QR Code dinâmico entra só pelo código (decisão da usuária, 11/11).
 
 ### 2. Copia e Cola: código inválido
 
@@ -661,72 +689,90 @@ Pasta: `copia/`
 - **Alterado em relação ao Studio:** Valor travado quando o QR Code já traz valor.
 - **Motivo:** O QR Code estático com valor não permite mudar o valor.
 
-### 4. Agência e conta: banco
+### 4. Revisão de cobrança com vencimento
 
-<img src="copia/04-agencia-e-conta-banco.png" width="260" alt="Agência e conta: banco">
+<img src="copia/04-revisao-de-cobranca-com-vencimento.png" width="260" alt="Revisão de cobrança com vencimento">
+
+- **Rota:** `#/pix/transferir/revisao`
+- **Origem no Studio:** Transferir › Chave Pix › Revisão e saldo (`733b240c`)
+- **Alterado em relação ao Studio:** Card "Cobrança" na revisão: tipo, vencimento e composição do valor (original, multa, juros, desconto, abatimento e total).
+- **Motivo:** Pedido da usuária (11/11): QR Code dinâmico pelo Copia e Cola, sem leitura de QR. O valor da cobrança com vencimento é calculado pela Celcoin.
+
+### 5. Revisão de cobrança imediata
+
+<img src="copia/05-revisao-de-cobranca-imediata.png" width="260" alt="Revisão de cobrança imediata">
+
+- **Rota:** `#/pix/transferir/revisao`
+- **Origem no Studio:** Transferir › Chave Pix › Revisão e saldo (`733b240c`)
+- **Alterado em relação ao Studio:** Card "Cobrança" com o tipo e o total; valor travado "definido na cobrança".
+- **Motivo:** Mesmo pedido; a cobrança imediata não tem vencimento nem encargos.
+
+### 6. Agência e conta: banco
+
+<img src="copia/06-agencia-e-conta-banco.png" width="260" alt="Agência e conta: banco">
 
 - **Rota:** `#/transferir/conta`
 - **Origem no Studio:** Transferir › Agência e conta › Selecionar banco (`14c51fac`)
 - **Alterado em relação ao Studio:** Montada com o modelo comum das telas do Studio (mesma estrutura, componentes e textos de apoio); o HTML próprio desta tela não foi lido.
 - **Motivo:** Cada tela do Studio tem cerca de 25 KB de HTML e não cabia ler todas na sessão: só 9 telas-base foram lidas por inteiro e as outras seguiram o modelo delas.
 
-### 5. Agência e conta: buscar banco
+### 7. Agência e conta: buscar banco
 
-<img src="copia/05-agencia-e-conta-buscar-banco.png" width="260" alt="Agência e conta: buscar banco">
+<img src="copia/07-agencia-e-conta-buscar-banco.png" width="260" alt="Agência e conta: buscar banco">
 
 - **Rota:** `#/transferir/conta`
 - **Origem no Studio:** Transferir › Agência e conta › Selecionar banco (`14c51fac`)
 - **Alterado em relação ao Studio:** Lista com as 887 instituições do Pix, guardada por 24 h.
 - **Motivo:** A lista vem de `GET /pix/v1/participants` e é grande demais para buscar a cada tela.
 
-### 6. Agência e conta: dados (vazio)
+### 8. Agência e conta: dados (vazio)
 
-<img src="copia/06-agencia-e-conta-dados-vazio.png" width="260" alt="Agência e conta: dados (vazio)">
-
-- **Rota:** `#/transferir/conta/dados`
-- **Origem no Studio:** Transferir › Agência e conta › Dados da conta destino › Novo › Outra conta (`59759b3d`); Transferir › Agência e conta › Dados da conta destino › Novo › Minha conta (`21e4f9bf`)
-- **Alterado em relação ao Studio:** Sem a aba "Favoritos".
-- **Motivo:** Não há dados reais de favoritos.
-
-### 7. Agência e conta: dados
-
-<img src="copia/07-agencia-e-conta-dados.png" width="260" alt="Agência e conta: dados">
+<img src="copia/08-agencia-e-conta-dados-vazio.png" width="260" alt="Agência e conta: dados (vazio)">
 
 - **Rota:** `#/transferir/conta/dados`
 - **Origem no Studio:** Transferir › Agência e conta › Dados da conta destino › Novo › Outra conta (`59759b3d`); Transferir › Agência e conta › Dados da conta destino › Novo › Minha conta (`21e4f9bf`)
 - **Alterado em relação ao Studio:** Sem a aba "Favoritos".
 - **Motivo:** Não há dados reais de favoritos.
 
-### 8. Agência e conta: minha conta
+### 9. Agência e conta: dados
 
-<img src="copia/08-agencia-e-conta-minha-conta.png" width="260" alt="Agência e conta: minha conta">
+<img src="copia/09-agencia-e-conta-dados.png" width="260" alt="Agência e conta: dados">
+
+- **Rota:** `#/transferir/conta/dados`
+- **Origem no Studio:** Transferir › Agência e conta › Dados da conta destino › Novo › Outra conta (`59759b3d`); Transferir › Agência e conta › Dados da conta destino › Novo › Minha conta (`21e4f9bf`)
+- **Alterado em relação ao Studio:** Sem a aba "Favoritos".
+- **Motivo:** Não há dados reais de favoritos.
+
+### 10. Agência e conta: minha conta
+
+<img src="copia/10-agencia-e-conta-minha-conta.png" width="260" alt="Agência e conta: minha conta">
 
 - **Rota:** `#/transferir/conta/dados`
 - **Origem no Studio:** Transferir › Agência e conta › Dados da conta destino › Novo › Outra conta (`59759b3d`); Transferir › Agência e conta › Dados da conta destino › Novo › Minha conta (`21e4f9bf`)
 - **Alterado em relação ao Studio:** Montada com o modelo comum das telas do Studio (mesma estrutura, componentes e textos de apoio); o HTML próprio desta tela não foi lido.
 - **Motivo:** Cada tela do Studio tem cerca de 25 KB de HTML e não cabia ler todas na sessão: só 9 telas-base foram lidas por inteiro e as outras seguiram o modelo delas.
 
-### 9. Agência e conta: tipo de conta
+### 11. Agência e conta: tipo de conta
 
-<img src="copia/09-agencia-e-conta-tipo-de-conta.png" width="260" alt="Agência e conta: tipo de conta">
+<img src="copia/11-agencia-e-conta-tipo-de-conta.png" width="260" alt="Agência e conta: tipo de conta">
 
 - **Rota:** `#/transferir/conta/tipo`
 - **Origem no Studio:** Transferir › Tipo de conta do destinatário (`6570ae3c`)
 - **Alterado em relação ao Studio:** Montada com o modelo comum das telas do Studio (mesma estrutura, componentes e textos de apoio); o HTML próprio desta tela não foi lido.
 - **Motivo:** Cada tela do Studio tem cerca de 25 KB de HTML e não cabia ler todas na sessão: só 9 telas-base foram lidas por inteiro e as outras seguiram o modelo delas.
 
-### 10. Agência e conta: revisão
+### 12. Agência e conta: revisão
 
-<img src="copia/10-agencia-e-conta-revisao.png" width="260" alt="Agência e conta: revisão">
+<img src="copia/12-agencia-e-conta-revisao.png" width="260" alt="Agência e conta: revisão">
 
 - **Rota:** `#/pix/transferir/revisao`
 - **Origem no Studio:** Transferir › Chave Pix › Revisão e saldo (`733b240c`)
 - **Alterado em relação ao Studio:** Usa a revisão do Pix no lugar da "Confirmação da operação".
 - **Motivo:** A transferência por agência e conta é um Pix manual na Celcoin; uma revisão única para os dois.
 
-### 11. Comprovante por agência e conta
+### 13. Comprovante por agência e conta
 
-<img src="copia/11-comprovante-por-agencia-e-conta.png" width="260" alt="Comprovante por agência e conta">
+<img src="copia/13-comprovante-por-agencia-e-conta.png" width="260" alt="Comprovante por agência e conta">
 
 - **Rota:** `#/comprovante/:id`
 - **Origem no Studio:** Transferir › Chave Pix › Sucesso › Visualizar comprovante (`2ea377b0`)
@@ -1218,3 +1264,88 @@ Pasta: `dda/`
 | Tela do Studio | Motivo |
 |---|---|
 | DDA › EXCLUIR (`46b9c2d6`) | Tela chamada "EXCLUIR" no board, sem comentário; o HTML não foi lido. O menu Opções de Meus boletos já traz "Cancelar DDA". |
+
+## Devolução de Pix
+
+Pasta: `devolucao/`
+
+### 1. Recebimento Pix
+
+<img src="devolucao/01-recebimento-pix.png" width="260" alt="Recebimento Pix">
+
+- **Rota:** `#/devolucao`
+- **Origem no Studio:** Devolução › Detalhes da transação (`34a402de`)
+- **Alterado em relação ao Studio:** Entrada pelo Pix recebido no extrato; "de" no lugar de "para" e ID da transação = endToEndId.
+- **Motivo:** A devolução parte de um Pix recebido; a Celcoin identifica o Pix pelo endToEndId.
+
+### 2. Comprovante do Pix recebido
+
+<img src="devolucao/02-comprovante-do-pix-recebido.png" width="260" alt="Comprovante do Pix recebido">
+
+- **Rota:** `#/devolucao`
+- **Origem no Studio:** Tela nova, não existe no Studio
+- **Alterado em relação ao Studio:** Comprovante em modal com os dados do extrato.
+- **Motivo:** A Celcoin não tem comprovante de Pix recebido; os dados vêm do extrato detalhado.
+
+### 3. Devolver Pix
+
+<img src="devolucao/03-devolver-pix.png" width="260" alt="Devolver Pix">
+
+- **Rota:** `#/devolucao/valor`
+- **Origem no Studio:** Devolução › Detalhes da transação › Devolver valor › Preencher dados (`e0bab5c1`)
+- **Alterado em relação ao Studio:** Sem "Informações adicionais (opcional)"; motivos da Celcoin (MD06, BE08, FR01).
+- **Motivo:** A devolução da Celcoin não tem campo para informações internas.
+
+### 4. Devolver Pix: preenchido
+
+<img src="devolucao/04-devolver-pix-preenchido.png" width="260" alt="Devolver Pix: preenchido">
+
+- **Rota:** `#/devolucao/valor`
+- **Origem no Studio:** Devolução › Detalhes da transação › Devolver valor › Preencher dados (`e0bab5c1`)
+- **Alterado em relação ao Studio:** O valor não pode passar do recebido.
+- **Motivo:** Regra da devolução: total ou parcial, até o valor recebido.
+
+### 5. Resumo da devolução
+
+<img src="devolucao/05-resumo-da-devolucao.png" width="260" alt="Resumo da devolução">
+
+- **Rota:** `#/devolucao/resumo`
+- **Origem no Studio:** Devolução › Detalhes da transação › Devolver valor › Resumo da operação (`860a1cf5`)
+- **Alterado em relação ao Studio:** Sem "Favoritar contato", "Pagar hoje" e "Escrever mensagem"; acrescentados motivo e descrição.
+- **Motivo:** Esses itens não se aplicam a uma devolução.
+
+### 6. Senha da devolução
+
+<img src="devolucao/06-senha-da-devolucao.png" width="260" alt="Senha da devolução">
+
+- **Rota:** `#/devolucao/resumo`
+- **Origem no Studio:** Tela nova, não existe no Studio
+- **Alterado em relação ao Studio:** Confirmação com senha de transferência.
+- **Motivo:** Mesma regra de todo envio de dinheiro do app.
+
+### 7. Devolução em processamento
+
+<img src="devolucao/07-devolucao-em-processamento.png" width="260" alt="Devolução em processamento">
+
+- **Rota:** `#/devolucao/resultado/:id`
+- **Origem no Studio:** Tela nova, não existe no Studio (no modelo de Devolução › Detalhes da transação › Devolver valor › Devolução concluída (`98cdd103`))
+- **Alterado em relação ao Studio:** Tela nova no modelo da conclusão, com espera de 10 s entre consultas.
+- **Motivo:** A Celcoin responde "em processamento" e o resultado chega no aviso pix-reversal-out.
+
+### 8. Devolução concluída
+
+<img src="devolucao/08-devolucao-concluida.png" width="260" alt="Devolução concluída">
+
+- **Rota:** `#/devolucao/resultado/:id`
+- **Origem no Studio:** Devolução › Detalhes da transação › Devolver valor › Devolução concluída (`98cdd103`)
+- **Alterado em relação ao Studio:** "para" com quem pagou o Pix original; ID da devolução no lugar do Transaction ID.
+- **Motivo:** É o identificador que a Celcoin devolve para a devolução.
+
+### 9. Comprovante de devolução
+
+<img src="devolucao/09-comprovante-de-devolucao.png" width="260" alt="Comprovante de devolução">
+
+- **Rota:** `#/devolucao/resultado/:id`
+- **Origem no Studio:** Tela nova, não existe no Studio
+- **Alterado em relação ao Studio:** Comprovante em modal; "Enviar" copia o texto.
+- **Motivo:** Não há comprovante de devolução na Celcoin; o app monta com os dados da devolução.
