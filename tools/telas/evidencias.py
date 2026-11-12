@@ -88,6 +88,10 @@ STUDIO = {
     '4e85d7cd': ('DDA', 'Aderir ao DDA | Cadastro | Erro'), 'c2ec3a50': ('DDA', 'Meus boletos | Vazia'),
     '2fa3c1ee': ('DDA', 'Meus boletos | Preenchida'), 'b45f3550': ('DDA', 'Meus boletos | Detalhe do boleto'),
     '46b9c2d6': ('DDA', 'EXCLUIR'),
+    # Devolução
+    '34a402de': ('Devolução', 'Detalhes da transação'), 'e0bab5c1': ('Devolução', 'Detalhes da transação | Devolver valor | Preencher dados'),
+    '860a1cf5': ('Devolução', 'Detalhes da transação | Devolver valor | Resumo da operação'),
+    '98cdd103': ('Devolução', 'Detalhes da transação | Devolver valor | Devolução concluída'),
 }
 
 # Comentários da usuária no Studio (citados nos motivos)
@@ -154,7 +158,10 @@ ALTERACOES = {
     ('home', 'Home'): ('Ações rápidas: Fazer Pix, Cobrar com Pix, Minhas chaves, Pagar contas, DDA e Extrato.', '"Pagar contas" entrou com o módulo de boleto e "DDA" a pedido da usuária (11/11, 13:02); com 6 ações, elas foram para 2 linhas.'),
     ('home', 'Fazer Pix: escolher forma'): ('Modal novo com chave, Copia e Cola e agência e conta.', 'Pedido da usuária: "Fazer Pix" só oferecia chave.'),
     ('home', 'Menu'): ('Menu da conta com "Minha conta" e "Sair" (e crédito simulado só no modo simulado).', 'Acesso aos dados da conta sem sair da Home.'),
-    ('home', 'Minha conta'): ('Só Minhas chaves, Débito Direto Autorizado (DDA), Minhas senhas, Meus dados e Sair.', 'Saíram Gestão de usuário, Limites, Tarifas, Dúvidas e Cancelar conta: não há API usada para eles. O DDA voltou com o módulo de DDA, e é por ele que se sai do DDA (decisão da usuária).'),
+    ('home', 'Minha conta'): ('Só Minhas chaves, Débito Direto Autorizado (DDA), Minhas senhas, Meus dados, Cancelar minha conta e Sair.', 'Saíram Gestão de usuário, Limites, Tarifas e Dúvidas: não há API usada para eles. O DDA voltou com o módulo de DDA, e é por ele que se sai do DDA (decisão da usuária). "Cancelar minha conta" voltou em 11/11 para encerrar a conta na Celcoin (decisão da usuária).'),
+    ('home', 'Cancelar minha conta'): ('Modal novo com motivo e senha de transferência.', 'O Studio tem o item "Cancelar minha conta", mas não a tela; a Celcoin pede o motivo no encerramento (decisão da usuária: fica em Minha conta).'),
+    ('home', 'Cancelar conta: saldo não zerado'): ('A recusa mostra o saldo atual no próprio modal.', 'A Celcoin só encerra conta com saldo zerado.'),
+    ('home', 'Conta encerrada'): ('Tela nova no modelo de resultado, com "Ir para o login".', 'Depois do encerramento a sessão termina; não há tela no Studio.'),
     ('home', 'Meus dados'): ('Só telefone, e-mail, endereço (e nome social na PF) podem ser alterados.', 'A Celcoin não deixa mudar nome, documento, mãe e nascimento (PF), nem razão social, nome fantasia e sócios (PJ).'),
     ('home', 'Minhas senhas'): ('Tela nova, no visual do Minha conta.', 'O item existe no Minha conta do Studio, mas a tela não.'),
     # ---------------- pix
@@ -172,9 +179,11 @@ ALTERACOES = {
     ('pix', 'Comprovante Pix'): ('Ganhou "Voltar ao início" abaixo de "Copiar comprovante".', 'Pedido da usuária.'),
     ('pix', 'Pix: saldo insuficiente'): MODELO,
     # ---------------- copia
-    ('copia', 'Copia e Cola'): ('Tela nova, no modelo de "Informar chave".', 'O Studio não tem tela de pagar com Pix Copia e Cola.'),
+    ('copia', 'Copia e Cola'): ('Tela nova, no modelo de "Informar chave"; o texto cita QR Code estático e cobranças (dinâmico).', 'O Studio não tem tela de pagar com Pix Copia e Cola; o QR Code dinâmico entra só pelo código (decisão da usuária, 11/11).'),
     ('copia', 'Copia e Cola: código inválido'): ('Estado de erro no modelo de "Informar chave | Erro".', 'Mensagem simples quando o código não é um Pix válido.'),
     ('copia', 'Revisão com valor do QR Code'): ('Valor travado quando o QR Code já traz valor.', 'O QR Code estático com valor não permite mudar o valor.'),
+    ('copia', 'Revisão de cobrança com vencimento'): ('Card "Cobrança" na revisão: tipo, vencimento e composição do valor (original, multa, juros, desconto, abatimento e total).', 'Pedido da usuária (11/11): QR Code dinâmico pelo Copia e Cola, sem leitura de QR. O valor da cobrança com vencimento é calculado pela Celcoin.'),
+    ('copia', 'Revisão de cobrança imediata'): ('Card "Cobrança" com o tipo e o total; valor travado "definido na cobrança".', 'Mesmo pedido; a cobrança imediata não tem vencimento nem encargos.'),
     ('copia', 'Agência e conta: banco'): MODELO,
     ('copia', 'Agência e conta: buscar banco'): ('Lista com as 887 instituições do Pix, guardada por 24 h.', 'A lista vem de `GET /pix/v1/participants` e é grande demais para buscar a cada tela.'),
     ('copia', 'Agência e conta: dados (vazio)'): ('Sem a aba "Favoritos".', 'Não há dados reais de favoritos.'),
@@ -235,6 +244,15 @@ ALTERACOES = {
     ('dda', 'Erro na adesão'): ('Mostra o código de erro da Celcoin e "Tentar de novo".', 'Massa de teste da Celcoin: CPF 26817625025 simula adesão com erro (CDDA101).'),
     ('dda', 'Não conseguimos confirmar o DDA'): ('Tela nova: aparece quando os avisos não podem ser lidos e não há nada guardado.', 'No D1, sem o token do webhook.site, o app mostrava "Ative o DDA" para uma conta já ativa.'),
     ('dda', 'Sem confirmação da Celcoin'): ('Tela nova: pedido sem aviso depois do prazo (10 min no app; 1 min nesta captura), com "Pedir de novo".', 'A saída da LTDA em 11/11 nunca teve aviso e a Celcoin não tem consulta de status (decisão da usuária).'),
+    ('devolucao', 'Recebimento Pix'): ('Entrada pelo Pix recebido no extrato; "de" no lugar de "para" e ID da transação = endToEndId.', 'A devolução parte de um Pix recebido; a Celcoin identifica o Pix pelo endToEndId.'),
+    ('devolucao', 'Comprovante do Pix recebido'): ('Comprovante em modal com os dados do extrato.', 'A Celcoin não tem comprovante de Pix recebido; os dados vêm do extrato detalhado.'),
+    ('devolucao', 'Devolver Pix'): ('Sem "Informações adicionais (opcional)"; motivos da Celcoin (MD06, BE08, FR01).', 'A devolução da Celcoin não tem campo para informações internas.'),
+    ('devolucao', 'Devolver Pix: preenchido'): ('O valor não pode passar do recebido.', 'Regra da devolução: total ou parcial, até o valor recebido.'),
+    ('devolucao', 'Resumo da devolução'): ('Sem "Favoritar contato", "Pagar hoje" e "Escrever mensagem"; acrescentados motivo e descrição.', 'Esses itens não se aplicam a uma devolução.'),
+    ('devolucao', 'Senha da devolução'): ('Confirmação com senha de transferência.', 'Mesma regra de todo envio de dinheiro do app.'),
+    ('devolucao', 'Devolução em processamento'): ('Tela nova no modelo da conclusão, com espera de 10 s entre consultas.', 'A Celcoin responde "em processamento" e o resultado chega no aviso pix-reversal-out.'),
+    ('devolucao', 'Devolução concluída'): ('"para" com quem pagou o Pix original; ID da devolução no lugar do Transaction ID.', 'É o identificador que a Celcoin devolve para a devolução.'),
+    ('devolucao', 'Comprovante de devolução'): ('Comprovante em modal; "Enviar" copia o texto.', 'Não há comprovante de devolução na Celcoin; o app monta com os dados da devolução.'),
 }
 
 # Telas do Studio que não entraram no app, por pasta: (id, motivo)
@@ -272,4 +290,9 @@ ORIGEM = {
     ('boleto', 'Senha de transferência'): 'novo',
     ('extrato', 'Baixar extrato'): 'f1da7b30',
     ('extrato', 'Detalhe da diferença de saldo'): '9fc2cf9b',
+    ('home', 'Cancelar minha conta'): 'novo',
+    ('home', 'Cancelar conta: saldo não zerado'): 'novo',
+    ('devolucao', 'Comprovante do Pix recebido'): 'novo',
+    ('devolucao', 'Senha da devolução'): 'novo',
+    ('devolucao', 'Comprovante de devolução'): 'novo',
 }

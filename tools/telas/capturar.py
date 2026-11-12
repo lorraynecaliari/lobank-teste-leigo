@@ -28,6 +28,7 @@ MODULES = [
     ('extrato', 'Extrato'),
     ('boleto', 'Pagamento de contas (boleto)'),
     ('dda', 'DDA (Débito Direto Autorizado)'),
+    ('devolucao', 'Devolução de Pix'),
 ]
 shots = []   # (modulo, arquivo, titulo, rota)
 errors = []
@@ -173,6 +174,13 @@ def home(p, ctx, base, shot):
     p.goto(base + '/#/minha-conta'); shot('Minha conta', 1.2)
     p.goto(base + '/#/minha-conta/dados'); shot('Meus dados', 1.2)
     p.goto(base + '/#/minha-conta/senhas'); shot('Minhas senhas', 1)
+    # Cancelar minha conta: com saldo, a Celcoin recusa; sem saldo, a conta é encerrada.
+    p.goto(base + '/#/minha-conta'); time.sleep(1.2); p.click('#close'); time.sleep(0.4)
+    typ(p, '#why', 'Não uso mais a conta'); typ(p, '#tp', '1234'); shot('Cancelar minha conta')
+    p.click('[data-ok]'); shot('Cancelar conta: saldo não zerado', 1.2)
+    ctx.request.post(base + '/api/auth/logout'); with_account(ctx, base, credit=0)
+    p.goto(base + '/#/minha-conta'); p.reload(); time.sleep(1.5); p.click('#close'); time.sleep(0.4)
+    typ(p, '#why', 'Não uso mais a conta'); typ(p, '#tp', '1234'); p.click('[data-ok]'); shot('Conta encerrada', 1.5)
 
 
 def pix(p, ctx, base, shot):
@@ -197,6 +205,11 @@ def copia(p, ctx, base, shot):
     p.goto(base + '/#/pix/copia-e-cola'); shot('Copia e Cola', 0.8)
     typ(p, '#emv', '000201xyz' * 7); p.click('#next'); shot('Copia e Cola: código inválido', 0.8)
     typ(p, '#emv', EMV_OK); p.click('#next'); shot('Revisão com valor do QR Code', 1.2)
+    # QR Code dinâmico (cobrança): só pelo código EMV, sem leitura de QR
+    for kind, title in (('COBV', 'Revisão de cobrança com vencimento'), ('COB', 'Revisão de cobrança imediata')):
+        emv = ctx.request.post(base + '/api/dev/dynamic-qr', data={'kind': kind}).json()['emv']
+        p.goto(base + '/#/pix/copia-e-cola'); time.sleep(0.8); typ(p, '#emv', emv); p.click('#next'); time.sleep(1.2)
+        p.evaluate("document.querySelector('.scroll').scrollTop = 260"); shot(title, 0.4)
     p.goto(base + '/#/transferir/conta'); shot('Agência e conta: banco', 1.2)
     typ(p, '#q', 'itau'); shot('Agência e conta: buscar banco', 0.4); p.click("[data-i='60701190']")
     shot('Agência e conta: dados (vazio)', 0.8)
@@ -305,6 +318,21 @@ def dda(p, ctx, base, shot):
     for c in (err, down, lost): c.close()
 
 
+def devolucao(p, ctx, base, shot):
+    with_account(ctx, base)
+    ctx.request.post(base + '/api/dev/pix-in', data={'amount': 90})
+    p.goto(base + '/#/extrato'); time.sleep(1.5)
+    p.locator('.mov', has_text='Pix recebido').first.click(); shot('Recebimento Pix', 0.8)
+    p.click('#open'); shot('Comprovante do Pix recebido', 0.5); p.click('[data-x]'); time.sleep(0.4)
+    p.click('#go'); shot('Devolver Pix', 0.6)
+    typ(p, '#amt', '5000'); p.select_option('#why', 'MD06'); typ(p, '#desc', 'Valor pago a mais'); shot('Devolver Pix: preenchido')
+    p.click('#next'); shot('Resumo da devolução', 0.6)
+    p.click('#go'); time.sleep(0.4); typ(p, '#tp', '1234'); shot('Senha da devolução')
+    p.click('[data-ok]'); shot('Devolução em processamento', 1)
+    time.sleep(11); shot('Devolução concluída', 1.5)
+    p.click('#open'); shot('Comprovante de devolução', 0.5)
+
+
 def make_shot_into(page, mod, title):
     n = sum(1 for s in shots if s[0] == mod) + 1
     plain = unicodedata.normalize('NFKD', title.lower()).encode('ascii', 'ignore').decode()
@@ -316,7 +344,7 @@ def make_shot_into(page, mod, title):
     shots.append((mod, name, title, re.sub(r'/(\d+|[0-9a-f-]{36})$', '/:id', route), studio))
 
 
-FLOWS = {'acesso': acesso, 'pj': pj, 'home': home, 'pix': pix, 'copia': copia, 'receber': receber, 'extrato': extrato, 'boleto': boleto, 'dda': dda}
+FLOWS = {'acesso': acesso, 'pj': pj, 'home': home, 'pix': pix, 'copia': copia, 'receber': receber, 'extrato': extrato, 'boleto': boleto, 'dda': dda, 'devolucao': devolucao}
 
 
 def anchor(title):
